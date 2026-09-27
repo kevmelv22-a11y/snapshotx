@@ -1,0 +1,4 @@
+export type Profile = { id:string; username:string; display_name:string; avatar_path:string|null; activity_score:number };
+export type Message = { id:string; thread_id:string; sender_id:string; kind:'text'|'photo'|'video'|'voice'|'snap'; body:string|null; media_path:string|null; view_once:boolean; expires_at:string|null; created_at:string };
+export type Story = { id:string; owner_id:string; media_path:string; media_type:'photo'|'video'; caption:string|null; created_at:string; expires_at:string; visibility:'friends'|'everyone' };
+export type Captured = { uri:string; type:'photo'|'video' };

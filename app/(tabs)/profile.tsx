@@ -1,0 +1,18 @@
+import React,{useEffect,useState} from 'react';
+import {ScrollView,StyleSheet,Switch,Text,TextInput,View} from 'react-native';
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+import {router} from 'expo-router';
+import {supabase} from '../../lib/supabase';
+import {useSession} from '../../hooks/useSession';
+import {useStaffRoles} from '../../hooks/useStaffRoles';
+import {useApp} from '../../stores/app';
+import {C} from '../../lib/theme';
+import {Avatar,Button,Hint,Page,Title} from '../../components/UI';
+export default function Profile(){const {session}=useSession(),uid=session?.user.id,{isStaff}=useStaffRoles(),[name,setName]=useState(''),[username,setUsername]=useState(''),[score,setScore]=useState(0),[notice,setNotice]=useState(''),language=useApp(s=>s.language),setLanguage=useApp(s=>s.setLanguage);
+ useEffect(()=>{if(!uid)return;supabase.from('profiles').select('display_name,username,activity_score').eq('id',uid).single().then(({data})=>{if(data){setName(data.display_name);setUsername(data.username);setScore(data.activity_score)}});supabase.from('sx_preferences').select('language').eq('user_id',uid).maybeSingle().then(({data})=>{if(data)setLanguage(data.language)})},[uid,setLanguage]);
+ async function save(){if(!uid)return;const [p,s]=await Promise.all([supabase.from('profiles').update({display_name:name}).eq('id',uid),supabase.from('sx_preferences').upsert({user_id:uid,language})]);setNotice(p.error?.message||s.error?.message||'Opgeslagen')}
+ async function enablePush(){if(!uid)return;try{const p=await Notifications.requestPermissionsAsync();if(p.status!=='granted')throw new Error('Geen toestemming');const projectId=Constants.expoConfig?.extra?.eas?.projectId;if(!projectId)throw new Error('Stel eerst EAS projectId in voor pushnotificaties.');const {data:token}=await Notifications.getExpoPushTokenAsync({projectId});const {error}=await supabase.from('sx_push_tokens').upsert({user_id:uid,token});if(error)throw error;setNotice('Notificaties ingeschakeld')}catch(e){setNotice((e as Error).message)}}
+ return <Page><ScrollView><Title>Mijn profiel</Title><View style={s.header}><Avatar name={name} size={80}/><View><Text style={s.name}>{name||'SnapShot X'}</Text><Hint>@{username} · Score {score||0}</Hint></View></View><Text style={s.label}>Naam</Text><TextInput style={s.input} value={name} onChangeText={setName}/><View style={s.setting}><Text style={s.label}>Nederlands / English</Text><Switch value={language==='en'} onValueChange={v=>setLanguage(v?'en':'nl')} trackColor={{true:C.yellow}}/></View><Button onPress={save}>Instellingen opslaan</Button><Button onPress={()=>router.push('/map')} secondary>Snap Map · locatie en Ghost mode</Button><Button onPress={enablePush} secondary>Apparaat voor meldingen registreren</Button>{isStaff&&<Button onPress={()=>router.push('/staff')} secondary>Staff- en moderatiepaneel</Button>}<Button onPress={()=>supabase.auth.signOut().then(()=>{})} secondary>Uitloggen</Button><Button onPress={()=>router.push('/delete-account')} secondary>Account verwijderen</Button>{!!notice&&<Hint>{notice}</Hint>}<Hint>Pushmeldingen vereisen een fysieke ontwikkel- of productiebuild met geldige platformcredentials. Scores en streaks worden later uitgebreid.</Hint></ScrollView></Page>
+}
+const s=StyleSheet.create({header:{flexDirection:'row',gap:18,alignItems:'center',marginVertical:22},name:{color:C.text,fontSize:23,fontWeight:'900'},label:{color:C.text,fontSize:16,fontWeight:'700'},input:{backgroundColor:C.surface,color:C.text,padding:14,borderRadius:16,marginVertical:12},setting:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',paddingVertical:20,borderBottomWidth:1,borderColor:C.border}});

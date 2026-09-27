@@ -1,0 +1,13 @@
+node_modules/
+.expo/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+
+# Neither repository history nor server-side SQL/functions belong in an app build.
+.git
+supabase
+AGENTS.md
+credentials.json

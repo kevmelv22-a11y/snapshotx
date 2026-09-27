@@ -1,0 +1,10 @@
+import React,{useState} from 'react';
+import {ScrollView,StyleSheet,Text,TextInput} from 'react-native';
+import {Link} from 'expo-router';
+import {supabase} from '../../lib/supabase';
+import {C} from '../../lib/theme';
+import {Button,Page,Title,Hint} from '../../components/UI';
+export default function Register(){const [username,setUsername]=useState(''),[name,setName]=useState(''),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
+ async function submit(){if(!/^[a-z0-9_]{3,24}$/.test(username.toLowerCase())||password.length<8){setNotice('Gebruikersnaam: 3–24 letters/cijfers. Wachtwoord: minimaal 8 tekens.');return}setBusy(true);setNotice('');try{const {data,error}=await supabase.auth.signUp({email:email.trim(),password,options:{emailRedirectTo:'snapshotx://auth/callback',data:{username:username.trim().toLowerCase(),display_name:name.trim()}}});if(error)throw error;setNotice(data.session?'Je account is klaar.':'Controleer je e-mail om je account te bevestigen.')}catch(e){setNotice((e as Error).message)}finally{setBusy(false)}}
+ return <Page><ScrollView contentContainerStyle={{paddingTop:70,paddingBottom:30}}><Text style={{color:C.yellow,fontSize:46}}>✦</Text><Title>Maak je account</Title><Hint>Een eigen plek voor al je momenten.</Hint>{[[username,setUsername,'Gebruikersnaam'],[name,setName,'Naam'],[email,setEmail,'E-mailadres'],[password,setPassword,'Wachtwoord (8+ tekens)']].map(([value,setter,label],i)=><TextInput key={i} value={value as string} onChangeText={setter as (v:string)=>void} placeholder={label as string} placeholderTextColor={C.muted} autoCapitalize="none" secureTextEntry={i===3} style={s.input}/>)}{!!notice&&<Text style={{color:C.yellow,margin:10}}>{notice}</Text>}<Button onPress={submit} disabled={busy||!email||!name}>Account maken</Button><Link href="/(auth)/login" style={s.link}>Ik heb al een account</Link></ScrollView></Page>}
+const s=StyleSheet.create({input:{backgroundColor:C.surface,color:C.text,padding:16,borderRadius:18,marginVertical:7},link:{color:C.yellow,textAlign:'center',margin:20}});
