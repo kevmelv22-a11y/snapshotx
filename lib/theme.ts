@@ -1,1 +1,1 @@
-export const C = { bg:'#08090E', surface:'#161820', elevated:'#222531', text:'#FAFAFF', muted:'#A6A9B7', yellow:'#FFE436', blue:'#4298FF', pink:'#FF5B95', border:'#30333D', danger:'#FF6B6B' } as const;
+export const C = { bg:'#08090E', surface:'#161820', elevated:'#222531', text:'#FAFAFF', muted:'#A6A9B7', yellow:'#FFE436', blue:'#4298FF', pink:'#FF5B95', border:'#30333D', danger:'#FF6B6B', purple:'#AE16C7', purpleLight:'#B713D5', purpleDark:'#7A0D8F', galaxyBg:'#0D0618', cardBg:'#1A1425', cardBgTranslucent:'#1A1425CC' } as const;
