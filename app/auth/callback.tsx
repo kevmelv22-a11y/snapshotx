@@ -25,6 +25,7 @@ export default function AuthCallback() {
         const access_token = fragment.get('access_token') ?? query.get('access_token');
         const refresh_token = fragment.get('refresh_token') ?? query.get('refresh_token');
         const code = query.get('code');
+        const isRecovery = (fragment.get('type') ?? query.get('type')) === 'recovery';
         if (access_token && refresh_token) {
           const {error} = await supabase.auth.setSession({access_token, refresh_token});
           if (error) throw error;
@@ -36,7 +37,7 @@ export default function AuthCallback() {
           return;
         }
 
-        if (active) router.replace('/(tabs)');
+        if (active) router.replace(isRecovery ? '/reset-password' : '/(tabs)');
       } catch {
         if (active) setMessage('De bevestigingslink kon niet worden afgerond. Probeer in te loggen of vraag een nieuwe link aan.');
       }
