@@ -13,6 +13,15 @@
         "image": "latest"
       }
     },
+    "ios-adhoc": {
+      "distribution": "internal",
+      "env": {
+        "SNAPSHOTX_IOS_ADHOC_BUNDLE_ID": "app.star4684.aquila7560"
+      },
+      "ios": {
+        "image": "latest"
+      }
+    },
     "production": {
       "autoIncrement": true
     }
