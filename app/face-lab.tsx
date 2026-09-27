@@ -1,9 +1,9 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useIsFocused } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, type CameraRef, useCameraDevice, useCameraPermission, usePhotoOutput } from 'react-native-vision-camera';
-import { useFaceDetectorOutput, useImageFaceDetector, type Face } from 'react-native-vision-camera-face-detector';
+import { createFaceDetectorOutput, useImageFaceDetector, type Face } from 'react-native-vision-camera-face-detector';
 import { imageRectToCoverView, type Rect, type Size } from '../lib/face-mapping';
 
 /** Diagnostic route only. The production Expo Camera and photo overlays remain unchanged. */
@@ -16,7 +16,8 @@ export default function FaceLab() {
   const [position, setPosition] = useState<'front' | 'back'>('front');
   const device = useCameraDevice(position);
   const photoOutput = usePhotoOutput();
-  const imageDetector = useImageFaceDetector({ performanceMode: 'fast', runLandmarks: true });
+  const imageOptions = useMemo(() => ({ performanceMode: 'fast' as const, runLandmarks: true }), []);
+  const imageDetector = useImageFaceDetector(imageOptions);
   const [liveRect, setLiveRect] = useState<Rect | null>(null);
   const [liveCount, setLiveCount] = useState(0);
   const [error, setError] = useState('');
@@ -47,7 +48,11 @@ export default function FaceLab() {
     }
   }, []);
 
-  const faceOutput = useFaceDetectorOutput({
+  // Keep the native output stable while face boxes update React state (~10 Hz).
+  // The package hook currently re-creates its rest-options object on each render.
+  // The callbacks capture refs but read them only when native detection invokes them.
+  // eslint-disable-next-line react-hooks/refs
+  const faceOutput = useMemo(() => createFaceDetectorOutput({
     cameraFacing: position,
     autoMode: true,
     mirrorMode: 'auto',
@@ -55,7 +60,7 @@ export default function FaceLab() {
     outputResolution: 'preview',
     onFacesDetected,
     onError: (e) => setError(e.message),
-  });
+  }), [position, onFacesDetected]);
 
   async function capture() {
     if (busy) return;
