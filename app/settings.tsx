@@ -14,7 +14,12 @@ export default function Settings(){
  const {session}=useSession(),uid=session?.user.id,insets=useSafeAreaInsets(),language=useApp(s=>s.language),setLanguage=useApp(s=>s.setLanguage);
  const [search,setSearch]=useState(''),[name,setName]=useState(''),[username,setUsername]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  useEffect(()=>{if(!uid)return;let active=true;void (async()=>{const [profile,prefs]=await Promise.all([supabase.from('profiles').select('display_name,username').eq('id',uid).single(),supabase.from('sx_preferences').select('language').eq('user_id',uid).maybeSingle()]);if(!active)return;if(profile.data){setName(profile.data.display_name);setUsername(profile.data.username)}if(prefs.data)setLanguage(prefs.data.language)})();return()=>{active=false}},[uid,setLanguage]);
- const matches=useMemo(()=>{const q=search.trim().toLocaleLowerCase();return (label:string)=>!q||label.toLocaleLowerCase().includes(q)},[search]);
+ const matches=useMemo(()=>{const q=search.trim().toLocaleLowerCase();const aliases:Record<string,string>={
+  'Naam':'mijn account profiel','Gebruikersnaam':'mijn account profiel','E-mailadres':'mijn account profiel',
+  'Meldingen':'app notificaties','Taal':'app',
+  'Locatie en Ghost mode':'privacy kaart delen','Geblokkeerde gebruikers':'privacy blokkeren',
+  'Account verwijderen':'account gegevens wissen','Uitloggen':'account sessie',
+ };return (label:string)=>!q||`${label} ${aliases[label]||''}`.toLocaleLowerCase().includes(q)},[search]);
  async function save(){if(!uid||busy)return;setBusy(true);const [p,setting]=await Promise.all([supabase.from('profiles').update({display_name:name.trim()}).eq('id',uid),supabase.from('sx_preferences').upsert({user_id:uid,language})]);setNotice(p.error?.message||setting.error?.message||'Instellingen opgeslagen');setBusy(false)}
  async function push(){if(!uid||busy)return;setBusy(true);try{const p=await Notifications.requestPermissionsAsync();if(p.status!=='granted')throw new Error('Meldingen zijn niet toegestaan op dit toestel.');const projectId=Constants.expoConfig?.extra?.eas?.projectId;if(!projectId)throw new Error('EAS projectId ontbreekt.');const {data:token}=await Notifications.getExpoPushTokenAsync({projectId});const {error}=await supabase.from('sx_push_tokens').upsert({user_id:uid,token});if(error)throw error;setNotice('Dit toestel is geregistreerd voor meldingen.')}catch(e){setNotice((e as Error).message)}finally{setBusy(false)}}
  const section=(label:string)=><Text style={s.section}>{label}</Text>;

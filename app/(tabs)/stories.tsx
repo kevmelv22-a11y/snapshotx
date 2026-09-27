@@ -1,7 +1,7 @@
 import React,{useCallback,useEffect,useState} from 'react';
 import {Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
-import {router} from 'expo-router';
+import {router,useFocusEffect} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {GalaxyScreen} from '../../components/GalaxyScreen';
 import {Media} from '../../components/Media';
@@ -12,7 +12,8 @@ import type {Story} from '../../lib/types';
 export default function Stories(){
  const {session}=useSession(),{width}=useWindowDimensions(),insets=useSafeAreaInsets(),[stories,setStories]=useState<Story[]>([]),[names,setNames]=useState<Record<string,string>>({}),[error,setError]=useState('');
  const load=useCallback(async()=>{const {data,error}=await supabase.from('sx_stories').select('*').gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false}).limit(80);if(error){setError(error.message);return}setStories(data||[]);const ids=[...new Set((data||[]).map(s=>s.owner_id))];if(ids.length){const p=await supabase.from('profiles').select('id,display_name').in('id',ids);if(p.error)setError(p.error.message);else setNames(Object.fromEntries((p.data||[]).map(x=>[x.id,x.display_name]))) }},[]);
- useEffect(()=>{const timer=setTimeout(()=>void load(),0);const ch=supabase.channel('sx-stories').on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_stories'},()=>void load()).subscribe();return()=>{clearTimeout(timer);void supabase.removeChannel(ch)}},[load]);
+ useFocusEffect(useCallback(()=>{const timer=setTimeout(()=>void load(),0);return()=>clearTimeout(timer)},[load]));
+ useEffect(()=>{const ch=supabase.channel('sx-stories').on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_stories'},()=>void load()).subscribe();return()=>{void supabase.removeChannel(ch)}},[load]);
  const seen=new Set<string>();const friends=stories.filter(item=>{if(item.owner_id===session?.user.id||seen.has(item.owner_id))return false;seen.add(item.owner_id);return true});
  const cardWidth=Math.max(135,(width-46)/2);
  return <GalaxyScreen><View style={[s.header,{marginTop:Math.max(insets.top,14)}]}><View style={s.headerLeft}><Pressable onPress={()=>router.push('/(tabs)/profile')} style={s.circle}><Ionicons name="person" color="white" size={22}/></Pressable><Pressable onPress={()=>router.push('/(tabs)/friends')} style={s.circle}><Ionicons name="search" color="white" size={24}/></Pressable></View><Text style={s.title}>Verhalen</Text><View style={s.headerLeft}><Pressable onPress={()=>router.push('/settings')} style={s.circle} accessibilityLabel="Meldingen beheren"><Ionicons name="notifications-outline" color="white" size={23}/></Pressable><Pressable onPress={()=>router.push('/(tabs)/friends')} style={s.circle} accessibilityLabel="Vrienden toevoegen"><Ionicons name="person-add-outline" color="white" size={23}/></Pressable></View></View>
