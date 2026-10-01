@@ -3,10 +3,11 @@ import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import MapView, {Marker, Polyline, type Region} from 'react-native-maps';
 import {MapExplorer} from './MapAvatar';
+import type {AvatarAppearance} from '../lib/avatar';
 
 export type Pin = {id: string; name: string; username?: string; homeConfirmed?: boolean; latitude: number; longitude: number};
 export type Point = {latitude: number; longitude: number};
-type Props = {pins: Pin[]; own: Pin | null; trail: Point[]; selectedId: string | null; focusOwn: number; focusNetherlands: number; onSelect: (id: string | null) => void; onLocate: () => void};
+type Props = {pins: Pin[]; own: Pin | null; ownAppearance?: AvatarAppearance; trail: Point[]; selectedId: string | null; focusOwn: number; focusNetherlands: number; onSelect: (id: string | null) => void; onLocate: () => void};
 
 // Start at a city scale in central Netherlands. The map itself has no pan
 // boundary, so Zeeland, the Wadden and every other Dutch region remain reachable.
@@ -23,7 +24,7 @@ const DARK_MAP = [
   {featureType: 'poi', stylers: [{visibility: 'off'}]},
 ];
 
-export default function FriendMap({pins, own, trail, selectedId, focusOwn, focusNetherlands, onSelect, onLocate}: Props) {
+export default function FriendMap({pins, own, ownAppearance, trail, selectedId, focusOwn, focusNetherlands, onSelect, onLocate}: Props) {
   const map = useRef<MapView>(null);
   const region = useRef<Region>(NETHERLANDS);
   const [ready, setReady] = useState(false);
@@ -104,7 +105,7 @@ export default function FriendMap({pins, own, trail, selectedId, focusOwn, focus
         <View style={[styles.avatarPin, selectedId === pin.id && styles.selectedPin]}><MapExplorer id={pin.id}/></View>
       </Marker>)}
       {own && <Marker coordinate={{latitude: own.latitude, longitude: own.longitude}} title="Jij" description="Jouw huidige locatie" zIndex={2}>
-        <View style={styles.ownMarker}><View style={styles.glow}><MapExplorer id={own.id} own/></View><View style={styles.nowBadge}><Text style={styles.nowText}>Ik nu</Text></View></View>
+        <View style={styles.ownMarker}><View style={styles.glow}><MapExplorer id={own.id} own appearance={ownAppearance}/></View><View style={styles.nowBadge}><Text style={styles.nowText}>Ik nu</Text></View></View>
       </Marker>}
     </MapView>
     <View style={styles.controls} pointerEvents="box-none">
