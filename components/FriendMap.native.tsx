@@ -2,11 +2,11 @@ import React, {useEffect, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import MapView, {Marker, Polyline, type Region} from 'react-native-maps';
-import {MapAvatar} from './MapAvatar';
+import {MapExplorer} from './MapAvatar';
 
 export type Pin = {id: string; name: string; username?: string; homeConfirmed?: boolean; latitude: number; longitude: number};
 export type Point = {latitude: number; longitude: number};
-type Props = {pins: Pin[]; own: Pin | null; trail: Point[]; selectedId: string | null; focusOwn: number; onSelect: (id: string | null) => void; onLocate: () => void};
+type Props = {pins: Pin[]; own: Pin | null; trail: Point[]; selectedId: string | null; focusOwn: number; focusNetherlands: number; onSelect: (id: string | null) => void; onLocate: () => void};
 
 // Start at a city scale in central Netherlands. The map itself has no pan
 // boundary, so Zeeland, the Wadden and every other Dutch region remain reachable.
@@ -23,7 +23,7 @@ const DARK_MAP = [
   {featureType: 'poi', stylers: [{visibility: 'off'}]},
 ];
 
-export default function FriendMap({pins, own, trail, selectedId, focusOwn, onSelect, onLocate}: Props) {
+export default function FriendMap({pins, own, trail, selectedId, focusOwn, focusNetherlands, onSelect, onLocate}: Props) {
   const map = useRef<MapView>(null);
   const region = useRef<Region>(NETHERLANDS);
   const [ready, setReady] = useState(false);
@@ -67,6 +67,12 @@ export default function FriendMap({pins, own, trail, selectedId, focusOwn, onSel
     map.current?.fitToCoordinates(DUTCH_EXTENT, {edgePadding: {top: 100, right: 42, bottom: 200, left: 42}, animated: true});
   }
 
+  useEffect(() => {
+    if (ready && focusNetherlands) showNetherlands();
+  // The counter represents a user action; map readiness is handled here too.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusNetherlands, ready]);
+
   return <View style={styles.root}>
     <MapView
       ref={map}
@@ -95,10 +101,10 @@ export default function FriendMap({pins, own, trail, selectedId, focusOwn, onSel
         title={pin.name}
         description="Deelt locatie met vrienden"
       >
-        <View style={styles.avatarPin}><MapAvatar id={pin.id} size={52} selected={selectedId === pin.id}/><View style={styles.pinTail}/></View>
+        <View style={[styles.avatarPin, selectedId === pin.id && styles.selectedPin]}><MapExplorer id={pin.id}/></View>
       </Marker>)}
       {own && <Marker coordinate={{latitude: own.latitude, longitude: own.longitude}} title="Jij" description="Jouw huidige locatie" zIndex={2}>
-        <View style={styles.ownMarker}><View style={styles.glow}><MapAvatar id={own.id} size={54} selected/></View><View style={styles.nowBadge}><Text style={styles.nowText}>Ik nu</Text></View></View>
+        <View style={styles.ownMarker}><View style={styles.glow}><MapExplorer id={own.id} own/></View><View style={styles.nowBadge}><Text style={styles.nowText}>Ik nu</Text></View></View>
       </Marker>}
     </MapView>
     <View style={styles.controls} pointerEvents="box-none">
@@ -112,13 +118,12 @@ export default function FriendMap({pins, own, trail, selectedId, focusOwn, onSel
 
 const styles = StyleSheet.create({
   root: {flex: 1},
-  avatarPin: {width: 58, alignItems: 'center', paddingBottom: 7},
-  pinTail: {width: 11, height: 11, backgroundColor: '#AE57DB', transform: [{rotate: '45deg'}], marginTop: -8, zIndex: -1},
-  ownTail: {backgroundColor: '#FFE436'},
-  ownMarker: {alignItems: 'center', padding: 7},
-  glow: {borderRadius: 38, padding: 5, backgroundColor: '#FFE43670', shadowColor: '#FFE436', shadowOpacity: 0.9, shadowRadius: 16, shadowOffset: {width: 0, height: 0}, elevation: 10},
-  nowBadge: {marginTop: -4, borderRadius: 13, backgroundColor: '#FFE436', paddingHorizontal: 9, paddingVertical: 3},
-  nowText: {color: '#211428', fontSize: 11, fontWeight: '900'},
+  avatarPin: {width: 84, alignItems: 'center'},
+  selectedPin: {backgroundColor: '#AE57DB22', borderRadius: 35},
+  ownMarker: {alignItems: 'center', width: 100, paddingBottom: 10},
+  glow: {borderRadius: 38, backgroundColor: '#FFE43622', shadowColor: '#FFE436', shadowOpacity: 0.95, shadowRadius: 18, shadowOffset: {width: 0, height: 0}, elevation: 10},
+  nowBadge: {marginTop: -4, borderRadius: 15, backgroundColor: '#FFE436', paddingHorizontal: 13, paddingVertical: 5, shadowColor: '#FFE436', shadowOpacity: 0.9, shadowRadius: 12, elevation: 8},
+  nowText: {color: '#211428', fontSize: 13, fontWeight: '900'},
   controls: {position: 'absolute', right: 15, bottom: 210, gap: 9},
   control: {height: 45, width: 45, borderRadius: 23, backgroundColor: '#211B30E8', justifyContent: 'center', alignItems: 'center', elevation: 4},
   locate: {backgroundColor: '#FFE436'},
