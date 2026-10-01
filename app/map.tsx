@@ -1,16 +1,18 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import {router, useFocusEffect} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import FriendMap from '../components/FriendMap';
-import type {Pin} from '../components/FriendMap.native';
+import type {Pin, Point} from '../components/FriendMap.native';
 import {MapAvatar} from '../components/MapAvatar';
+import {Media} from '../components/Media';
 import {useSession} from '../hooks/useSession';
 import {supabase} from '../lib/supabase';
 
-type LocationRow = {user_id: string; latitude: number; longitude: number; sharing: boolean; updated_at: string};
+type LocationRow = {user_id: string; latitude: number; longitude: number; sharing: boolean; home_confirmed?: boolean; updated_at: string};
+type MemoryRow = {id: string; storage_path: string; media_type: 'photo' | 'video'; created_at: string};
 
 export default function MapScreen() {
   const {session} = useSession();
@@ -19,6 +21,13 @@ export default function MapScreen() {
   const [pins, setPins] = useState<Pin[]>([]);
   const [own, setOwn] = useState<Pin | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [homeConfirmed, setHomeConfirmed] = useState(false);
+  const [homeAvailable, setHomeAvailable] = useState(false);
+  const [trail, setTrail] = useState<Point[]>([]);
+  const [footsteps, setFootsteps] = useState(false);
+  const [memoriesOpen, setMemoriesOpen] = useState(false);
+  const [memories, setMemories] = useState<MemoryRow[]>([]);
+  const [memoriesError, setMemoriesError] = useState('');
   const [focused, setFocused] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusOwn, setFocusOwn] = useState(0);
@@ -35,17 +44,18 @@ export default function MapScreen() {
     const {data, error} = await supabase.from('sx_locations').select('user_id,latitude,longitude,sharing,updated_at');
     if (error) { setNotice(error.message); return; }
     const rows = (data || []) as LocationRow[];
+    setHomeAvailable(rows.some(row => Object.prototype.hasOwnProperty.call(row, 'home_confirmed')));
     const mine = rows.find(row => row.user_id === uid);
     setSharing(!!mine?.sharing);
+    setHomeConfirmed(!!mine?.sharing && !!mine.home_confirmed);
     sharingRef.current = !!mine?.sharing;
-    if (mine) setOwn({id: uid, name: 'Jij', latitude: mine.latitude, longitude: mine.longitude});
     const visible = rows.filter(row => row.user_id !== uid && row.sharing && new Date(row.updated_at).getTime() > Date.now() - 86400000);
     if (!visible.length) { setPins([]); return; }
     const {data:profiles, error:profileError} = await supabase.from('profiles').select('id,display_name,username').in('id', visible.map(row => row.user_id));
     if (profileError) { setNotice(profileError.message); return; }
     setPins(visible.map(row => {
       const profile = profiles?.find(person => person.id === row.user_id);
-      return {id: row.user_id, name: profile?.username ? `@${profile.username}` : profile?.display_name || 'Vriend', latitude: row.latitude, longitude: row.longitude};
+      return {id: row.user_id, name: profile?.display_name || profile?.username || 'Vriend', username: profile?.username || undefined, homeConfirmed: !!row.home_confirmed, latitude: row.latitude, longitude: row.longitude};
     }));
   }, [uid]);
 
@@ -57,25 +67,36 @@ export default function MapScreen() {
   }, [load]));
 
   useEffect(() => {
-    if (!uid || !focused || !sharing) return;
+    if (!uid || !focused) return;
     let cancelled = false;
     let subscription: Location.LocationSubscription | undefined;
     void (async () => {
       try {
-        const permission = await Location.getForegroundPermissionsAsync();
+        let permission = await Location.getForegroundPermissionsAsync();
+        if (!permission.granted && permission.canAskAgain) permission = await Location.requestForegroundPermissionsAsync();
         if (!permission.granted) {
-          sharingRef.current = false;
-          await pendingWrite.current;
-          const {error} = await supabase.from('sx_locations').update({sharing: false}).eq('user_id', uid);
-          if (error) throw error;
-          setSharing(false);
-          setNotice('Locatietoegang is uitgeschakeld. Ghost mode staat aan.');
+          setOwn(null);
+          if (sharingRef.current) {
+            sharingRef.current = false;
+            await pendingWrite.current;
+            const update = homeAvailable ? {sharing: false, home_confirmed: false} : {sharing: false};
+            const {error} = await supabase.from('sx_locations').update(update).eq('user_id', uid);
+            if (error) throw error;
+            setSharing(false);
+            setHomeConfirmed(false);
+          }
+          setNotice('Geef locatietoegang om jezelf live op de kaart te zien.');
           return;
         }
-        const watcher = await Location.watchPositionAsync({accuracy: Location.Accuracy.Balanced, timeInterval: 10000, distanceInterval: 20}, position => {
-          if (cancelled || !sharingRef.current) return;
+        const first = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced});
+        if (cancelled) return;
+        setOwn({id: uid, name: 'Ik nu', latitude: first.coords.latitude, longitude: first.coords.longitude});
+        const watcher = await Location.watchPositionAsync({accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 5}, position => {
+          if (cancelled) return;
           const {latitude, longitude} = position.coords;
-          setOwn({id: uid, name: 'Jij', latitude, longitude});
+          setOwn({id: uid, name: 'Ik nu', latitude, longitude});
+          setTrail(previous => [...previous.slice(-199), {latitude, longitude}]);
+          if (!sharingRef.current) return;
           if (Date.now() - lastPublished.current < 15000) return;
           lastPublished.current = Date.now();
           pendingWrite.current = pendingWrite.current.then(async () => {
@@ -88,7 +109,7 @@ export default function MapScreen() {
       } catch (error) { if (!cancelled) setNotice((error as Error).message); }
     })();
     return () => { cancelled = true; subscription?.remove(); };
-  }, [focused, sharing, uid]);
+  }, [focused, homeAvailable, uid]);
 
   async function locate() {
     if (!uid) return;
@@ -96,7 +117,7 @@ export default function MapScreen() {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (!permission.granted) throw new Error('Geef locatietoegang om jezelf op de kaart te zien.');
       const position = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced});
-      setOwn({id: uid, name: 'Jij', latitude: position.coords.latitude, longitude: position.coords.longitude});
+      setOwn({id: uid, name: 'Ik nu', latitude: position.coords.latitude, longitude: position.coords.longitude});
       setFocusOwn(value => value + 1);
       if (!sharing) setNotice('Alleen jij ziet deze locatie. Deel je locatie om zichtbaar te worden voor vrienden.');
     } catch (error) { setNotice((error as Error).message); }
@@ -109,9 +130,11 @@ export default function MapScreen() {
       if (sharing) {
         sharingRef.current = false;
         await pendingWrite.current;
-        const {error} = await supabase.from('sx_locations').update({sharing: false}).eq('user_id', uid);
+        const update = homeAvailable ? {sharing: false, home_confirmed: false} : {sharing: false};
+        const {error} = await supabase.from('sx_locations').update(update).eq('user_id', uid);
         if (error) { sharingRef.current = true; throw error; }
         setSharing(false);
+        setHomeConfirmed(false);
         setNotice('Ghost mode aan. Vrienden kunnen je locatie niet meer opvragen.');
       } else {
         const permission = await Location.requestForegroundPermissionsAsync();
@@ -120,51 +143,84 @@ export default function MapScreen() {
         const {latitude, longitude} = position.coords;
         const {error} = await supabase.from('sx_locations').upsert({user_id: uid, latitude, longitude, sharing: true, updated_at: new Date().toISOString()});
         if (error) throw error;
-        setOwn({id: uid, name: 'Jij', latitude, longitude});
+        setOwn({id: uid, name: 'Ik nu', latitude, longitude});
         setFocusOwn(value => value + 1);
         sharingRef.current = true;
         lastPublished.current = Date.now();
         setSharing(true);
+        void load();
         setNotice('Je locatie wordt gedeeld met vrienden zolang je de kaart gebruikt, maximaal 24 uur na je laatste update.');
       }
     } catch (error) { setNotice((error as Error).message); }
     finally { setBusy(false); }
   }
 
+  async function toggleHome() {
+    if (!uid || !sharing || !homeAvailable || busy) return;
+    setBusy(true);
+    const next = !homeConfirmed;
+    const {error} = await supabase.from('sx_locations').update({home_confirmed: next}).eq('user_id', uid);
+    if (error) setNotice(`Thuisstatus kon niet worden opgeslagen: ${error.message}`);
+    else {setHomeConfirmed(next); setNotice(next ? 'Vrienden die je locatie mogen zien, zien nu jouw zelfgekozen thuisstatus.' : 'Thuisstatus uitgezet.');}
+    setBusy(false);
+  }
+
+  async function openMemories() {
+    if (!uid) return;
+    setMemoriesOpen(true);
+    setMemoriesError('');
+    const {data, error} = await supabase.from('memories').select('id,storage_path,media_type,created_at').eq('owner_id', uid).is('deleted_at', null).order('created_at', {ascending: false}).limit(30);
+    if (error) setMemoriesError(error.message);
+    else setMemories((data || []) as MemoryRow[]);
+  }
+
   const filtered = pins.filter(pin => pin.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const selected = pins.find(pin => pin.id === selectedId);
   return <View style={styles.root}>
-    <FriendMap pins={filtered} own={own} selectedId={selectedId} focusOwn={focusOwn} onSelect={setSelectedId} onLocate={() => void locate()}/>
+    <FriendMap pins={filtered} own={own} trail={footsteps ? trail : []} selectedId={selectedId} focusOwn={focusOwn} onSelect={setSelectedId} onLocate={() => void locate()}/>
     <View style={[styles.header, {top: insets.top + 8}]} pointerEvents="box-none">
       <View style={styles.titleRow}>
         <View style={styles.headerGroup}>
           <Pressable style={styles.round} onPress={() => router.push('/(tabs)/profile')} accessibilityLabel="Mijn profiel"><MapAvatar id={uid || 'me'} size={42}/></Pressable>
           <Pressable style={styles.round} onPress={() => {if (searchOpen) setQuery(''); setSearchOpen(value => !value);}} accessibilityLabel="Vrienden op de kaart zoeken"><Ionicons name="search" size={23} color="#fff"/></Pressable>
         </View>
-        <Text style={styles.title}>X Map</Text>
+        <Text style={styles.title}>SNAPLION</Text>
         <Pressable style={styles.round} onPress={() => router.push('/settings')} accessibilityLabel="Kaartinstellingen"><Ionicons name="settings-outline" size={23} color="#fff"/></Pressable>
       </View>
       {searchOpen && <View style={styles.search}><Ionicons name="search" size={20} color="#D9D0E4"/><TextInput autoFocus style={styles.input} value={query} onChangeText={setQuery} placeholder="Zoek vrienden op de kaart" placeholderTextColor="#C5BFCF" accessibilityLabel="Zoek vrienden op de kaart"/><Pressable onPress={() => {setQuery(''); setSearchOpen(false);}} accessibilityLabel="Zoeken sluiten"><Ionicons name="close" size={20} color="#fff"/></Pressable></View>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         <Pressable style={[styles.chip, sharing && styles.active]} disabled={busy} onPress={() => void toggleSharing()} accessibilityLabel={sharing ? 'Ghost mode aanzetten' : 'Locatie delen met vrienden'}><Ionicons name={sharing ? 'location' : 'eye-off'} size={16} color="#fff"/><Text style={styles.chipText}>{sharing ? 'Locatie delen aan' : 'Ghost mode aan'}</Text></Pressable>
+        {sharing && homeAvailable && <Pressable style={[styles.chip, homeConfirmed && styles.homeActive]} disabled={busy} onPress={() => void toggleHome()} accessibilityLabel={homeConfirmed ? 'Thuisstatus uitzetten' : 'Zelf melden dat ik thuis ben'}><Ionicons name="home-outline" size={16} color="#fff"/><Text style={styles.chipText}>{homeConfirmed ? 'Ik ben thuis' : 'Thuisstatus'}</Text></Pressable>}
         <Pressable style={styles.chip} onPress={() => router.push('/(tabs)/friends')}><Ionicons name="people" size={16} color="#fff"/><Text style={styles.chipText}>Vrienden · {pins.length}</Text></Pressable>
       </ScrollView>
       {!!notice && <Pressable style={styles.notice} onPress={() => setNotice('')} accessibilityLabel="Melding sluiten"><Text style={styles.noticeText}>{notice}  ×</Text></Pressable>}
     </View>
     <View style={styles.footer} pointerEvents="box-none">
-      {selected ? <Pressable style={styles.friendBanner} onPress={() => setSelectedId(null)} accessibilityLabel={`Locatie van ${selected.name} sluiten`}><MapAvatar id={selected.id} size={35}/><Text style={styles.friendText}>{selected.name} deelt locatie met jou</Text><Ionicons name="close" size={18} color="#251C21"/></Pressable> :
+      {selected ? <Pressable style={[styles.friendBanner, !selected.homeConfirmed && styles.friendNeutral]} onPress={() => setSelectedId(null)} accessibilityLabel={`Locatie van ${selected.name} sluiten`}><MapAvatar id={selected.id} size={35}/><Text style={[styles.friendText, !selected.homeConfirmed && styles.friendNeutralText]}>{selected.homeConfirmed ? `🏠 ${selected.username || selected.name} 💙 is thuis` : `${selected.name} deelt locatie met jou`}</Text><Ionicons name="close" size={18} color={selected.homeConfirmed ? '#251C21' : '#fff'}/></Pressable> :
         <View style={styles.hint}><Ionicons name="sparkles" size={17} color="#FFE436"/><Text style={styles.hintText}>{pins.length ? `${pins.length} vriend${pins.length === 1 ? '' : 'en'} op de kaart` : 'Nog geen vrienden die locatie delen'}</Text></View>}
       <View style={styles.actions}>
-        <Pressable style={styles.action} onPress={() => void locate()}><Ionicons name="navigate-outline" size={18} color="#fff"/><Text style={styles.actionText}>Mijn locatie</Text></Pressable>
-        <Pressable style={styles.action} onPress={() => router.push('/(tabs)/stories')}><Ionicons name="sparkles-outline" size={18} color="#fff"/><Text style={styles.actionText}>Verhalen</Text></Pressable>
-        <Pressable style={styles.action} onPress={() => router.push('/(tabs)/friends')}><Ionicons name="person-add-outline" size={18} color="#fff"/><Text style={styles.actionText}>Vrienden</Text></Pressable>
+        <Pressable style={styles.action} onPress={() => void openMemories()} accessibilityLabel="Herinneringen bekijken"><Ionicons name="albums-outline" size={17} color="#fff"/><Text style={styles.actionText}>Herinneringen</Text></Pressable>
+        <Pressable style={styles.action} onPress={() => router.push('/discover')} accessibilityLabel="Trending verhalen bekijken"><Ionicons name="flame-outline" size={17} color="#fff"/><Text style={styles.actionText}>Trending</Text></Pressable>
+        <Pressable style={[styles.action, footsteps && styles.active]} onPress={() => setFootsteps(value => !value)} accessibilityLabel="Voetstappen tijdens deze sessie tonen"><Ionicons name="footsteps-outline" size={17} color="#fff"/><Text style={styles.actionText}>Voetstappen</Text></Pressable>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.people}>
-        {own && <Pressable style={styles.person} onPress={() => void locate()} accessibilityLabel="Mijn locatie bekijken"><MapAvatar id={own.id} size={58} selected/><Text style={styles.personName}>Jij</Text></Pressable>}
+        {own && <Pressable style={styles.person} onPress={() => void locate()} accessibilityLabel="Mijn locatie bekijken"><MapAvatar id={own.id} size={58} selected/><Text style={styles.personName}>Ik nu</Text></Pressable>}
         {filtered.map(pin => <Pressable key={pin.id} style={styles.person} onPress={() => setSelectedId(pin.id)} accessibilityLabel={`Locatie van ${pin.name} bekijken`}><MapAvatar id={pin.id} size={58} selected={pin.id === selectedId}/><Text numberOfLines={1} style={styles.personName}>{pin.name}</Text></Pressable>)}
         {!filtered.length && <Pressable style={styles.emptyPerson} onPress={() => router.push('/(tabs)/friends')}><Ionicons name="person-add" size={22} color="#FFE436"/><Text style={styles.personName}>{query ? 'Geen resultaat' : 'Voeg vrienden toe'}</Text></Pressable>}
       </ScrollView>
     </View>
+    <Modal visible={memoriesOpen} transparent animationType="slide" onRequestClose={() => setMemoriesOpen(false)}>
+      <View style={styles.modalShade}>
+        <View style={[styles.modalCard, {paddingBottom: Math.max(insets.bottom, 18)}]}>
+          <View style={styles.modalHeader}><Text style={styles.modalTitle}>Mijn herinneringen</Text><Pressable onPress={() => setMemoriesOpen(false)} accessibilityLabel="Herinneringen sluiten"><Ionicons name="close" color="#fff" size={25}/></Pressable></View>
+          {!!memoriesError && <Text style={styles.modalInfo}>{memoriesError}</Text>}
+          {!memoriesError && !memories.length && <Text style={styles.modalInfo}>Je hebt nog geen herinneringen opgeslagen.</Text>}
+          <ScrollView contentContainerStyle={styles.memoryList}>
+            {memories.map(item => <View key={item.id} style={styles.memoryTile}><Media path={item.storage_path} type={item.media_type} style={styles.memoryImage}/><Text style={styles.memoryDate}>{new Date(item.created_at).toLocaleDateString('nl-NL')}</Text></View>)}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   </View>;
 }
 
@@ -176,6 +232,7 @@ const styles = StyleSheet.create({
   title: {fontSize: 23, fontWeight: '900', color: '#fff', textShadowColor: '#0009', textShadowRadius: 9},
   round: {width: 45, height: 45, borderRadius: 24, backgroundColor: '#241E32E8', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'},
   active: {backgroundColor: '#8541B5'},
+  homeActive: {backgroundColor: '#785814'},
   search: {height: 48, backgroundColor: '#251F32ED', borderRadius: 24, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 8},
   input: {flex: 1, fontSize: 15, color: '#fff'},
   chips: {gap: 8, paddingBottom: 4},
@@ -186,13 +243,24 @@ const styles = StyleSheet.create({
   footer: {position: 'absolute', left: 0, right: 0, bottom: 0, paddingBottom: 8, gap: 9},
   friendBanner: {minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#FFE436', borderRadius: 17, paddingHorizontal: 12, marginHorizontal: 14, alignSelf: 'flex-start', maxWidth: '92%'},
   friendText: {color: '#251C21', fontWeight: '900', fontSize: 14, flexShrink: 1},
+  friendNeutral: {backgroundColor: '#241E32F0'},
+  friendNeutralText: {color: '#fff'},
   hint: {backgroundColor: '#241E32E8', borderRadius: 17, padding: 11, flexDirection: 'row', gap: 8, alignItems: 'center', marginHorizontal: 14, alignSelf: 'flex-start'},
   hintText: {color: '#fff', fontSize: 12, fontWeight: '700'},
-  actions: {flexDirection: 'row', gap: 7, marginHorizontal: 14},
-  action: {backgroundColor: '#231C32EB', borderRadius: 18, paddingHorizontal: 10, height: 36, flexDirection: 'row', alignItems: 'center', gap: 5},
+  actions: {flexDirection: 'row', gap: 5, marginHorizontal: 10, justifyContent: 'space-around'},
+  action: {backgroundColor: '#231C32EB', borderRadius: 18, paddingHorizontal: 9, height: 36, flexDirection: 'row', alignItems: 'center', gap: 4},
   actionText: {color: '#fff', fontSize: 12, fontWeight: '700'},
   people: {gap: 14, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#110C1BD9', minWidth: '100%'},
   person: {width: 65, alignItems: 'center', gap: 3},
   personName: {color: '#fff', fontSize: 11, fontWeight: '700', textAlign: 'center', maxWidth: 75},
   emptyPerson: {height: 75, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 15, backgroundColor: '#312347'},
+  modalShade: {flex: 1, justifyContent: 'flex-end', backgroundColor: '#000A'},
+  modalCard: {height: '55%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#191323', padding: 18},
+  modalHeader: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12},
+  modalTitle: {color: '#fff', fontSize: 21, fontWeight: '800'},
+  modalInfo: {color: '#C8BDD1', fontSize: 14, paddingVertical: 14},
+  memoryList: {flexDirection: 'row', flexWrap: 'wrap', gap: 10},
+  memoryTile: {width: '30%', height: 144, borderRadius: 12, overflow: 'hidden', backgroundColor: '#34263F'},
+  memoryImage: {width: '100%', height: 112},
+  memoryDate: {color: '#fff', fontSize: 11, padding: 5},
 });
