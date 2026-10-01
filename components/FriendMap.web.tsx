@@ -1,8 +1,9 @@
 import React from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import type {Pin, Point} from './FriendMap.native';
+import type {AvatarAppearance} from '../lib/avatar';
 
-type Props = {pins: Pin[]; own: Pin | null; trail: Point[]; selectedId: string | null; focusOwn: number; focusNetherlands: number; onSelect: (id: string | null) => void; onLocate: () => void};
+type Props = {pins: Pin[]; own: Pin | null; ownAppearance?: AvatarAppearance; trail: Point[]; selectedId: string | null; focusOwn: number; focusNetherlands: number; onSelect: (id: string | null) => void; onLocate: () => void};
 export default function FriendMap({pins, own, selectedId, onSelect, onLocate}: Props) {
   return <View style={styles.root}>
     <Text style={styles.title}>Kaart op je telefoon</Text>
