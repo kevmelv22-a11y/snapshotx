@@ -13,7 +13,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Maak foto’s en video’s voor SnapShot X.",
         "NSMicrophoneUsageDescription": "Neem video en spraakberichten op.",
-        "NSPhotoLibraryAddUsageDescription": "Bewaar snaps in je fotobibliotheek."
+        "NSPhotoLibraryAddUsageDescription": "Bewaar snaps in je fotobibliotheek.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
