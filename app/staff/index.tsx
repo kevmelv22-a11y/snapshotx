@@ -1,96 +1,146 @@
-import React,{useCallback,useEffect,useState} from 'react';
-import {Alert,Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
-import {Redirect} from 'expo-router';
-import {Ionicons} from '@expo/vector-icons';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import MapScreen from '../map';
-import {supabase} from '../../lib/supabase';
-import {useSession} from '../../hooks/useSession';
-import {useStaffRoles,type StaffRole} from '../../hooks/useStaffRoles';
-import {C} from '../../lib/theme';
-import {Button,Hint,Page,Title} from '../../components/UI';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Redirect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '../../lib/supabase';
+import { useSession } from '../../hooks/useSession';
+import { useStaffRoles, type StaffRole } from '../../hooks/useStaffRoles';
+import { C } from '../../lib/theme';
 
-type Report={id:string;reporter_id:string;message_id:string|null;story_id:string|null;reason:string;status:string;created_at:string;review_note:string|null};
-type Audit={id:string;action:string;entity_type:string|null;entity_id:string|null;created_at:string};
-export default function StaffPanel(){
- const insets=useSafeAreaInsets();
- const {session,ready}=useSession();
- const {roles,loading,isStaff,isAdmin,isOwner,refresh}=useStaffRoles();
- const [reports,setReports]=useState<Report[]>([]),[audit,setAudit]=useState<Audit[]>([]),[notice,setNotice]=useState(''),
- [notes,setNotes]=useState<Record<string,string>>({}),[username,setUsername]=useState(''),[busy,setBusy]=useState(false),[panelOpen,setPanelOpen]=useState(false);
- const load=useCallback(async()=>{
-  const {data,error}=await supabase.from('sx_reports').select('id,reporter_id,message_id,story_id,reason,status,created_at,review_note').order('created_at',{ascending:false}).limit(100);
-  if(error)setNotice(error.message);else setReports(data||[]);
- },[]);
- useEffect(()=>{if(!isStaff)return;const timer=setTimeout(()=>void load(),0);return()=>clearTimeout(timer)},[isStaff,load]);
- useEffect(()=>{if(!isAdmin)return;const timer=setTimeout(()=>{
-  void supabase.from('audit_logs').select('id,action,entity_type,entity_id,created_at')
-   .order('created_at',{ascending:false}).limit(30).then(({data,error})=>{
-    if(error)setNotice(error.message);else setAudit(data||[]);
-   });
- },0);return()=>clearTimeout(timer)},[isAdmin]);
- async function review(id:string,status:'reviewing'|'resolved'|'dismissed'){
-  setBusy(true);
-  const {error}=await supabase.rpc('sx_review_report',{p_report_id:id,p_status:status,p_note:notes[id]?.trim()||null});
-  setBusy(false);setNotice(error?.message||'Beslissing opgeslagen en gelogd.');
-  if(!error){setNotes(previous=>{const next={...previous};delete next[id];return next});await load()}
- }
- async function manage(role:StaffRole,grant:boolean){
-  if(!username.trim())return setNotice('Vul eerst een exacte gebruikersnaam in.');
-  const {data:person,error:lookupError}=await supabase.from('profiles').select('id,username').eq('username',username.trim()).maybeSingle();
-  if(lookupError||!person)return setNotice(lookupError?.message||'Gebruiker niet gevonden.');
-  Alert.alert('Bevestig rolwijziging',`${grant?'Geef':'Verwijder'} ${role} voor @${person.username}?`,[
-   {text:'Annuleren',style:'cancel'},
-   {text:'Bevestig',onPress:async()=>{
+type Section = 'dashboard' | 'users' | 'moderation' | 'bans' | 'reports' | 'logs' | 'settings';
+type Report = { id: string; reporter_id: string; message_id: string | null; story_id: string | null; reason: string; status: string; created_at: string; review_note: string | null };
+type Audit = { id: string; action: string; entity_type: string | null; entity_id: string | null; created_at: string };
+type Person = { id: string; username: string | null; display_name: string | null; created_at: string | null; is_verified: boolean | null };
+
+const NAV: { id: Section; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
+  { id: 'dashboard', label: 'Overzicht', icon: 'grid-outline' }, { id: 'users', label: 'Gebruikers', icon: 'people-outline' },
+  { id: 'moderation', label: 'Chats', icon: 'chatbubbles-outline' }, { id: 'bans', label: 'Bans', icon: 'ban-outline' },
+  { id: 'reports', label: 'Meldingen', icon: 'flag-outline' }, { id: 'logs', label: 'Auditlog', icon: 'reader-outline' },
+  { id: 'settings', label: 'Instellingen', icon: 'settings-outline' },
+];
+
+export default function StaffPanel() {
+  const insets = useSafeAreaInsets();
+  const { session, ready } = useSession();
+  const { roles, loading, isStaff, isAdmin, isOwner, refresh } = useStaffRoles();
+  const [section, setSection] = useState<Section>('dashboard');
+  const [reports, setReports] = useState<Report[]>([]);
+  const [audit, setAudit] = useState<Audit[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState<Person | null>(null);
+  const [banTarget, setBanTarget] = useState<Person | null>(null);
+  const [banReason, setBanReason] = useState('');
+  const [duration, setDuration] = useState('24 uur');
+  const [username, setUsername] = useState('');
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const [reportResult, peopleResult] = await Promise.all([
+      supabase.from('sx_reports').select('id,reporter_id,message_id,story_id,reason,status,created_at,review_note').order('created_at', { ascending: false }).limit(100),
+      supabase.from('profiles').select('id,username,display_name,created_at,is_verified').order('created_at', { ascending: false }).limit(100),
+    ]);
+    if (reportResult.error) setNotice(`Meldingen niet geladen: ${reportResult.error.message}`); else setReports(reportResult.data || []);
+    if (peopleResult.error) setNotice(`Gebruikers niet geladen: ${peopleResult.error.message}`); else setPeople(peopleResult.data || []);
+    if (isAdmin) {
+      const { data, error } = await supabase.from('audit_logs').select('id,action,entity_type,entity_id,created_at').order('created_at', { ascending: false }).limit(50);
+      if (error) setNotice(`Auditlog niet geladen: ${error.message}`); else setAudit(data || []);
+    }
+  }, [isAdmin]);
+
+  useEffect(() => { if (!isStaff) return; const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [isStaff, load]);
+  const filteredPeople = useMemo(() => people.filter(p => `${p.username || ''} ${p.display_name || ''} ${p.id}`.toLowerCase().includes(query.toLowerCase())), [people, query]);
+  const openReports = reports.filter(r => r.status === 'open' || r.status === 'reviewing').length;
+
+  async function review(id: string, status: 'reviewing' | 'resolved' | 'dismissed') {
     setBusy(true);
-    const {error}=await supabase.rpc('sx_manage_staff_role',{p_user_id:person.id,p_role:role,p_grant:grant});
-    setBusy(false);setNotice(error?.message||'Rolwijziging gelogd.');
-   }}
-  ]);
- }
- if(ready&&!session)return <Redirect href="/(auth)/login"/>;
- if(loading)return <Page><Hint>Rollen controleren…</Hint></Page>;
- if(!isStaff)return <Page><Title>Geen toegang</Title><Hint>Alleen aangewezen staffleden kunnen dit paneel openen.</Hint><Button onPress={()=>void refresh()} secondary>Opnieuw controleren</Button></Page>;
- return <View style={s.shell}>
-  <MapScreen/>
-  <Pressable style={[s.panelLaunch,{top:insets.top+105}]} onPress={()=>setPanelOpen(true)} accessibilityLabel="Snaplion staffpaneel openen"><Ionicons name="shield-checkmark-outline" color={C.yellow} size={22}/><Text style={s.panelLaunchText}>SNAPLION · STAFF</Text><Ionicons name="chevron-up" color="#fff" size={18}/></Pressable>
-  <Modal visible={panelOpen} transparent animationType="slide" onRequestClose={()=>setPanelOpen(false)}>
-   <View style={s.shade}><View style={[s.sheet,{paddingBottom:Math.max(insets.bottom,18)}]}>
-    <View style={s.sheetHeader}><View><Text style={s.panelTitle}>SNAPLION</Text><Text style={s.panelSubtitle}>Intern staffpaneel · {roles.join(', ')}</Text></View><Pressable onPress={()=>setPanelOpen(false)} accessibilityLabel="Staffpaneel sluiten" style={s.close}><Ionicons name="close" color="#fff" size={25}/></Pressable></View>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.sheetContent}><Title>Meldingen en beheer</Title>
-  <Hint>Jouw rollen: {roles.join(', ')}. Alleen gemelde inhoud; geen algemene toegang tot privéchats.</Hint>
-  <Button onPress={()=>void load()} secondary>Ververs meldingen</Button>
-  {!!notice&&<Text style={s.notice}>{notice}</Text>}
-  <Text style={s.heading}>Moderatie · meldingen</Text>
-  {reports.length===0?<Hint>Geen meldingen zichtbaar.</Hint>:reports.map(r=><View key={r.id} style={s.card}>
-   <Text style={s.title}>{r.story_id?'Story':'Chatbericht'} · {r.status}</Text>
-   <Text style={s.muted}>{new Date(r.created_at).toLocaleString()} · #{r.id.slice(0,8)}</Text>
-   <Text style={s.body}>{r.reason}</Text>
-   <Text style={s.muted}>Melder: {r.reporter_id.slice(0,8)} · Inhoud-ID: {(r.message_id||r.story_id)?.slice(0,8)}</Text>
-   {r.review_note&&<Text style={s.muted}>Notitie: {r.review_note}</Text>}
-   {(r.status==='open'||r.status==='reviewing')&&<View>
-    <TextInput value={notes[r.id]||''} onChangeText={value=>setNotes(previous=>({...previous,[r.id]:value}))} maxLength={1000} placeholder="Interne notitie (optioneel)" placeholderTextColor={C.muted} style={s.input}/>
-    {r.status==='open'&&<Button disabled={busy} onPress={()=>void review(r.id,'reviewing')} secondary>In behandeling</Button>}
-    <Button disabled={busy} onPress={()=>void review(r.id,'resolved')}>Afhandelen</Button>
-    <Button disabled={busy} onPress={()=>void review(r.id,'dismissed')} secondary>Afwijzen</Button>
-   </View>}
-  </View>)}
-  {isAdmin&&<View style={s.admin}><Text style={s.heading}>Admin · rollenbeheer</Text>
-   <Hint>OWNER kan moderator, senior moderator en admin toekennen. ADMIN kan alleen moderator toekennen. Niemand kan zichzelf promoveren.</Hint>
-   <TextInput value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="Exacte gebruikersnaam" placeholderTextColor={C.muted} style={s.input}/>
-   <Button disabled={busy} onPress={()=>void manage('MODERATOR',true)}>Moderator toevoegen</Button>
-   <Button disabled={busy} onPress={()=>void manage('MODERATOR',false)} secondary>Moderator verwijderen</Button>
-   {isOwner&&<><Button disabled={busy} onPress={()=>void manage('SENIOR MODERATOR',true)}>Senior moderator toevoegen</Button>
-    <Button disabled={busy} onPress={()=>void manage('ADMIN',true)}>Admin toevoegen</Button></>}
-   <Text style={s.heading}>Auditlog</Text>
-   {audit.length===0?<Hint>Geen auditacties zichtbaar.</Hint>:audit.map(entry=><Text key={entry.id} style={s.muted}>
-    {new Date(entry.created_at).toLocaleString()} · {entry.action} · {entry.entity_type||'systeem'} #{entry.entity_id?.slice(0,8)||'–'}
-   </Text>)}
-  </View>}
-  <Hint>Een ban-knop wordt niet getoond zolang een ban niet server-side alle app-toegang afdwingt. Zo ontstaat geen schijnveiligheid.</Hint>
+    const { error } = await supabase.rpc('sx_review_report', { p_report_id: id, p_status: status, p_note: notes[id]?.trim() || null });
+    setBusy(false); setNotice(error?.message || 'Beslissing opgeslagen en vastgelegd in de auditlog.');
+    if (!error) { setNotes(previous => { const next = { ...previous }; delete next[id]; return next; }); await load(); }
+  }
+
+  async function manage(role: StaffRole, grant: boolean) {
+    if (!username.trim()) { setNotice('Vul eerst een exacte gebruikersnaam in.'); return; }
+    const { data: person, error: lookupError } = await supabase.from('profiles').select('id,username').eq('username', username.trim()).maybeSingle();
+    if (lookupError || !person) { setNotice(lookupError?.message || 'Gebruiker niet gevonden.'); return; }
+    Alert.alert('Bevestig rolwijziging', `${grant ? 'Geef' : 'Verwijder'} ${role} voor @${person.username}?`, [
+      { text: 'Annuleren', style: 'cancel' }, { text: 'Bevestigen', onPress: async () => {
+        setBusy(true); const { error } = await supabase.rpc('sx_manage_staff_role', { p_user_id: person.id, p_role: role, p_grant: grant });
+        setBusy(false); setNotice(error?.message || 'Rolwijziging vastgelegd in de auditlog.');
+      } },
+    ]);
+  }
+
+  if (ready && !session) return <Redirect href="/(auth)/login" />;
+  if (loading) return <View style={s.center}><Text style={s.muted}>Staffrechten controleren…</Text></View>;
+  if (!isStaff) return <View style={s.center}><Ionicons name="shield-checkmark-outline" size={38} color={s.color.accent} /><Text style={s.title}>Geen toegang</Text><Text style={s.muted}>Alleen aangewezen SNAPLION-staffleden kunnen dit paneel openen.</Text><Action label="Opnieuw controleren" onPress={() => void refresh()} /></View>;
+
+  return <View style={[s.root, { paddingTop: insets.top }]}>
+    <View style={s.topbar}>
+      <View style={s.brand}><View style={s.brandMark}><Ionicons name="shield-checkmark" size={18} color="#fff" /></View><View><Text style={s.brandTitle}>SNAPLION</Text><Text style={s.brandSub}>STAFF CONSOLE</Text></View></View>
+      <View style={s.staffChip}><View style={s.onlineDot} /><Text style={s.staffRole}>{roles.join(' · ')}</Text></View>
+      <Pressable onPress={() => void load()} style={s.refresh} accessibilityLabel="Ververs staffgegevens"><Ionicons name="refresh" size={19} color={s.color.text} /></Pressable>
+    </View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.navScroll} contentContainerStyle={s.nav}>
+      {NAV.map(item => <Pressable key={item.id} onPress={() => setSection(item.id)} style={[s.navItem, section === item.id && s.navActive]}>
+        <Ionicons name={item.icon} size={17} color={section === item.id ? s.color.accent : s.color.muted} /><Text style={[s.navText, section === item.id && s.navTextActive]}>{item.label}</Text>
+        {item.id === 'reports' && openReports > 0 && <Text style={s.badge}>{openReports}</Text>}
+      </Pressable>)}
     </ScrollView>
-   </View></View>
-  </Modal>
- </View>;
+    <ScrollView style={s.content} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 28) + 12 }} keyboardShouldPersistTaps="handled">
+      <View style={s.headingRow}><View><Text style={s.eyebrow}>BEVEILIGDE MODERATIE</Text><Text style={s.pageTitle}>{NAV.find(x => x.id === section)?.label}</Text></View><View style={s.datePill}><Ionicons name="lock-closed-outline" size={13} color={s.color.muted} /><Text style={s.dateText}>Privé & afgeschermd</Text></View></View>
+      {!!notice && <Pressable onPress={() => setNotice('')} style={s.notice}><Ionicons name="information-circle-outline" size={18} color={s.color.accent} /><Text style={s.noticeText}>{notice}</Text><Ionicons name="close" size={16} color={s.color.muted} /></Pressable>}
+      {section === 'dashboard' && <>
+        <View style={s.hero}><View style={s.heroCopy}><Text style={s.heroKicker}>SNAPLION OPERATIONS</Text><Text style={s.heroTitle}>Goed dat je er bent.</Text><Text style={s.heroSub}>Moderatie en veiligheid, helder op één plek.</Text></View><View style={s.heroIcon}><Ionicons name="sparkles-outline" size={25} color={s.color.accent} /></View></View>
+        <View style={s.statsGrid}><Stat icon="people-outline" label="Gebruikers" value={String(people.length)} hint="Profielen geladen" /><Stat icon="flag-outline" label="Open meldingen" value={String(openReports)} hint="Wachtrij" /><Stat icon="ban-outline" label="Actieve bans" value="—" hint="Geen betrouwbare banfeed" /><Stat icon="chatbubbles-outline" label="Actieve chats" value="—" hint="Niet beschikbaar voor staff" /></View>
+        <View style={s.card}><View style={s.cardHead}><Text style={s.cardTitle}>Recente meldingen</Text><Pressable onPress={() => setSection('reports')}><Text style={s.link}>Alles bekijken</Text></Pressable></View>{reports.slice(0, 4).map(r => <ReportRow key={r.id} report={r} onPress={() => setSection('reports')} />)}{!reports.length && <Empty text="Er staan nog geen meldingen in de wachtrij." />}</View>
+        <View style={s.privacyCard}><Ionicons name="eye-off-outline" size={19} color={s.color.accent} /><View style={{ flex: 1 }}><Text style={s.cardTitle}>Privacybewuste toegang</Text><Text style={s.muted}>Berichten zijn alleen te beoordelen via de bestaande meldingenstroom. Onbeperkte privéchatinzage staat uit.</Text></View></View>
+      </>}
+      {section === 'users' && <>
+        <Text style={s.sectionIntro}>Profielen doorzoeken. Login-, IP- en apparaatgeschiedenis worden niet bijgehouden door de huidige backend.</Text>
+        <View style={s.search}><Ionicons name="search-outline" size={18} color={s.color.muted} /><TextInput value={query} onChangeText={setQuery} placeholder="Zoek naam of gebruikers-ID" placeholderTextColor={s.color.muted} style={s.searchInput} autoCapitalize="none" /></View>
+        <View style={s.tableLabel}><Text style={s.tableLabelText}>PROFIEL</Text><Text style={s.tableLabelText}>AANGEMAAKT</Text></View>
+        {filteredPeople.map(person => <Pressable key={person.id} onPress={() => setSelected(person)} style={s.personRow}><View style={s.avatar}><Text style={s.avatarText}>{(person.display_name || person.username || '?').slice(0, 1).toUpperCase()}</Text></View><View style={{ flex: 1 }}><Text style={s.personName}>{person.display_name || person.username || 'Onbekende gebruiker'} {person.is_verified && <Ionicons name="checkmark-circle" size={13} color={s.color.accent} />}</Text><Text style={s.muted}>@{person.username || 'geen-gebruikersnaam'} · {person.id.slice(0, 8)}…</Text></View><Text style={s.personDate}>{person.created_at ? new Date(person.created_at).toLocaleDateString('nl-NL') : '—'}</Text><Ionicons name="chevron-forward" size={15} color={s.color.muted} /></Pressable>)}
+        {!filteredPeople.length && <Empty text="Geen gebruikers gevonden." />}
+        <View style={s.infoBox}><Ionicons name="shield-outline" size={17} color={s.color.warning} /><Text style={s.muted}>Ban, IP-ban, device-ban, mute en warn zijn nog niet server-side beschikbaar. Er worden daarom geen acties getoond die niets afdwingen.</Text></View>
+      </>}
+      {(section === 'moderation' || section === 'bans') && <View style={s.emptyPanel}><View style={s.lockCircle}><Ionicons name={section === 'moderation' ? 'chatbubbles-outline' : 'ban-outline'} size={25} color={s.color.accent} /></View><Text style={s.cardTitle}>{section === 'moderation' ? 'Chatinzage is afgeschermd' : 'Banbeheer nog niet beschikbaar'}</Text><Text style={s.muted}>{section === 'moderation' ? 'De database geeft staff geen algemene toegang tot privégesprekken. Alleen inhoud die via een melding wordt aangeleverd kan na een veilige serverwijziging worden beoordeeld.' : 'Er is geen veilige serverfunctie die bans toepast, controleert en intrekt. Een ban-overzicht of knop zonder daadwerkelijke toegangsblokkade zou misleidend zijn.'}</Text>{section === 'moderation' && <Action label="Naar meldingen" onPress={() => setSection('reports')} />}</View>}
+      {section === 'reports' && <><Text style={s.sectionIntro}>Meldingen beoordelen. Elke beslissing wordt server-side gecontroleerd en in het auditlog vastgelegd.</Text>{reports.map(report => <View key={report.id} style={s.reportCard}><ReportRow report={report} /><Text style={s.reportReason}>{report.reason}</Text><Text style={s.muted}>Melder {report.reporter_id.slice(0, 8)}… · {report.message_id ? 'Chatbericht' : 'Story'} · {new Date(report.created_at).toLocaleString('nl-NL')}</Text>{report.review_note && <Text style={s.noteText}>Notitie: {report.review_note}</Text>}{(report.status === 'open' || report.status === 'reviewing') && <><TextInput value={notes[report.id] || ''} onChangeText={value => setNotes(previous => ({ ...previous, [report.id]: value }))} maxLength={1000} placeholder="Interne notitie (optioneel)" placeholderTextColor={s.color.muted} style={s.noteInput} /><View style={s.actions}><Action label={report.status === 'open' ? 'In behandeling' : 'In behandeling'} quiet disabled={busy || report.status === 'reviewing'} onPress={() => void review(report.id, 'reviewing')} /><Action label="Afhandelen" disabled={busy} onPress={() => void review(report.id, 'resolved')} /><Action label="Afwijzen" quiet disabled={busy} onPress={() => void review(report.id, 'dismissed')} /></View></>}</View>)}{!reports.length && <Empty text="Geen meldingen ontvangen." />}</>}
+      {section === 'logs' && <>{isAdmin ? <>{audit.map(entry => <View key={entry.id} style={s.logRow}><View style={s.logMark}><Ionicons name="shield-checkmark-outline" size={15} color={s.color.accent} /></View><View style={{ flex: 1 }}><Text style={s.personName}>{entry.action}</Text><Text style={s.muted}>{entry.entity_type || 'Systeem'} · {entry.entity_id ? `#${entry.entity_id.slice(0, 8)}` : 'geen ID'}</Text></View><Text style={s.logDate}>{new Date(entry.created_at).toLocaleString('nl-NL')}</Text></View>)}{!audit.length && <Empty text="Nog geen auditacties zichtbaar." />}</> : <Empty text="Auditlogs zijn alleen beschikbaar voor admins en owners." />}</>}
+      {section === 'settings' && <><View style={s.card}><Text style={s.cardTitle}>Staffrollen</Text><Text style={s.muted}>Jouw rechten: {roles.join(', ')}. Rolwijzigingen worden server-side gevalideerd.</Text></View>{isAdmin && <View style={s.card}><Text style={s.cardTitle}>Rollen beheren</Text><Text style={s.muted}>Moderator beheren{isOwner ? ' · senior moderator en admin toekennen' : ''}</Text><TextInput value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="Exacte gebruikersnaam" placeholderTextColor={s.color.muted} style={s.noteInput} /><View style={s.actions}><Action label="Moderator geven" disabled={busy} onPress={() => void manage('MODERATOR', true)} /><Action label="Moderator intrekken" quiet disabled={busy} onPress={() => void manage('MODERATOR', false)} /></View>{isOwner && <View style={s.actions}><Action label="Senior moderator" disabled={busy} onPress={() => void manage('SENIOR MODERATOR', true)} /><Action label="Admin geven" quiet disabled={busy} onPress={() => void manage('ADMIN', true)} /></View>}</View>}<View style={s.infoBox}><Ionicons name="information-circle-outline" size={17} color={s.color.accent} /><Text style={s.muted}>Sessies, IP-adressen en apparaten worden niet in dit paneel verzameld. Toekomstige uitbreiding vereist expliciete privacy- en backendinrichting.</Text></View></>}
+    </ScrollView>
+    <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}><Pressable style={s.modalShade} onPress={() => setSelected(null)}><Pressable style={s.modalCard} onPress={e => e.stopPropagation()}><View style={s.modalHead}><Text style={s.cardTitle}>Gebruikersprofiel</Text><Pressable onPress={() => setSelected(null)}><Ionicons name="close" size={22} color={s.color.muted} /></Pressable></View><View style={s.profileHero}><View style={[s.avatar, s.bigAvatar]}><Text style={s.avatarText}>{(selected?.display_name || selected?.username || '?').slice(0, 1).toUpperCase()}</Text></View><View><Text style={s.personName}>{selected?.display_name || selected?.username}</Text><Text style={s.muted}>@{selected?.username || 'geen-gebruikersnaam'}</Text></View></View><Detail label="Gebruikers-ID" value={selected?.id || '—'} /><Detail label="Aangemaakt" value={selected?.created_at ? new Date(selected.created_at).toLocaleString('nl-NL') : '—'} /><Detail label="Loginhistorie" value="Niet beschikbaar" /><Detail label="Apparaat- en IP-historie" value="Niet verzameld" /><Detail label="Staffacties" value="Alleen bestaande auditgebeurtenissen" /><Text style={s.muted}>Er is geen profielactie beschikbaar totdat de server deze veilig ondersteunt.</Text><Action label="Banopties bekijken" quiet onPress={() => { setBanTarget(selected); setBanReason(''); setSelected(null); }} /></Pressable></Pressable></Modal>
+    <Modal visible={!!banTarget} transparent animationType="fade" onRequestClose={() => setBanTarget(null)}><View style={s.modalShade}><View style={s.modalCard}><View style={s.modalHead}><Text style={s.cardTitle}>Baninstellingen</Text><Pressable onPress={() => setBanTarget(null)}><Ionicons name="close" size={22} color={s.color.muted} /></Pressable></View><Text style={s.muted}>Voor @{banTarget?.username || 'gebruiker'}</Text><TextInput value={banReason} onChangeText={setBanReason} placeholder="Reden voor maatregel" placeholderTextColor={s.color.muted} style={s.noteInput} /><View style={s.durationRow}>{['1 uur', '24 uur', '7 dagen', 'Permanent'].map(value => <Pressable key={value} onPress={() => setDuration(value)} style={[s.duration, duration === value && s.durationActive]}><Text style={[s.durationText, duration === value && s.durationTextActive]}>{value}</Text></Pressable>)}</View><View style={s.infoBox}><Ionicons name="alert-circle-outline" size={18} color={s.color.warning} /><Text style={s.muted}>Niet beschikbaar: de server heeft geen ban-RPC die toegang daadwerkelijk blokkeert. Er wordt geen ban aangemaakt.</Text></View><Action label="Ban niet beschikbaar" quiet disabled onPress={() => undefined} /></View></View></Modal>
+  </View>;
 }
-const s=StyleSheet.create({shell:{flex:1,backgroundColor:C.bg},panelLaunch:{position:'absolute',right:15,borderRadius:22,backgroundColor:'#13141DF2',paddingHorizontal:14,height:44,flexDirection:'row',gap:8,alignItems:'center',borderWidth:1,borderColor:'#FFE43677'},panelLaunchText:{color:'#fff',fontSize:12,fontWeight:'900',letterSpacing:0.4},shade:{flex:1,justifyContent:'flex-end',backgroundColor:'#0009'},sheet:{height:'82%',backgroundColor:'#15151E',borderTopLeftRadius:24,borderTopRightRadius:24,borderWidth:1,borderColor:'#FFFFFF22',paddingHorizontal:18},sheetHeader:{height:76,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#FFFFFF22'},panelTitle:{color:C.yellow,fontWeight:'900',fontSize:21,letterSpacing:1},panelSubtitle:{color:C.muted,fontSize:12,marginTop:3},close:{width:42,height:42,borderRadius:21,backgroundColor:'#30303E',alignItems:'center',justifyContent:'center'},sheetContent:{paddingBottom:25},heading:{color:C.yellow,fontSize:21,fontWeight:'800',marginTop:22},card:{backgroundColor:C.surface,padding:15,borderRadius:16,marginTop:12,borderWidth:1,borderColor:C.border},title:{color:C.text,fontSize:17,fontWeight:'800'},body:{color:C.text,fontSize:16,marginVertical:9},muted:{color:C.muted,fontSize:12,marginTop:5},notice:{color:C.yellow,marginVertical:10},input:{backgroundColor:C.elevated,color:C.text,padding:12,borderRadius:12,marginTop:12},admin:{marginTop:15}});
+
+function Stat({ icon, label, value, hint }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; value: string; hint: string }) {
+  return <View style={s.stat}><View style={s.statHead}><View style={s.statIcon}><Ionicons name={icon} size={17} color={s.color.accent} /></View><Text style={s.statLabel}>{label}</Text></View><Text style={s.statValue}>{value}</Text><Text style={s.statHint}>{hint}</Text></View>;
+}
+function ReportRow({ report, onPress }: { report: Report; onPress?: () => void }) {
+  return <Pressable onPress={onPress} style={s.reportRow}><View style={s.reportIcon}><Ionicons name={report.story_id ? 'images-outline' : 'chatbubble-ellipses-outline'} size={16} color={s.color.accent} /></View><View style={{ flex: 1 }}><Text style={s.personName}>{report.story_id ? 'Storymelding' : 'Chatberichtmelding'}</Text><Text style={s.muted}>{report.reason} · {new Date(report.created_at).toLocaleDateString('nl-NL')}</Text></View><View style={[s.status, report.status === 'open' ? s.statusOpen : s.statusDone]}><Text style={s.statusText}>{report.status === 'open' ? 'Open' : report.status === 'reviewing' ? 'In review' : 'Afgerond'}</Text></View></Pressable>;
+}
+function Action({ label, onPress, quiet, disabled }: { label: string; onPress: () => void; quiet?: boolean; disabled?: boolean }) {
+  return <Pressable disabled={disabled} onPress={onPress} style={[s.action, quiet && s.actionQuiet, disabled && s.actionDisabled]}><Text style={[s.actionText, quiet && s.actionQuietText]}>{label}</Text></Pressable>;
+}
+function Empty({ text }: { text: string }) { return <View style={s.empty}><Ionicons name="file-tray-outline" size={22} color={s.color.muted} /><Text style={s.muted}>{text}</Text></View>; }
+function Detail({ label, value }: { label: string; value: string }) { return <View style={s.detail}><Text style={s.muted}>{label}</Text><Text style={s.detailValue}>{value}</Text></View>; }
+
+const palette = { bg: '#0B1018', surface: '#111925', elevated: '#182332', border: '#243244', text: '#F1F5F9', muted: '#94A3B8', accent: '#F6C445', accentDim: '#332B16', warning: '#F0A34B' };
+const s = StyleSheet.create({
+  color: palette as any,
+  root: { flex: 1, backgroundColor: palette.bg }, center: { flex: 1, backgroundColor: palette.bg, justifyContent: 'center', alignItems: 'center', gap: 12, padding: 28 },
+  topbar: { height: 64, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderColor: palette.border, gap: 12 }, brand: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }, brandMark: { width: 34, height: 34, borderRadius: 11, backgroundColor: '#D9A91D', alignItems: 'center', justifyContent: 'center' }, brandTitle: { color: palette.text, fontWeight: '900', letterSpacing: 1.2, fontSize: 15 }, brandSub: { color: palette.muted, fontWeight: '800', letterSpacing: 1.3, fontSize: 8, marginTop: 2 }, staffChip: { flexDirection: 'row', gap: 6, alignItems: 'center', paddingHorizontal: 9, paddingVertical: 7, borderRadius: 20, backgroundColor: palette.surface }, onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#45D483' }, staffRole: { color: palette.muted, fontSize: 10, fontWeight: '700', maxWidth: 100 }, refresh: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+  navScroll: { maxHeight: 55, flexGrow: 0, borderBottomWidth: 1, borderColor: palette.border }, nav: { paddingHorizontal: 12, gap: 7, alignItems: 'center' }, navItem: { minHeight: 37, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 9, paddingHorizontal: 10 }, navActive: { backgroundColor: palette.accentDim }, navText: { color: palette.muted, fontSize: 11, fontWeight: '700' }, navTextActive: { color: palette.accent }, badge: { color: '#111', backgroundColor: palette.accent, minWidth: 17, textAlign: 'center', borderRadius: 9, overflow: 'hidden', fontWeight: '900', fontSize: 10, paddingHorizontal: 3 },
+  content: { flex: 1 }, headingRow: { paddingHorizontal: 20, paddingTop: 23, paddingBottom: 16, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }, eyebrow: { color: palette.accent, fontWeight: '900', letterSpacing: 1.4, fontSize: 9 }, pageTitle: { color: palette.text, fontSize: 26, fontWeight: '800', marginTop: 4 }, datePill: { flexDirection: 'row', gap: 5, alignItems: 'center', borderColor: palette.border, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 18 }, dateText: { color: palette.muted, fontSize: 9, fontWeight: '600' }, notice: { marginHorizontal: 18, marginBottom: 13, padding: 11, backgroundColor: palette.elevated, borderRadius: 11, borderWidth: 1, borderColor: palette.border, flexDirection: 'row', gap: 9, alignItems: 'center' }, noticeText: { color: palette.text, fontSize: 12, flex: 1 },
+  hero: { marginHorizontal: 18, borderRadius: 17, padding: 18, backgroundColor: '#182333', borderWidth: 1, borderColor: '#29394C', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, heroCopy: { flex: 1 }, heroKicker: { color: palette.accent, fontWeight: '900', fontSize: 9, letterSpacing: 1.4 }, heroTitle: { color: palette.text, fontSize: 21, fontWeight: '800', marginTop: 7 }, heroSub: { color: palette.muted, fontSize: 11, marginTop: 5 }, heroIcon: { width: 46, height: 46, borderRadius: 15, backgroundColor: palette.accentDim, alignItems: 'center', justifyContent: 'center' }, statsGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 13, paddingTop: 10 }, stat: { width: '50%', padding: 6 }, statHead: { borderTopLeftRadius: 13, borderTopRightRadius: 13, padding: 12, backgroundColor: palette.surface, flexDirection: 'row', alignItems: 'center', gap: 8 }, statIcon: { width: 29, height: 29, borderRadius: 9, backgroundColor: palette.accentDim, alignItems: 'center', justifyContent: 'center' }, statLabel: { color: palette.muted, fontSize: 10, fontWeight: '700' }, statValue: { color: palette.text, backgroundColor: palette.surface, fontSize: 23, fontWeight: '800', paddingHorizontal: 12 }, statHint: { color: palette.muted, backgroundColor: palette.surface, fontSize: 9, paddingHorizontal: 12, paddingTop: 3, paddingBottom: 12, borderBottomLeftRadius: 13, borderBottomRightRadius: 13 },
+  card: { marginHorizontal: 18, marginTop: 12, padding: 14, borderRadius: 15, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border }, cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }, cardTitle: { color: palette.text, fontSize: 14, fontWeight: '800' }, link: { color: palette.accent, fontSize: 11, fontWeight: '700' }, muted: { color: palette.muted, fontSize: 11, lineHeight: 17 }, title: { color: palette.text, fontSize: 18, fontWeight: '800' }, privacyCard: { marginHorizontal: 18, marginTop: 12, padding: 14, borderRadius: 14, backgroundColor: palette.accentDim, flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  reportRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderColor: palette.border, paddingVertical: 8 }, reportIcon: { width: 31, height: 31, borderRadius: 10, backgroundColor: palette.accentDim, alignItems: 'center', justifyContent: 'center' }, personName: { color: palette.text, fontWeight: '700', fontSize: 12 }, status: { paddingVertical: 4, paddingHorizontal: 7, borderRadius: 10 }, statusOpen: { backgroundColor: '#422A19' }, statusDone: { backgroundColor: '#1D332D' }, statusText: { color: palette.text, fontSize: 9, fontWeight: '800' },
+  sectionIntro: { color: palette.muted, fontSize: 12, lineHeight: 18, paddingHorizontal: 20, marginBottom: 12 }, search: { marginHorizontal: 18, paddingHorizontal: 12, height: 43, borderRadius: 11, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, flexDirection: 'row', alignItems: 'center', gap: 8 }, searchInput: { color: palette.text, flex: 1, fontSize: 12 }, tableLabel: { paddingHorizontal: 21, paddingTop: 18, paddingBottom: 7, flexDirection: 'row', justifyContent: 'space-between' }, tableLabelText: { color: palette.muted, fontSize: 8, letterSpacing: 1, fontWeight: '900' }, personRow: { paddingHorizontal: 19, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderColor: palette.border }, avatar: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#29394C', alignItems: 'center', justifyContent: 'center' }, avatarText: { color: palette.accent, fontSize: 14, fontWeight: '800' }, personDate: { color: palette.muted, fontSize: 9, marginRight: 4 }, infoBox: { marginHorizontal: 18, marginTop: 13, padding: 12, borderRadius: 11, backgroundColor: '#2B2417', flexDirection: 'row', gap: 9, alignItems: 'flex-start' },
+  emptyPanel: { alignItems: 'center', marginHorizontal: 18, marginTop: 30, padding: 23, borderRadius: 16, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, gap: 12 }, lockCircle: { width: 53, height: 53, borderRadius: 18, backgroundColor: palette.accentDim, alignItems: 'center', justifyContent: 'center' }, empty: { alignItems: 'center', justifyContent: 'center', gap: 9, padding: 26 }, reportCard: { marginHorizontal: 18, marginBottom: 10, padding: 13, borderRadius: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border }, reportReason: { color: palette.text, fontSize: 13, fontWeight: '700', marginTop: 9, marginBottom: 5 }, noteText: { color: palette.muted, fontSize: 11, marginTop: 6 }, noteInput: { minHeight: 40, color: palette.text, paddingHorizontal: 11, paddingVertical: 9, borderRadius: 10, backgroundColor: palette.elevated, borderWidth: 1, borderColor: palette.border, marginTop: 9, fontSize: 11 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 9 }, action: { minHeight: 34, paddingHorizontal: 11, alignItems: 'center', justifyContent: 'center', borderRadius: 9, backgroundColor: palette.accent }, actionQuiet: { backgroundColor: palette.elevated, borderWidth: 1, borderColor: palette.border }, actionDisabled: { opacity: 0.48 }, actionText: { color: '#17140D', fontWeight: '800', fontSize: 10 }, actionQuietText: { color: palette.text },
+  logRow: { marginHorizontal: 19, paddingVertical: 13, borderBottomWidth: 1, borderColor: palette.border, flexDirection: 'row', gap: 10, alignItems: 'center' }, logMark: { width: 31, height: 31, backgroundColor: palette.accentDim, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }, logDate: { color: palette.muted, fontSize: 9, maxWidth: 100, textAlign: 'right' },
+  modalShade: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#000B' }, modalCard: { backgroundColor: palette.surface, borderRadius: 18, padding: 17, borderWidth: 1, borderColor: palette.border, gap: 10 }, modalHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, profileHero: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 10 }, bigAvatar: { width: 50, height: 50, borderRadius: 16 }, detail: { paddingVertical: 7, borderBottomWidth: 1, borderColor: palette.border, gap: 3 }, detailValue: { color: palette.text, fontSize: 11 }, durationRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 }, duration: { paddingHorizontal: 9, paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.elevated }, durationActive: { borderColor: palette.accent, backgroundColor: palette.accentDim }, durationText: { color: palette.muted, fontSize: 10 }, durationTextActive: { color: palette.accent, fontWeight: '800' },
+});
