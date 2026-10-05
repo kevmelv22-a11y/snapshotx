@@ -23,7 +23,7 @@ export function MapAvatar({id, size = 54, selected = false, appearance}: Props) 
   const shirt = appearance ? TOP[appearance.top] : SUITS[hash % SUITS.length];
   const sky = SKIES[hash % SKIES.length];
   const hairstyle = appearance?.hairstyle ?? ((hash >>> 5) % 3);
-  return <Svg width={size} height={size} viewBox="0 0 64 64" accessibilityLabel="SnapLion 3D-stijl avatar">
+  return <Svg width={size} height={size} viewBox="0 0 64 64" accessibilityLabel="SnapLion-avatarpreview">
     <Defs>
       <LinearGradient id="face" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#FFF1DC"/><Stop offset=".42" stopColor={skin}/><Stop offset="1" stopColor="#B97259"/></LinearGradient>
       <LinearGradient id="hair" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#FFF0BB" stopOpacity=".85"/><Stop offset=".27" stopColor={hair}/><Stop offset="1" stopColor="#241C28"/></LinearGradient>
@@ -61,11 +61,11 @@ export function MapExplorer({id, own = false, appearance, size = 82}: {id: strin
   const trouser = appearance ? BOTTOMS[appearance.bottoms] : '#292631';
   const shoes = appearance ? SHOES[appearance.shoes] : own ? '#FFE436' : '#F7F5FA';
   const hairstyle = appearance?.hairstyle ?? ((hash >>> 5) % 3);
-  const wings = appearance?.accessory === 2 || appearance?.accessory === 4;
-  const horns = appearance?.accessory === 4;
+  const wings = false;
+  const horns = false;
   const suit = appearance?.top === 2 || appearance?.top === 4;
   const dress = appearance?.bottoms === 3;
-  return <Svg width={size} height={size * 119 / 82} viewBox="0 0 82 119" accessibilityLabel={own ? 'Mijn aangepaste 3D-stijl personage' : 'SnapLion personage'}>
+  return <Svg width={size} height={size * 119 / 82} viewBox="0 0 82 119" accessibilityLabel={own ? 'Mijn aangepaste avatar' : 'SnapLion-avatar'}>
     <Defs>
       <LinearGradient id="body" x1="0" y1="0" x2="1" y2=".2"><Stop offset="0" stopColor="#171720"/><Stop offset=".34" stopColor={top}/><Stop offset=".7" stopColor={top}/><Stop offset="1" stopColor="#171720"/></LinearGradient>
       <LinearGradient id="skin" x1="0" y1="0" x2="1" y2=".7"><Stop offset="0" stopColor="#FFF0D7"/><Stop offset=".48" stopColor={skin}/><Stop offset="1" stopColor="#A96955"/></LinearGradient>
