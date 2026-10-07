@@ -18,7 +18,7 @@ type ChatEntry = { thread_id: string; title: string|null; created_at: string; me
 type ChatMessage = { message_id: string; sender_id: string; kind: string; body: string|null; created_at: string; is_deleted: boolean };
 
 const NAV: { id: Section; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
-  { id: 'dashboard', label: 'Overzicht', icon: 'grid-outline' }, { id: 'users', label: 'Gebruikers', icon: 'people-outline' },
+  { id: 'dashboard', label: 'Dashboard', icon: 'grid-outline' }, { id: 'users', label: 'Gebruikers', icon: 'people-outline' },
   { id: 'moderation', label: 'Chats', icon: 'chatbubbles-outline' }, { id: 'bans', label: 'Bans', icon: 'ban-outline' },
   { id: 'reports', label: 'Meldingen', icon: 'flag-outline' }, { id: 'logs', label: 'Auditlog', icon: 'reader-outline' },
   { id: 'settings', label: 'Instellingen', icon: 'settings-outline' },
