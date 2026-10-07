@@ -61,7 +61,6 @@ export function MapExplorer({id, own = false, appearance, size = 82}: {id: strin
   const trouser = appearance ? BOTTOMS[appearance.bottoms] : '#292631';
   const shoes = appearance ? SHOES[appearance.shoes] : own ? '#FFE436' : '#F7F5FA';
   const hairstyle = appearance?.hairstyle ?? ((hash >>> 5) % 3);
-  const wings = false;
   const suit = appearance?.top === 2 || appearance?.top === 4;
   const dress = appearance?.bottoms === 3;
   return <Svg width={size} height={size * 119 / 82} viewBox="0 0 82 119" accessibilityLabel={own ? 'Mijn aangepaste avatar' : 'SnapLion-avatar'}>
@@ -73,11 +72,6 @@ export function MapExplorer({id, own = false, appearance, size = 82}: {id: strin
       <LinearGradient id="shoe" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#FFFFFF"/><Stop offset="1" stopColor={shoes}/></LinearGradient>
     </Defs>
     <Ellipse cx="41" cy="115" rx="29" ry="3" fill="#09080E" opacity=".38"/>
-    {wings && <G fill="#171720" stroke="#635B6D" strokeWidth=".7">
-      <Path d="M25 49Q3 17 1 29q1 7 9 12Q1 34 2 44q2 6 11 8Q5 46 7 56q3 5 13 5Q11 58 14 68q4 5 15 1Z"/>
-      <Path d="M57 49q22-32 24-20-1 7-9 12 9-7 8 3-2 6-11 8 8-6 6 4-3 5-13 5 9-3 6 7-4 5-15 1Z"/>
-      <Path d="M20 45q12 3 17 15M62 45q-12 3-17 15" fill="none" stroke="#8E8795" strokeWidth="1"/>
-    </G>}
     {!dress && <G stroke="url(#legs)" strokeWidth="11" strokeLinecap="round"><Path d="m31 78-1 27"/><Path d="m51 78 1 27"/></G>}
     {dress && <Path d="M22 73q19 7 38 0l10 34H12Z" fill="url(#body)" stroke="#FFFFFF" strokeOpacity=".2" strokeWidth="1"/>}
     <Path d="M19 104q-9 7-5 11h21q3-5-3-10Z" fill="#171720"/><Path d="M46 104q-5 6-2 11h23q4-4-5-11Z" fill="#171720"/>
