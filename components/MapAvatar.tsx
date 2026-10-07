@@ -1,10 +1,11 @@
 import React from 'react';
 import Svg, {Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Rect, Stop} from 'react-native-svg';
 import type {AvatarAppearance} from '../lib/avatar';
+import {CLASSIC_HAIR, CLASSIC_SKIN} from '../lib/avatar/appearance';
 
 type Props = {id: string; size?: number; selected?: boolean; appearance?: AvatarAppearance};
-const SKIN = ['#EBC5A3', '#F2BE91', '#CE9E79', '#A9775D', '#744737'];
-const HAIR = ['#24212F', '#4D302C', '#70442E', '#BC873D', '#A8512C'];
+const SKIN: readonly string[] = CLASSIC_SKIN;
+const HAIR: readonly string[] = CLASSIC_HAIR;
 const TOP = ['#8D51D0', '#57765E', '#304E85', '#DDB764', '#26232C', '#6ABCAA'];
 const BOTTOMS = ['#292631', '#B2B2BC', '#5E3A91', '#333142'];
 const SHOES = ['#F7F5FA', '#25232B', '#FFE436'];

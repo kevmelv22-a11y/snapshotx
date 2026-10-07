@@ -2,12 +2,82 @@ import React, {useEffect, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import MapView, {Marker, Polyline, type Region} from 'react-native-maps';
-import {MapExplorer} from './MapAvatar';
+import {FriendAvatarFigure} from './avatar/FriendAvatar';
+import {OwnAvatarFigure} from './avatar/OwnAvatar';
+import {useOwnOutfit} from '../hooks/useWardrobeSync';
 import type {AvatarAppearance} from '../lib/avatar';
+import type {FriendOutfitValue} from '../hooks/useFriendOutfits';
 
 export type Pin = {id: string; name: string; username?: string; homeConfirmed?: boolean; latitude: number; longitude: number};
 export type Point = {latitude: number; longitude: number};
-type Props = {pins: Pin[]; own: Pin | null; ownAppearance?: AvatarAppearance; trail: Point[]; selectedId: string | null; focusOwn: number; focusNetherlands: number; onSelect: (id: string | null) => void; onLocate: () => void};
+export type FriendMapProps = {pins: Pin[]; own: Pin | null; ownAppearance?: AvatarAppearance; /** Friends' saved wardrobe outfits ('pending' = neutral placeholder, missing = classic art). */ friendOutfits?: ReadonlyMap<string, FriendOutfitValue>; trail: Point[]; selectedId: string | null; focusOwn: number; focusNetherlands: number; onSelect: (id: string | null) => void; onLocate: () => void};
+
+/*
+ * Custom avatar markers (react-native-svg inside react-native-maps <Marker>):
+ * - Every marker child has a FIXED width/height (no intrinsic sizing), so the native marker view is
+ *   never measured as 0×0 / clipped while the SVG is still laying out.
+ * - collapsable={false} keeps the wrapper view on Android so the snapshot isn't blank.
+ * - tracksViewChanges is true for a short moment after mount and whenever the avatar changes (outfit
+ *   arrives from the cache, selection, own outfit/appearance edit), then false. Google Maps (Android, or
+ *   iOS with the Google provider) snapshots the view: switching it off too early gives blank markers,
+ *   leaving it on re-renders bitmaps every frame. Apple Maps (iOS default, no provider set here) hosts
+ *   the live view and ignores this prop.
+ * - Feet on the coordinate: `anchor` for Google Maps, `centerOffset` (points) for Apple Maps, which
+ *   otherwise centres the view on the coordinate.
+ * No native modules beyond react-native-maps / react-native-svg (both already in the app).
+ */
+const FIG_W = 82;
+const FIG_H = Math.round(FIG_W * 119 / 82);
+const FRIEND_W = 88;
+const FRIEND_H = FIG_H + 4;
+const OWN_W = 100;
+const OWN_FEET = FIG_H + 2; // feet line inside the own marker (the "Ik nu" badge hangs below it)
+const OWN_H = OWN_FEET + 34;
+const TRACK_MS = 700;
+
+/** true right after mount and after `key` changes, false once the SVG had time to draw. */
+function useTracksViewChanges(key: string): boolean {
+  const [state, setState] = useState({key, tracking: true});
+  if (state.key !== key) setState({key, tracking: true});
+  const tracking = state.key !== key || state.tracking;
+  useEffect(() => {
+    if (!tracking) return;
+    const timer = setTimeout(() => setState(current => current.key === key ? {key, tracking: false} : current), TRACK_MS);
+    return () => clearTimeout(timer);
+  }, [key, tracking]);
+  return tracking;
+}
+
+const FriendMarker = React.memo(function FriendMarker({pin, outfit, selected, onSelect}: {pin: Pin; outfit: FriendOutfitValue | undefined; selected: boolean; onSelect: (id: string | null) => void}) {
+  const tracks = useTracksViewChanges(`${selected ? 1 : 0}|${outfit ? JSON.stringify(outfit) : '-'}`);
+  return <Marker
+    coordinate={{latitude: pin.latitude, longitude: pin.longitude}}
+    onPress={() => onSelect(pin.id)}
+    title={pin.name}
+    description="Deelt locatie met vrienden"
+    anchor={{x: 0.5, y: 1}}
+    centerOffset={{x: 0, y: -FRIEND_H / 2}}
+    tracksViewChanges={tracks}
+  >
+    <View collapsable={false} style={[styles.avatarPin, selected && styles.selectedPin]}><FriendAvatarFigure id={pin.id} outfit={outfit} size={FIG_W}/></View>
+  </Marker>;
+});
+
+function OwnMarker({own, appearance}: {own: Pin; appearance?: AvatarAppearance}) {
+  const outfit = useOwnOutfit(own.id);
+  const tracks = useTracksViewChanges(`${outfit ? JSON.stringify(outfit) : '-'}|${appearance ? JSON.stringify(appearance) : '-'}`);
+  return <Marker
+    coordinate={{latitude: own.latitude, longitude: own.longitude}}
+    title="Jij"
+    description="Jouw huidige locatie"
+    zIndex={2}
+    anchor={{x: 0.5, y: OWN_FEET / OWN_H}}
+    centerOffset={{x: 0, y: OWN_H / 2 - OWN_FEET}}
+    tracksViewChanges={tracks}
+  >
+    <View collapsable={false} style={styles.ownMarker}><View style={styles.glow}><OwnAvatarFigure userId={own.id} appearance={appearance} size={FIG_W}/></View><View style={styles.nowBadge}><Text style={styles.nowText}>Ik nu</Text></View></View>
+  </Marker>;
+}
 
 // Start at a city scale in central Netherlands. The map itself has no pan
 // boundary, so Zeeland, the Wadden and every other Dutch region remain reachable.
@@ -24,7 +94,7 @@ const DARK_MAP = [
   {featureType: 'poi', stylers: [{visibility: 'off'}]},
 ];
 
-export default function FriendMap({pins, own, ownAppearance, trail, selectedId, focusOwn, focusNetherlands, onSelect, onLocate}: Props) {
+export default function FriendMap({pins, own, ownAppearance, friendOutfits, trail, selectedId, focusOwn, focusNetherlands, onSelect, onLocate}: FriendMapProps) {
   const map = useRef<MapView>(null);
   const region = useRef<Region>(NETHERLANDS);
   const [ready, setReady] = useState(false);
@@ -95,18 +165,8 @@ export default function FriendMap({pins, own, ownAppearance, trail, selectedId, 
       accessibilityLabel="Interactieve kaart van Nederland"
     >
       {trail.length > 1 && <Polyline coordinates={trail} strokeColor="#FFE436" strokeWidth={4} lineDashPattern={[4, 5]}/>}
-      {pins.map(pin => <Marker
-        key={pin.id}
-        coordinate={{latitude: pin.latitude, longitude: pin.longitude}}
-        onPress={() => onSelect(pin.id)}
-        title={pin.name}
-        description="Deelt locatie met vrienden"
-      >
-        <View style={[styles.avatarPin, selectedId === pin.id && styles.selectedPin]}><MapExplorer id={pin.id}/></View>
-      </Marker>)}
-      {own && <Marker coordinate={{latitude: own.latitude, longitude: own.longitude}} title="Jij" description="Jouw huidige locatie" zIndex={2}>
-        <View style={styles.ownMarker}><View style={styles.glow}><MapExplorer id={own.id} own appearance={ownAppearance}/></View><View style={styles.nowBadge}><Text style={styles.nowText}>Ik nu</Text></View></View>
-      </Marker>}
+      {pins.map(pin => <FriendMarker key={pin.id} pin={pin} outfit={friendOutfits?.get(pin.id)} selected={selectedId === pin.id} onSelect={onSelect}/>)}
+      {own && <OwnMarker own={own} appearance={ownAppearance}/>}
     </MapView>
     <View style={styles.controls} pointerEvents="box-none">
       <Pressable style={styles.control} onPress={() => zoom(0.55)} accessibilityLabel="Inzoomen"><Ionicons name="add" size={25} color="#fff"/></Pressable>
@@ -119,10 +179,10 @@ export default function FriendMap({pins, own, ownAppearance, trail, selectedId, 
 
 const styles = StyleSheet.create({
   root: {flex: 1},
-  avatarPin: {width: 84, alignItems: 'center'},
+  avatarPin: {width: FRIEND_W, height: FRIEND_H, alignItems: 'center', justifyContent: 'flex-end', overflow: 'visible'},
   selectedPin: {backgroundColor: '#AE57DB22', borderRadius: 35},
-  ownMarker: {alignItems: 'center', width: 100, paddingBottom: 10},
-  glow: {borderRadius: 38, backgroundColor: '#FFE43622', shadowColor: '#FFE436', shadowOpacity: 0.95, shadowRadius: 18, shadowOffset: {width: 0, height: 0}, elevation: 10},
+  ownMarker: {alignItems: 'center', width: OWN_W, height: OWN_H, overflow: 'visible'},
+  glow: {width: FIG_W, height: FIG_H, marginTop: 2, borderRadius: 38, backgroundColor: '#FFE43622', shadowColor: '#FFE436', shadowOpacity: 0.95, shadowRadius: 18, shadowOffset: {width: 0, height: 0}, elevation: 10},
   nowBadge: {marginTop: -4, borderRadius: 15, backgroundColor: '#FFE436', paddingHorizontal: 13, paddingVertical: 5, shadowColor: '#FFE436', shadowOpacity: 0.9, shadowRadius: 12, elevation: 8},
   nowText: {color: '#211428', fontSize: 13, fontWeight: '900'},
   controls: {position: 'absolute', right: 15, bottom: 210, gap: 9},
