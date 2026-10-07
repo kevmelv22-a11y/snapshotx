@@ -12,7 +12,7 @@ export const avatarOptions = {
   skin: ['Licht', 'Warm', 'Getint', 'Bruin', 'Donker'],
   hair: ['Nachtzwart', 'Donkerbruin', 'Kastanje', 'Goudblond', 'Koper'],
   hairstyle: ['Kort', 'Golvend', 'Krullen', 'Pet'],
-  top: ['Paarse trui', 'Koraal jas', 'Nachtblauw pak', 'Gouden hoodie', 'Zwarte smoking', 'Mint trui'],
+  top: ['Paarse trui', 'Olijfgroene overshirt', 'Nachtblauw pak', 'Gouden hoodie', 'Zwarte smoking', 'Mint trui'],
   bottoms: ['Donkere broek', 'Lichte broek', 'Paarse broek', 'Rok'],
   shoes: ['Witte sneakers', 'Zwarte schoenen', 'Gele sneakers'],
   accessory: ['Geen', 'Ster', 'Bril', 'Ketting', 'Pet'],
