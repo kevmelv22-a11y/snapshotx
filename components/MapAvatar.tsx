@@ -45,7 +45,7 @@ export function MapAvatar({id, size = 54, selected = false, appearance}: Props) 
     <Circle cx="28" cy="30" r="1.7" fill="#362735"/><Circle cx="37" cy="30" r="1.7" fill="#362735"/><Circle cx="28.5" cy="29.5" r=".55" fill="#fff"/><Circle cx="37.5" cy="29.5" r=".55" fill="#fff"/>
     <Path d="m32 31-1.2 5q1.2 1.2 2.7 0" fill="none" stroke="#B67561" strokeWidth="1" strokeLinecap="round"/>
     <Path d="M27 39q5 4 10 0" fill="none" stroke="#914D51" strokeWidth="1.8" strokeLinecap="round"/><Path d="M29 39.5q3 1 6 0" fill="none" stroke="#F8C2AD" strokeWidth=".9" strokeLinecap="round"/>
-    {appearance?.accessory === 4 && <G fill="#9F2436" stroke="#F08A8E" strokeWidth=".7"><Path d="M24 15Q19 6 22 5q6 2 9 9Z"/><Path d="M40 14q3-10 9-9 2 2-3 11Z"/></G>}
+    {appearance?.accessory === 4 && <G><Path d="M17 19Q18 8 32 7Q46 7 47 18L43 21Q31 17 20 22Z" fill="#26384D" stroke="#8190A3" strokeWidth=".8"/><Path d="M18 18Q31 15 47 18L52 21Q50 23 46 22Q31 18 18 23Z" fill="#334B66" stroke="#8190A3" strokeWidth=".7"/></G>}
     {appearance?.accessory === 3 && <G fill="none" stroke="#231D2C" strokeWidth="1.5"><Rect x="21" y="27" width="11" height="7" rx="3"/><Rect x="33" y="27" width="11" height="7" rx="3"/><Path d="M32 29h2"/></G>}
     {appearance?.accessory === 1 && <Path d="m32 5 1.6 3.4 3.7.5-2.7 2.6.7 3.7-3.3-1.8-3.3 1.8.7-3.7-2.7-2.6 3.7-.5Z" fill="#FFE436" stroke="#FFF3AC" strokeWidth=".7"/>}
   </Svg>;
@@ -97,8 +97,8 @@ export function MapExplorer({id, own = false, appearance, size = 82}: {id: strin
     <Ellipse cx="23" cy="29" rx="2.5" ry="5" fill={skin}/><Ellipse cx="59" cy="29" rx="2.5" ry="5" fill={skin}/>
     {hairstyle===2?<Path d="M22 24Q15 7 29 5q5-7 13-2 12-5 17 7 7 11 2 19-7-5-12-15-9 11-27 10Z" fill="url(#locks)"/>:hairstyle===1?<Path d="M22 24Q19 5 34 4q12-3 20 8 7 9 3 19-8-3-12-15-8 10-23 11Z" fill="url(#locks)"/>:<Path d="M22 23Q19 4 41 4q22 0 19 23-9-3-13-15-9 10-25 12Z" fill="url(#locks)"/>}
     <Path d="M29 10q8-6 19-3" fill="none" stroke="#FFE7B0" strokeWidth="2" strokeLinecap="round" opacity=".85"/>
-    {horns&&<G fill="#96263A" stroke="#F17B81" strokeWidth=".8"><Path d="M26 16Q17 8 19 4q7 1 12 9Z"/><Path d="M53 16q9-8 7-12-7 1-12 9Z"/></G>}
-    <Path d="M29 24q4-3 8-.5m4 0q4-3 8 .5" fill="none" stroke="#35232C" strokeWidth="1.8" strokeLinecap="round"/>
+    {appearance?.accessory===4&&<G><Path d="M22 16Q25 5 41 5Q56 5 60 16L55 19Q41 15 26 20Z" fill="#26384D" stroke="#8190A3" strokeWidth=".8"/><Path d="M22 16Q40 12 60 16L66 20Q63 22 58 21Q40 17 22 21Z" fill="#334B66" stroke="#8190A3" strokeWidth=".7"/></G>}
+    <Ellipse cx="30" cy="34" rx="4" ry="1.7" fill="#C87978" opacity=".18"/><Ellipse cx="50" cy="34" rx="4" ry="1.7" fill="#C87978" opacity=".18"/><Path d="M29 24q4-3 8-.5m4 0q4-3 8 .5" fill="none" stroke="#35232C" strokeWidth="1.8" strokeLinecap="round"/>
     <Ellipse cx="33" cy="28" rx="3.8" ry="3" fill="#FFF"/><Ellipse cx="47" cy="28" rx="3.8" ry="3" fill="#FFF"/>
     <Circle cx="34" cy="28" r="1.8" fill="#2B2330"/><Circle cx="46" cy="28" r="1.8" fill="#2B2330"/>
     <Path d="m40 30-1 5q1 1 2 0" fill="none" stroke="#B67360" strokeWidth="1.2" strokeLinecap="round"/><Path d="M36 39q5 4 10 0" fill="none" stroke="#8E4C54" strokeWidth="2" strokeLinecap="round"/>
