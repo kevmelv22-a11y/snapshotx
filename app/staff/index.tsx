@@ -10,7 +10,7 @@ import { C } from '../../lib/theme';
 
 type Section = 'dashboard' | 'users' | 'moderation' | 'bans' | 'reports' | 'logs' | 'settings';
 type Report = { id: string; reporter_id: string; message_id: string | null; story_id: string | null; reason: string; status: string; created_at: string; review_note: string | null };
-type Audit = { id: string; action: string; entity_type: string | null; entity_id: string | null; created_at: string; metadata?: Record<string,unknown> | null };
+type Audit = { id: string; actor_id: string|null; action: string; entity_type: string | null; entity_id: string | null; created_at: string; metadata?: Record<string,unknown> | null };
 type Person = { id: string; username: string | null; display_name: string | null; created_at: string | null; is_verified: boolean | null };
 type BanEntry = { id: string; ban_type: 'user'|'ip'|'device'; target_user_id: string|null; target_ip: string|null; target_device_id: string|null; issued_by: string|null; reason: string; created_at: string; ends_at: string|null; revoked_at: string|null };
 type LoginEvent = { id: string; user_id: string; logged_at: string; ip_address: string|null; device_id: string; device_label: string|null; user_agent: string|null };
@@ -71,7 +71,7 @@ export default function StaffPanel() {
     if(bansResult.error)setNotice(`Banoverzicht niet geladen: ${bansResult.error.message}`);
     else setBanEntries((bansResult.data||[]).filter(row=>!row.ends_at||new Date(row.ends_at).getTime()>Date.now()));
     if(isStaff){
-      const {data,error}=await supabase.from('audit_logs').select('id,action,entity_type,entity_id,created_at,metadata').order('created_at',{ascending:false}).limit(100);
+      const {data,error}=await supabase.from('audit_logs').select('id,actor_id,action,entity_type,entity_id,created_at,metadata').order('created_at',{ascending:false}).limit(100);
       if(error)setNotice(`Auditlog niet geladen: ${error.message}`);else setAudit(data||[]);
     }
   }, [isAdmin,isStaff]);
