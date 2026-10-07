@@ -62,7 +62,6 @@ export function MapExplorer({id, own = false, appearance, size = 82}: {id: strin
   const shoes = appearance ? SHOES[appearance.shoes] : own ? '#FFE436' : '#F7F5FA';
   const hairstyle = appearance?.hairstyle ?? ((hash >>> 5) % 3);
   const wings = false;
-  const horns = false;
   const suit = appearance?.top === 2 || appearance?.top === 4;
   const dress = appearance?.bottoms === 3;
   return <Svg width={size} height={size * 119 / 82} viewBox="0 0 82 119" accessibilityLabel={own ? 'Mijn aangepaste avatar' : 'SnapLion-avatar'}>
