@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import MapView, {Marker, Polyline, type Region} from 'react-native-maps';
@@ -34,6 +34,8 @@ const OWN_W = 100;
 const OWN_FEET = FIG_H + 2; // feet line inside the own marker (the "Ik nu" badge hangs below it)
 const OWN_H = OWN_FEET + 34;
 const TRACK_MS = 700;
+/** Map taps this soon after a marker tap belong to that marker tap (see `onPress` on the MapView). */
+const MARKER_TAP_GRACE_MS = 400;
 
 /** true right after mount and after `key` changes, false once the SVG had time to draw. */
 function useTracksViewChanges(key: string): boolean {
@@ -53,6 +55,7 @@ const FriendMarker = React.memo(function FriendMarker({pin, outfit, selected, on
   return <Marker
     coordinate={{latitude: pin.latitude, longitude: pin.longitude}}
     onPress={() => onSelect(pin.id)}
+    stopPropagation
     title={pin.name}
     description="Deelt locatie met vrienden"
     anchor={{x: 0.5, y: 1}}
@@ -99,6 +102,11 @@ export default function FriendMap({pins, own, ownAppearance, friendOutfits, trai
   const region = useRef<Region>(NETHERLANDS);
   const [ready, setReady] = useState(false);
   const centeredOnMe = useRef(false);
+  const lastMarkerTap = useRef(0);
+  // Apple Maps (iOS) reports a marker tap twice: as the marker's onPress AND as a plain MapView onPress (the map's
+  // own tap recognizer also sees the touch). Without this guard the map press cleared the selection right after the
+  // marker selected it, so tapping a friend on the iOS map never selected them (seen in the iOS 27 simulator).
+  const selectFromMarker = useCallback((id: string | null) => { lastMarkerTap.current = Date.now(); onSelect(id); }, [onSelect]);
 
   useEffect(() => {
     if (!ready || !own || centeredOnMe.current) return;
@@ -153,7 +161,10 @@ export default function FriendMap({pins, own, ownAppearance, friendOutfits, trai
       customMapStyle={[...DARK_MAP]}
       onMapReady={() => setReady(true)}
       onRegionChangeComplete={next => { region.current = next; }}
-      onPress={() => onSelect(null)}
+      onPress={event => {
+        if (event.nativeEvent.action === 'marker-press' || Date.now() - lastMarkerTap.current < MARKER_TAP_GRACE_MS) return;
+        onSelect(null);
+      }}
       showsCompass
       showsScale
       zoomEnabled
@@ -165,7 +176,7 @@ export default function FriendMap({pins, own, ownAppearance, friendOutfits, trai
       accessibilityLabel="Interactieve kaart van Nederland"
     >
       {trail.length > 1 && <Polyline coordinates={trail} strokeColor="#FFE436" strokeWidth={4} lineDashPattern={[4, 5]}/>}
-      {pins.map(pin => <FriendMarker key={pin.id} pin={pin} outfit={friendOutfits?.get(pin.id)} selected={selectedId === pin.id} onSelect={onSelect}/>)}
+      {pins.map(pin => <FriendMarker key={pin.id} pin={pin} outfit={friendOutfits?.get(pin.id)} selected={selectedId === pin.id} onSelect={selectFromMarker}/>)}
       {own && <OwnMarker own={own} appearance={ownAppearance}/>}
     </MapView>
     <View style={styles.controls} pointerEvents="box-none">

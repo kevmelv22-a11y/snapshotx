@@ -95,9 +95,17 @@ export default function MapScreen() {
           setNotice('Geef locatietoegang om jezelf live op de kaart te zien.');
           return;
         }
-        const first = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced});
+        // expo-location rejects with long English native text (FunctionCallException … kCLErrorDomain error 0 when no fix
+        // is available yet); keep that in the console and show a short Dutch notice instead.
+        const first = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced}).catch((error: unknown) => {
+          console.warn('Locatie bepalen mislukt', error);
+          return null;
+        });
         if (cancelled) return;
+        if (!first) { setNotice('Je locatie kon niet worden bepaald. Controleer je locatie-instellingen en probeer het opnieuw.'); return; }
         setOwn({id: uid, name: 'Ik nu', latitude: first.coords.latitude, longitude: first.coords.longitude});
+        // Watch errors (2nd callback) are transient CoreLocation hiccups that arrive as raw English native text; show a
+        // Dutch notice instead, the watcher keeps running and recovers by itself.
         const watcher = await Location.watchPositionAsync({accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 5}, position => {
           if (cancelled) return;
           const {latitude, longitude} = position.coords;
@@ -111,7 +119,7 @@ export default function MapScreen() {
             const {error} = await supabase.from('sx_locations').upsert({user_id: uid, latitude, longitude, sharing: true, updated_at: new Date().toISOString()});
             if (error) throw error;
           }).catch(error => { setNotice((error as Error).message); });
-        }, reason => setNotice(reason));
+        }, () => setNotice('Je locatie kon even niet worden bepaald. We proberen het automatisch opnieuw.'));
         if (cancelled) watcher.remove(); else subscription = watcher;
       } catch (error) { if (!cancelled) setNotice((error as Error).message); }
     })();
