@@ -5,7 +5,7 @@
  * from AsyncStorage. Nothing here touches payments: unlocked ids come from the MOCK purchase flow.
  */
 import { supabase } from '../supabase';
-import { parseFriendRows } from './friendOutfits';
+import { fetchInChunks, parseFriendRows } from './friendOutfits';
 import { parseOutfit, type Outfit, type SyncSnapshot } from './outfit';
 import { WARDROBE_ITEMS } from './wardrobeItems';
 
@@ -64,9 +64,13 @@ export async function pushRemoteOutfit(userId: string, outfit: Outfit, unlocked:
 export async function fetchFriendOutfits(userIds: string[]): Promise<Map<string, Outfit> | undefined> {
   if (!userIds.length) return new Map();
   try {
-    const { data, error } = await supabase.rpc('sx_friend_avatar_outfits', { p_user_ids: userIds.slice(0, 200) });
-    if (error) warnOnce('vrienden', error.message);
-    return parseFriendRows(data, error, outfit => parseOutfit(outfit, WARDROBE_ITEMS));
+    // The RPC rejects more than 200 ids with an error (never silently drops them); the cache already batches
+    // at 200, and fetchInChunks keeps any caller safe. An error => undefined => back off, nothing cached.
+    return await fetchInChunks(userIds, async chunk => {
+      const { data, error } = await supabase.rpc('sx_friend_avatar_outfits', { p_user_ids: chunk });
+      if (error) warnOnce('vrienden', error.message);
+      return parseFriendRows(data, error, outfit => parseOutfit(outfit, WARDROBE_ITEMS));
+    });
   } catch (e) {
     warnOnce('vrienden', e instanceof Error ? e.message : String(e));
     return undefined;

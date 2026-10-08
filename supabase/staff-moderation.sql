@@ -109,7 +109,8 @@ begin
     'stories','story_views','private_stories','private_story_members','memories','notifications','calls','call_members','activity_events',
     'reports','moderation_cases','warnings','suspensions','bans','appeals',
     'sx_friend_requests','sx_friends','sx_threads','sx_members','sx_messages','sx_receipts','sx_stories','sx_story_views','sx_story_reactions',
-    'sx_preferences','sx_push_tokens','sx_push_deliveries','sx_push_recipient_deliveries','sx_locations','sx_daily_activity','sx_reports','sx_blocks'
+    'sx_preferences','sx_push_tokens','sx_push_deliveries','sx_push_recipient_deliveries','sx_locations','sx_daily_activity','sx_reports','sx_blocks',
+    'sx_avatar_outfits'
   ] loop
     if to_regclass('public.'||t) is not null then
       execute format('drop policy if exists sx_active_ban_guard on public.%I', t);

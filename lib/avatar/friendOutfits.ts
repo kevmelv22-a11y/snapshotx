@@ -92,7 +92,7 @@ export function createFriendOutfitCache<T>(fetcher: FriendOutfitFetcher<T>, opts
   const minRefresh = opts.minRefreshMs ?? 5_000;
   const retry = opts.retryUnavailableMs ?? 2 * 60_000;
   const delay = opts.batchDelayMs ?? 30;
-  const maxBatch = Math.max(1, Math.min(200, opts.maxBatch ?? 200));
+  const maxBatch = Math.max(1, Math.min(FRIEND_RPC_MAX_IDS, opts.maxBatch ?? FRIEND_RPC_MAX_IDS));
   const maxPending = opts.maxPendingMs ?? 4_000;
   const maxStoredAge = opts.maxStoredAgeMs ?? 30 * 24 * 60 * 60_000;
   const prefix = opts.storagePrefix ?? FRIEND_OUTFIT_STORAGE_PREFIX;
@@ -286,6 +286,25 @@ export function createFriendOutfitCache<T>(fetcher: FriendOutfitFetcher<T>, opts
     clear: () => { entries.clear(); queued.clear(); askedAt.clear(); unverified.clear(); unavailableUntil = 0; notify(); },
   };
   return api;
+}
+
+/** Server limit of sx_friend_avatar_outfits(uuid[]): more ids raise an error (22023) instead of returning rows. */
+export const FRIEND_RPC_MAX_IDS = 200;
+
+/**
+ * Calls `fetchChunk` with at most FRIEND_RPC_MAX_IDS ids per call and merges the rows. If ANY chunk is unavailable
+ * (error, e.g. the >200 guard, missing RPC, offline) the whole result is undefined, so the cache backs off and
+ * never records "no outfit" for ids whose rows were simply not fetched.
+ */
+export async function fetchInChunks<T>(ids: readonly string[], fetchChunk: (chunk: string[]) => Promise<Map<string, T> | undefined>, size = FRIEND_RPC_MAX_IDS): Promise<Map<string, T> | undefined> {
+  const step = Math.max(1, Math.min(FRIEND_RPC_MAX_IDS, size));
+  const out = new Map<string, T>();
+  for (let i = 0; i < ids.length; i += step) {
+    const rows = await fetchChunk(ids.slice(i, i + step));
+    if (!rows) return undefined;
+    for (const [id, value] of rows) out.set(id, value);
+  }
+  return out;
 }
 
 /**
