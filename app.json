@@ -56,7 +56,8 @@
       "expo-video",
       "expo-audio",
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      "./plugins/withIosSceneLifecycle"
     ],
     "scheme": "snapshotx",
     "backgroundColor": "#08090E",
