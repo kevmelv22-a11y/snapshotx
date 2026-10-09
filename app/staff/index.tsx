@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { useStaffRoles, type StaffRole } from '../../hooks/useStaffRoles';
 import { auditTargetLabel, banIdsWithoutTarget, formatStaffTime, isUuid, missingBanUserIds, type BanRow, type ProfileName } from '../../lib/staff-audit';
 
 type Section = 'dashboard' | 'users' | 'moderation' | 'bans' | 'reports' | 'logs' | 'settings';
+type RoleConfirmation = { userId: string; username: string; role: StaffRole; grant: boolean } | null;
 type Report = { id: string; reporter_id: string; message_id: string | null; story_id: string | null; reason: string; status: string; created_at: string; review_note: string | null };
 type Audit = { id: string; actor_id: string|null; action: string; entity_type: string | null; entity_id: string | null; created_at: string; metadata?: Record<string,unknown> | null };
 type Person = { id: string; username: string | null; display_name: string | null; created_at: string | null; is_verified: boolean | null };
@@ -83,6 +84,7 @@ export default function StaffPanel() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [roleConfirmation, setRoleConfirmation] = useState<RoleConfirmation>(null);
 
   const load = useCallback(async () => {
     const [reportResult,peopleResult,bansResult]=await Promise.all([
@@ -129,27 +131,40 @@ export default function StaffPanel() {
   }
 
   async function manage(role: StaffRole, grant: boolean) {
+    if (busy) return;
     if (!username.trim()) { setNotice('Vul eerst een exacte gebruikersnaam in.'); return; }
     const { data: person, error: lookupError } = await supabase.from('profiles').select('id,username').eq('username', username.trim()).maybeSingle();
     if (lookupError || !person) { setNotice(lookupError?.message || 'Gebruiker niet gevonden.'); return; }
-    Alert.alert('Bevestig rolwijziging', `${grant ? 'Geef' : 'Verwijder'} ${role} voor @${person.username}?`, [
-      { text: 'Annuleren', style: 'cancel' }, { text: 'Bevestigen', onPress: async () => {
-        setBusy(true); const { error } = await supabase.rpc('sx_manage_staff_role', { p_user_id: person.id, p_role: role, p_grant: grant });
-        setBusy(false); setNotice(error?.message || 'Rolwijziging vastgelegd in de auditlog.');
-      } },
-    ]);
+    setRoleConfirmation({ userId: person.id, username: person.username || username.trim(), role, grant });
+  }
+
+  async function confirmRoleChange() {
+    if (!roleConfirmation || busy) return;
+    setBusy(true);
+    const { error } = await supabase.rpc('sx_manage_staff_role', {
+      p_user_id: roleConfirmation.userId,
+      p_role: roleConfirmation.role,
+      p_grant: roleConfirmation.grant,
+    });
+    setBusy(false);
+    setRoleConfirmation(null);
+    setNotice(error?.message || 'Rolwijziging vastgelegd in de auditlog.');
+    if (!error) {
+      setUsername('');
+      await load();
+    }
   }
 
   if (ready && !session) return <Redirect href="/(auth)/login" />;
   if (loading) return <View style={s.center}><Text style={s.muted}>Staffrechten controleren…</Text></View>;
-  if (!isStaff) return <View style={s.center}><Ionicons name="shield-checkmark-outline" size={38} color={s.color.accent} /><Text style={s.title}>Geen toegang</Text><Text style={s.muted}>Alleen aangewezen SNAPLION-staffleden kunnen dit paneel openen.</Text><Action label="Opnieuw controleren" onPress={() => void refresh()} /></View>;
+  if (!isStaff) return <View style={s.center}><Ionicons name="shield-checkmark-outline" size={38} color={s.color.accent} /><Text style={s.title}>Geen toegang</Text><Text style={s.muted}>Alleen aangewezen Snapshot X-staffleden kunnen dit paneel openen.</Text><Action label="Opnieuw controleren" onPress={() => void refresh()} /></View>;
 
   return <View style={[s.root, { paddingTop: insets.top }]}>
     <View style={s.topbar}>
-      <View style={s.brand}><View style={s.brandMark}><Ionicons name="shield-checkmark" size={18} color="#fff" /></View><View><Text style={s.brandTitle}>SNAPLION</Text><Text style={s.brandSub}>STAFF CONSOLE</Text></View></View>
+      <View style={s.brand}><View style={s.brandMark}><Ionicons name="shield-checkmark" size={18} color="#fff" /></View><View><Text style={s.brandTitle}>Snapshot X</Text><Text style={s.brandSub}>STAFF CONSOLE</Text></View></View>
       {wideLayout && <View style={s.headerSearch}><Ionicons name="search-outline" size={16} color={s.color.muted} /><TextInput value={query} onChangeText={setQuery} onFocus={() => setSection('users')} placeholder="Zoek gebruiker of ID" placeholderTextColor={s.color.muted} style={s.headerSearchInput} autoCapitalize="none" /></View>}
       <Pressable onPress={() => setSection('reports')} style={s.headerIcon} accessibilityLabel="Meldingen openen"><Ionicons name="notifications-outline" size={19} color={s.color.text} />{openReports > 0 && <View style={s.notificationDot} />}</Pressable>
-      <Pressable onPress={() => setSection('settings')} style={s.staffProfile}><View style={s.onlineDot} /><View><Text style={s.staffRole}>{roles[0] || 'Staff'}</Text><Text style={s.staffEmail}>{session?.user.email || 'SNAPLION staff'}</Text></View><Ionicons name="chevron-down" size={13} color={s.color.muted} /></Pressable>
+      <Pressable onPress={() => setSection('settings')} style={s.staffProfile}><View style={s.onlineDot} /><View><Text style={s.staffRole}>{roles[0] || 'Staff'}</Text><Text style={s.staffEmail}>{session?.user.email || 'Snapshot X staff'}</Text></View><Ionicons name="chevron-down" size={13} color={s.color.muted} /></Pressable>
       <Pressable onPress={() => void load()} style={s.refresh} accessibilityLabel="Ververs staffgegevens"><Ionicons name="refresh" size={19} color={s.color.text} /></Pressable>
     </View>
     <View style={wideLayout ? s.wideBody : s.mobileBody}>
@@ -164,7 +179,7 @@ export default function StaffPanel() {
       <View style={s.headingRow}><View><Text style={s.eyebrow}>BEVEILIGDE MODERATIE</Text><Text style={s.pageTitle}>{NAV.find(x => x.id === section)?.label}</Text></View><View style={s.datePill}><Ionicons name="lock-closed-outline" size={13} color={s.color.muted} /><Text style={s.dateText}>Privé & afgeschermd</Text></View></View>
       {!!notice && <Pressable onPress={() => setNotice('')} style={s.notice}><Ionicons name="information-circle-outline" size={18} color={s.color.accent} /><Text style={s.noticeText}>{notice}</Text><Ionicons name="close" size={16} color={s.color.muted} /></Pressable>}
       {section === 'dashboard' && <>
-        <View style={s.hero}><View style={s.heroCopy}><Text style={s.heroKicker}>SNAPLION OPERATIONS</Text><Text style={s.heroTitle}>Goed dat je er bent.</Text><Text style={s.heroSub}>Moderatie en veiligheid, helder op één plek.</Text></View><View style={s.heroIcon}><Ionicons name="sparkles-outline" size={25} color={s.color.accent} /></View></View>
+        <View style={s.hero}><View style={s.heroCopy}><Text style={s.heroKicker}>Snapshot X OPERATIONS</Text><Text style={s.heroTitle}>Goed dat je er bent.</Text><Text style={s.heroSub}>Moderatie en veiligheid, helder op één plek.</Text></View><View style={s.heroIcon}><Ionicons name="sparkles-outline" size={25} color={s.color.accent} /></View></View>
         <View style={s.statsGrid}><Stat icon="people-outline" label="Gebruikers" value={String(people.length)} hint="Profielen geladen" /><Stat icon="flag-outline" label="Open meldingen" value={String(openReports)} hint="Wachtrij" /><Stat icon="ban-outline" label="Actieve bans" value={String(banEntries.length)} hint="Bans en lopende schorsingen" /><Stat icon="chatbubbles-outline" label="Gesprekken" value={String(chats.length)} hint="Redenplichtige inzage" /></View>
         <View style={s.card}><View style={s.cardHead}><Text style={s.cardTitle}>Recente meldingen</Text><Pressable onPress={() => setSection('reports')}><Text style={s.link}>Alles bekijken</Text></Pressable></View>{reports.slice(0, 4).map(r => <ReportRow key={r.id} report={r} onPress={() => setSection('reports')} />)}{!reports.length && <Empty text="Er staan nog geen meldingen in de wachtrij." />}</View>
         <View style={s.privacyCard}><Ionicons name="eye-off-outline" size={19} color={s.color.accent} /><View style={{ flex: 1 }}><Text style={s.cardTitle}>Privacybewuste toegang</Text><Text style={s.muted}>Elke chatopening is redenplichtig en komt met actor, doel, reden en tijd in de auditlog.</Text></View></View>
@@ -180,7 +195,7 @@ export default function StaffPanel() {
       {section==='moderation'&&(activeChat?<><View style={s.cardHead}><Action label="← Gesprekken" quiet disabled={busy} onPress={()=>{setActiveChat(null);setChatMessages([])}}/><Text style={s.muted}>{activeChat.member_count} deelnemers · geopend met auditlog</Text></View><View style={s.search}><Ionicons name="search-outline" size={18} color={s.color.muted}/><TextInput value={messageQuery} onChangeText={setMessageQuery} placeholder="Zoek berichten, type of afzender" placeholderTextColor={s.color.muted} style={s.searchInput} autoCapitalize="none"/></View>{filteredMessages.map(m=><View key={m.message_id} style={s.reportCard}><Text style={s.muted}>{m.sender_id.slice(0,8)}… · {new Date(m.created_at).toLocaleString('nl-NL')} · {m.kind}</Text><Text style={s.reportReason}>{m.is_deleted?'Verwijderd':m.body||'[media / geen tekst]'}</Text>{!m.is_deleted&&<Action label="Bericht verwijderen" quiet disabled={busy} onPress={()=>{setDeleteTarget(m);setDeleteReason('')}}/>}</View>)}{!filteredMessages.length&&<Empty text={chatMessages.length?'Geen berichten gevonden.':'Geen beschikbare berichten.'}/>}</>:<><Text style={s.sectionIntro}>Openen vraagt een reden; elke gespreksinzage wordt vastgelegd. Verlopen snaps worden niet getoond.</Text><View style={s.search}><Ionicons name="search-outline" size={18} color={s.color.muted}/><TextInput value={query} onChangeText={setQuery} placeholder="Zoek gesprek of ID" placeholderTextColor={s.color.muted} style={s.searchInput} autoCapitalize="none"/></View>{filteredChats.map(c=><Pressable key={c.thread_id} onPress={()=>{setChatPending(c);setChatReason('')}} style={s.personRow}><View style={s.avatar}><Ionicons name="chatbubbles-outline" size={18} color={s.color.accent}/></View><View style={{flex:1}}><Text style={s.personName}>{c.title||'Privégesprek'}</Text><Text style={s.muted}>{c.member_count} deelnemers · {c.thread_id.slice(0,10)}…</Text></View><Text style={s.personDate}>{c.last_message_at?new Date(c.last_message_at).toLocaleDateString('nl-NL'):'—'}</Text></Pressable>)}{!filteredChats.length&&<Empty text="Geen gesprekken gevonden."/>}</>)}
       {section === 'bans' && <><Text style={s.sectionIntro}>Actieve user-, IP- en devicebans. Unban vereist een reden en wordt gelogd.</Text>{banEntries.map(entry=>{const p=entry.target_user_id?people.find(x=>x.id===entry.target_user_id):null;const target=entry.ban_type==='user'?(p?`@${p.username||p.display_name}`:`User ${entry.target_user_id?.slice(0,8)}…`):entry.ban_type==='ip'?`IP ${entry.target_ip}`:`Device ${entry.target_device_id?.slice(0,8)}…`;return <View key={entry.id} style={s.reportCard}><View style={s.cardHead}><View><Text style={s.personName}>{target}</Text><Text style={s.muted}>{entry.ban_type.toUpperCase()} · door {(entry.issued_by||'onbekend').slice(0,8)}…</Text></View><Text style={s.statusText}>{entry.ends_at?'Tijdelijk':'Permanent'}</Text></View><Text style={s.reportReason}>{entry.reason}</Text><Text style={s.muted}>{new Date(entry.created_at).toLocaleString('nl-NL')}{entry.ends_at?` · verloopt ${new Date(entry.ends_at).toLocaleString('nl-NL')}`:''}</Text><Action label="Unban" quiet disabled={busy} onPress={()=>{setRevokeTarget(entry);setRevokeReason('')}}/></View>})}{!banEntries.length && <Empty text="Geen actieve bans of schorsingen gevonden." />}</>}
       {section === 'reports' && <><Text style={s.sectionIntro}>Meldingen beoordelen. Elke beslissing wordt server-side gecontroleerd en in het auditlog vastgelegd.</Text>{reports.map(report => <View key={report.id} style={s.reportCard}><ReportRow report={report} /><Text style={s.reportReason}>{report.reason}</Text><Text style={s.muted}>Melder {report.reporter_id.slice(0, 8)}… · {report.message_id ? 'Chatbericht' : 'Story'} · {new Date(report.created_at).toLocaleString('nl-NL')}</Text>{report.review_note && <Text style={s.noteText}>Notitie: {report.review_note}</Text>}{(report.status === 'open' || report.status === 'reviewing') && <><TextInput value={notes[report.id] || ''} onChangeText={value => setNotes(previous => ({ ...previous, [report.id]: value }))} maxLength={1000} placeholder="Interne notitie (optioneel)" placeholderTextColor={s.color.muted} style={s.noteInput} /><View style={s.actions}><Action label={report.status === 'open' ? 'In behandeling' : 'In behandeling'} quiet disabled={busy || report.status === 'reviewing'} onPress={() => void review(report.id, 'reviewing')} /><Action label="Afhandelen" disabled={busy} onPress={() => void review(report.id, 'resolved')} /><Action label="Afwijzen" quiet disabled={busy} onPress={() => void review(report.id, 'dismissed')} /></View></>}</View>)}{!reports.length && <Empty text="Geen meldingen ontvangen." />}</>}
-      {section === 'logs' && <>{audit.map(entry => <View key={entry.id} style={s.logRow}><View style={s.logMark}><Ionicons name="shield-checkmark-outline" size={15} color={s.color.accent} /></View><View style={{ flex: 1 }}><Text style={s.personName}>{entry.action}</Text><Text style={s.muted}>{entry.entity_type || 'Systeem'} · door {entry.actor_id ? '#' + entry.actor_id.slice(0, 8) : 'onbekend'} · target {auditTargetLabel(entry, profileNames, banLookup)}{entry.metadata?.reason ? ` · ${String(entry.metadata.reason)}` : ''}</Text></View><Text style={s.logDate}>{new Date(entry.created_at).toLocaleString('nl-NL')}</Text></View>)}{!audit.length && <Empty text="Nog geen auditacties zichtbaar." />}</>}{section === 'settings' && <><View style={s.card}><Text style={s.cardTitle}>Staffrollen</Text><Text style={s.muted}>Jouw rechten: {roles.join(', ')}. Rolwijzigingen worden server-side gevalideerd.</Text></View>{isAdmin && <View style={s.card}><Text style={s.cardTitle}>Rollen beheren</Text><Text style={s.muted}>Moderator beheren{isOwner ? ' · senior moderator en admin toekennen' : ''}</Text><TextInput value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="Exacte gebruikersnaam" placeholderTextColor={s.color.muted} style={s.noteInput} /><View style={s.actions}><Action label="Moderator geven" disabled={busy} onPress={() => void manage('MODERATOR', true)} /><Action label="Moderator intrekken" quiet disabled={busy} onPress={() => void manage('MODERATOR', false)} /></View>{isOwner && <View style={s.actions}><Action label="Senior moderator" disabled={busy} onPress={() => void manage('SENIOR MODERATOR', true)} /><Action label="Admin geven" quiet disabled={busy} onPress={() => void manage('ADMIN', true)} /></View>}</View>}<View style={s.infoBox}><Ionicons name="information-circle-outline" size={17} color={s.color.accent} /><Text style={s.muted}>Loginmomenten, IP en een willekeurige app-installatie-ID worden voor moderatiehistorie vastgelegd. Alleen bevoegde staffrollen kunnen deze gegevens inzien.</Text></View></>}
+      {section === 'logs' && <>{audit.map(entry => <View key={entry.id} style={s.logRow}><View style={s.logMark}><Ionicons name="shield-checkmark-outline" size={15} color={s.color.accent} /></View><View style={{ flex: 1 }}><Text style={s.personName}>{entry.action}</Text><Text style={s.muted}>{entry.entity_type || 'Systeem'} · door {entry.actor_id ? '#' + entry.actor_id.slice(0, 8) : 'onbekend'} · target {auditTargetLabel(entry, profileNames, banLookup)}{entry.metadata?.reason ? ` · ${String(entry.metadata.reason)}` : ''}</Text></View><Text style={s.logDate}>{new Date(entry.created_at).toLocaleString('nl-NL')}</Text></View>)}{!audit.length && <Empty text="Nog geen auditacties zichtbaar." />}</>}{section === 'settings' && <><View style={s.card}><Text style={s.cardTitle}>Staffrollen</Text><Text style={s.muted}>Jouw rechten: {roles.join(', ')}. Rolwijzigingen worden server-side gevalideerd.</Text></View>{isAdmin && <View style={s.card}><Text style={s.cardTitle}>Rollen beheren</Text><Text style={s.muted}>Moderator beheren{isOwner ? ' · senior moderator en admin toekennen' : ''}</Text><TextInput value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="Exacte gebruikersnaam" placeholderTextColor={s.color.muted} style={s.noteInput} /><View style={s.actions}><Action label="Moderator geven" disabled={busy} onPress={() => void manage('MODERATOR', true)} /><Action label="Moderator intrekken" quiet disabled={busy} onPress={() => void manage('MODERATOR', false)} /></View>{isOwner && <View style={s.actions}><Action label="Senior moderator geven" disabled={busy} onPress={() => void manage('SENIOR MODERATOR', true)} /><Action label="Senior moderator intrekken" quiet disabled={busy} onPress={() => void manage('SENIOR MODERATOR', false)} /><Action label="Admin geven" disabled={busy} onPress={() => void manage('ADMIN', true)} /><Action label="Admin intrekken" quiet disabled={busy} onPress={() => void manage('ADMIN', false)} /></View>}</View>}<View style={s.infoBox}><Ionicons name="information-circle-outline" size={17} color={s.color.accent} /><Text style={s.muted}>Loginmomenten, IP en een willekeurige app-installatie-ID worden voor moderatiehistorie vastgelegd. Alleen bevoegde staffrollen kunnen deze gegevens inzien.</Text></View></>}
     </ScrollView>
     </View>
     </View>
@@ -189,7 +204,21 @@ export default function StaffPanel() {
     <Modal visible={!!chatPending} transparent animationType="fade" onRequestClose={()=>setChatPending(null)}><View style={s.modalShade}><View style={s.modalCard}><Text style={s.cardTitle}>Gesprek openen</Text><Text style={s.muted}>{chatPending?.title||'Privégesprek'} · auditplichtig</Text><TextInput value={chatReason} onChangeText={setChatReason} maxLength={1000} placeholder="Reden voor inzage (min. 10 tekens)" placeholderTextColor={s.color.muted} style={s.noteInput}/><View style={s.actions}><Action label="Annuleren" quiet disabled={busy} onPress={()=>setChatPending(null)}/><Action label={busy?'Openen…':'Bevestigen en openen'} disabled={busy||chatReason.trim().length<10} onPress={()=>void openChat()}/></View></View></View></Modal>
     <Modal visible={!!deleteTarget} transparent animationType="fade" onRequestClose={()=>setDeleteTarget(null)}><View style={s.modalShade}><View style={s.modalCard}><Text style={s.cardTitle}>Bericht verwijderen</Text><TextInput value={deleteReason} onChangeText={setDeleteReason} maxLength={1000} placeholder="Reden (min. 8 tekens)" placeholderTextColor={s.color.muted} style={s.noteInput}/><View style={s.actions}><Action label="Annuleren" quiet disabled={busy} onPress={()=>setDeleteTarget(null)}/><Action label={busy?'Verwijderen…':'Verwijderen'} disabled={busy||deleteReason.trim().length<8} onPress={()=>void removeMessage()}/></View></View></View></Modal>
     <Modal visible={!!revokeTarget} transparent animationType="fade" onRequestClose={()=>setRevokeTarget(null)}><View style={s.modalShade}><View style={s.modalCard}><Text style={s.cardTitle}>Unban bevestigen</Text><Text style={s.muted}>{revokeTarget?.ban_type} · {revokeTarget?.target_ip||revokeTarget?.target_user_id||revokeTarget?.target_device_id}</Text><TextInput value={revokeReason} onChangeText={setRevokeReason} maxLength={1000} placeholder="Reden voor unban (min. 8 tekens)" placeholderTextColor={s.color.muted} style={s.noteInput}/><View style={s.actions}><Action label="Annuleren" quiet disabled={busy} onPress={()=>setRevokeTarget(null)}/><Action label={busy?'Unban…':'Unban bevestigen'} disabled={busy||revokeReason.trim().length<8} onPress={()=>void revokeBan()}/></View></View></View></Modal>
-    
+    <Modal visible={!!roleConfirmation} transparent animationType="fade" onRequestClose={() => !busy && setRoleConfirmation(null)}>
+      <View style={s.modalShade}>
+        <View style={s.modalCard} accessibilityRole="alert">
+          <Text style={s.cardTitle}>Rolwijziging bevestigen</Text>
+          <Text style={s.muted}>
+            {roleConfirmation && `${roleConfirmation.grant ? 'Geef' : 'Trek in'} de rol ${roleConfirmation.role} voor @${roleConfirmation.username}?`}
+          </Text>
+          <Text style={s.muted}>De server controleert je bevoegdheid en schrijft de actie in de auditlog.</Text>
+          <View style={s.actions}>
+            <Action label="Annuleren" quiet disabled={busy} onPress={() => setRoleConfirmation(null)} />
+            <Action label={busy ? 'Opslaan…' : 'Bevestigen'} disabled={busy || !roleConfirmation} onPress={() => void confirmRoleChange()} />
+          </View>
+        </View>
+      </View>
+    </Modal>
   </View>;
 }
 
