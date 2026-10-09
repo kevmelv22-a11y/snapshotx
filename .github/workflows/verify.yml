@@ -2,9 +2,9 @@ name: Verify Expo app
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/snaplion-staff-console]
   push:
-    branches: [main]
+    branches: [main, feat/snaplion-staff-console]
 
 permissions:
   contents: read
