@@ -65,12 +65,12 @@ begin
   exception when others then
     v_headers := '{}'::jsonb;
   end;
-  v_ip_text := coalesce(v_headers->>'cf-connecting-ip', v_headers->>'x-real-ip', split_part(coalesce(v_headers->>'x-forwarded-for',''), ',', 1));
-  v_ip_text := nullif(trim(v_ip_text), '');
+  -- Match record-login-history: only use the proxy headers accepted there.
+  v_ip_text := coalesce(nullif(trim(v_headers->>'cf-connecting-ip'), ''), nullif(trim(v_headers->>'x-real-ip'), ''));
   if v_ip_text is not null then
     begin v_ip := v_ip_text::inet; exception when others then v_ip := null; end;
   end if;
-  v_device_text := nullif(v_headers->>'x-snaplion-device-id','');
+  v_device_text := nullif(trim(v_headers->>'x-snaplion-device-id'),'');
   if v_device_text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
     v_device := v_device_text::uuid;
   end if;

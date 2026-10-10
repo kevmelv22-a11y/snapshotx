@@ -27,6 +27,8 @@ jobs:
         run: npm ci
       - name: TypeScript
         run: npx tsc --noEmit
+      - name: Staff and migration contracts
+        run: node --experimental-strip-types --test lib/staff-audit.test.mjs supabase/tests/staff-console-migration.test.mjs
       - name: ESLint
         run: npx expo lint
       - name: Expo compatibility
