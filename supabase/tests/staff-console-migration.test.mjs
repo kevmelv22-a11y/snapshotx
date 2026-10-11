@@ -5,6 +5,13 @@ import test from 'node:test';
 const sql = await readFile(new URL('../migrations/20261010110000_staff_console_quick_fixes.sql', import.meta.url), 'utf8');
 const banGateSql = await readFile(new URL('../migrations/20261009103958_restore_staff_ban_gate.sql', import.meta.url), 'utf8');
 const loginHistoryEdge = await readFile(new URL('../functions/record-login-history/index.ts', import.meta.url), 'utf8');
+const activityTriggerSql = await readFile(new URL('../migrations/20261009212600_fix_activity_score_trigger.sql', import.meta.url), 'utf8');
+
+test('message activity trigger reads sender_id from sx_messages', () => {
+  const messageBranch = activityTriggerSql.match(/if tg_table_name = 'sx_messages' then([\s\S]*?)elsif tg_table_name = 'sx_stories' then/i)?.[1] || '';
+  assert.match(messageBranch, /activity_user_id := new\.sender_id;/i);
+  assert.doesNotMatch(messageBranch, /new\.owner_id/i);
+});
 
 for (const [name, signature] of [
   ['search users', 'public.sx_staff_search_users(text, uuid, integer)'],
