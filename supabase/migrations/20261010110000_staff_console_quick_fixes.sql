@@ -264,4 +264,8 @@ $$;
 revoke all on function public.sx_staff_list_roles(uuid, integer) from public, anon, authenticated;
 grant execute on function public.sx_staff_list_roles(uuid, integer) to authenticated;
 
+-- Make the RPC signatures available to PostgREST as soon as this migration is
+-- applied. This is a source-only migration; it has not been run against live.
+notify pgrst, 'reload schema';
+
 commit;

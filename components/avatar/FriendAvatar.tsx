@@ -1,5 +1,5 @@
 /**
- * A friend's avatar: their saved Bitmoji-kast outfit when we have it (hooks/useFriendOutfits), a neutral
+ * A friend's avatar: their saved Avatar-kast outfit when we have it (hooks/useFriendOutfits), a neutral
  * placeholder while that is still being looked up ('pending': persisted cache hydrating / first fetch), and
  * otherwise the existing classic art for that screen (MapAvatar / MapExplorer / initial bubble).
  * The placeholder is what keeps the classic art from flashing before the outfit arrives after an app start.

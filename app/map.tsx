@@ -189,7 +189,7 @@ export default function MapScreen() {
     else setMemories((data || []) as MemoryRow[]);
   }
 
-  // Friends' saved wardrobe outfits (batched + cached); friends without one keep the classic SnapLion art.
+  // Friends' saved wardrobe outfits (batched + cached); friends without one keep the classic avatar art.
   const friendOutfits = useFriendOutfits(pins.map(pin => pin.id), {live: true});
   const filtered = pins.filter(pin => pin.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const selected = pins.find(pin => pin.id === selectedId);
@@ -201,7 +201,7 @@ export default function MapScreen() {
           <Pressable style={styles.round} onPress={() => router.push('/(tabs)/profile')} accessibilityLabel="Mijn profiel"><OwnAvatar userId={uid} size={42} appearance={ownAppearance}/></Pressable>
           <Pressable style={styles.round} onPress={() => {if (searchOpen) setQuery(''); setSearchOpen(value => !value);}} accessibilityLabel="Vrienden op de kaart zoeken"><Ionicons name="search" size={23} color="#fff"/></Pressable>
         </View>
-        <View style={styles.placePill}><Text style={styles.title}>SNAPLION</Text><Text style={styles.placeSubtitle}>{selected ? selected.name : 'Nederland'}</Text></View>
+        <View style={styles.placePill}><Text style={styles.title}>SnapShot X</Text><Text style={styles.placeSubtitle}>{selected ? selected.name : 'Nederland'}</Text></View>
         <Pressable style={styles.round} onPress={() => router.push('/settings')} accessibilityLabel="Kaartinstellingen"><Ionicons name="settings-outline" size={23} color="#fff"/></Pressable>
       </View>
       {searchOpen && <View style={styles.search}><Ionicons name="search" size={20} color="#D9D0E4"/><TextInput autoFocus style={styles.input} value={query} onChangeText={setQuery} placeholder="Zoek vrienden op de kaart" placeholderTextColor="#C5BFCF" accessibilityLabel="Zoek vrienden op de kaart"/><Pressable onPress={() => {setQuery(''); setSearchOpen(false);}} accessibilityLabel="Zoeken sluiten"><Ionicons name="close" size={20} color="#fff"/></Pressable></View>}

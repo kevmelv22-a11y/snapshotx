@@ -20,7 +20,7 @@ type Props = {
   onClose: () => void;
 };
 
-/** Snapchat-style lens browser: bottom sheet with tabs, search and a 4-column grid of lens tiles. */
+/** Snapshot X lens browser: bottom sheet with tabs, search and a 4-column grid of lens tiles. */
 export function LensPicker({ visible, selected, favorites, recent, onSelect, onToggleFavorite, onClose }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -54,7 +54,7 @@ export function LensPicker({ visible, selected, favorites, recent, onSelect, onT
       </View>
     </Pressable>;
   };
-  // Leave the status bar and a strip of the camera visible above the sheet, like Snapchat.
+  // Keep the status bar and a strip of the camera visible above the lens sheet.
   const sheetH = Math.round(areaH > 0 ? areaH - Math.max(insets.top + 72, areaH * 0.16) : height * 0.72);
   return <View style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={(e) => setAreaH(e.nativeEvent.layout.height)}>
     <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Achtergrond, sluit lenzen" />

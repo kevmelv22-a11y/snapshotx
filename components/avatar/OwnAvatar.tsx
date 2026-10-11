@@ -1,6 +1,6 @@
 /**
- * The signed-in user's own avatar: the saved Bitmoji-kast outfit when there is one,
- * otherwise the classic SnapLion art (MapAvatar / MapExplorer) driven by the old editor.
+ * The signed-in user's own avatar: the saved Avatar-kast outfit when there is one,
+ * otherwise the classic Snapshot X avatar art (MapAvatar / MapExplorer) driven by the original editor.
  */
 import React, { useId } from 'react';
 import { View } from 'react-native';

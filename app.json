@@ -4,8 +4,15 @@
     "slug": "snapshot-x",
     "owner": "kevke-026s-team",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/8e081584-5001-428c-bcac-302a88101f8f",
+      "checkAutomatically": "ON_LOAD"
+    },
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/snapshotx-app-icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
@@ -19,8 +26,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#FFE436",
-        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#08090E",
+        "foregroundImage": "./assets/snapshotx-app-icon.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
@@ -28,7 +35,7 @@
       "package": "com.snapshotx.app"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/snapshotx-app-icon.png"
     },
     "plugins": [
       "expo-router",

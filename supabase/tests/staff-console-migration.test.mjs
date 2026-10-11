@@ -13,6 +13,10 @@ test('message activity trigger reads sender_id from sx_messages', () => {
   assert.doesNotMatch(messageBranch, /new\.owner_id/i);
 });
 
+test('staff RPC migration reloads the PostgREST schema cache after commit', () => {
+  assert.match(sql, /notify\s+pgrst\s*,\s*'reload schema'\s*;/i);
+});
+
 for (const [name, signature] of [
   ['search users', 'public.sx_staff_search_users(text, uuid, integer)'],
   ['exact dashboard stats', 'public.sx_staff_stats()'],

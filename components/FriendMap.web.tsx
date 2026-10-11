@@ -7,7 +7,7 @@ import {OwnAvatar} from './avatar/OwnAvatar';
 export default function FriendMap({pins, own, ownAppearance, friendOutfits, selectedId, onSelect, onLocate}: FriendMapProps) {
   return <View style={styles.root}>
     <Text style={styles.title}>Kaart op je telefoon</Text>
-    <Text style={styles.description}>De interactieve kaart gebruikt de native iOS- of Android-kaart in Snaplion. Hier zie je alleen vrienden die locatie delen.</Text>
+    <Text style={styles.description}>De interactieve kaart gebruikt de native iOS- of Android-kaart in Snapshot X. Hier zie je alleen vrienden die locatie delen.</Text>
     {own && <Pressable onPress={onLocate} style={styles.row}><OwnAvatar userId={own.id} size={44} appearance={ownAppearance}/><Text style={styles.name}>Jij · locatie beschikbaar</Text></Pressable>}
     {pins.map(pin => <Pressable key={pin.id} onPress={() => onSelect(pin.id)} style={[styles.row, selectedId === pin.id && styles.selected]}>
       <FriendAvatar id={pin.id} outfit={friendOutfits?.get(pin.id)} size={44} name={pin.name} selected={selectedId === pin.id}/>

@@ -1,5 +1,5 @@
 /**
- * Pure outfit logic for the Bitmoji-kast (wardrobe) screen.
+ * Pure outfit logic for the Avatar-kast (wardrobe) screen.
  * No runtime imports, so it runs under `node --test` (type stripping) as well as in Metro.
  */
 
@@ -15,7 +15,7 @@ export type ItemPreview = {
   variant: string;
   pattern?: Pattern;
   /** Optional chest graphic / detail. */
-  graphic?: 'swoosh' | 'skull' | 'pumpkin' | 'heart' | 'logo' | 'stripes3' | 'crest';
+  graphic?: 'stripe' | 'skull' | 'pumpkin' | 'heart' | 'logo' | 'stripes3' | 'crest';
 };
 
 export type WardrobeItem = {

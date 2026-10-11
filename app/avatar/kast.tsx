@@ -1,5 +1,5 @@
 /**
- * Bitmoji-kast: avatar wardrobe editor. Saved locally first (AsyncStorage via stores/wardrobe), then
+ * Avatar-kast: avatar wardrobe editor. Saved locally first (AsyncStorage via stores/wardrobe), then
  * best-effort synced to the account (sx_avatar_outfits; silently local-only when unavailable).
  * Paid items use a MOCK purchase that only unlocks the item: no payment is ever made.
  */
@@ -335,12 +335,12 @@ const BRAND_STYLE: Record<string, object> = {
   UGG: { fontFamily: SERIF, fontWeight: '900', letterSpacing: 1.4, fontSize: 13 },
   crocs: { fontWeight: '900', fontStyle: 'italic' },
   'Festive Fashion': { fontFamily: SERIF, fontStyle: 'italic' },
-  'SNAP NATION': { fontWeight: '900', letterSpacing: 0.4, fontSize: 10 },
+  'X NATION': { fontWeight: '900', letterSpacing: 0.4, fontSize: 10 },
   OVERTIME: { fontWeight: '900', fontStyle: 'italic', letterSpacing: 0.8 },
 };
 
 function BrandLabel({ brand }: { brand: string }) {
-  if (brand === 'Bitmoji Fashion') return <Text style={s.brand} numberOfLines={1}>Bitmoji <Text style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: '700' }}>Fashion</Text></Text>;
+  if (brand === 'Atlas Wear') return <Text style={s.brand} numberOfLines={1}>Atlas <Text style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: '700' }}>Wear</Text></Text>;
   return <Text style={[s.brand, BRAND_STYLE[brand]]} numberOfLines={1}>{brand}</Text>;
 }
 
@@ -429,7 +429,7 @@ function AvatarPanel({ outfit, bottomPad, onApply }: { outfit: Outfit; bottomPad
       <View style={s.editorIcon}><Ionicons name="color-wand-outline" size={20} color="#FFF"/></View>
       <View style={{ flex: 1 }}>
         <Text style={s.editorTitle}>Klassieke avatar-editor</Text>
-        <Text style={s.editorSub}>Gezicht, kapsel en kleding van je SnapLion-avatar</Text>
+        <Text style={s.editorSub}>Gezicht, kapsel en kleding van je Snapshot X-avatar</Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color="#8E8E93"/>
     </Pressable>

@@ -1,5 +1,5 @@
 /**
- * Layered vector art for the Bitmoji-kast: full-body avatar parts + item previews.
+ * Layered vector art for the Avatar-kast: full-body avatar parts + item previews.
  * Original artwork (no third-party logos); every clothing layer is driven by the outfit and recolourable.
  * Coordinate system: viewBox 0 0 200 400, body centred on x=100, feet at y≈350.
  */
@@ -122,8 +122,8 @@ function Both({ children }: { children: React.ReactNode }) {
   return <>{children}<G transform={MIRROR}>{children}</G></>;
 }
 
-function Swoosh({ x, y, s = 1, color }: { x: number; y: number; s?: number; color: string }) {
-  return <Path transform={`translate(${x} ${y}) scale(${s})`} d="M-6 1.5C-6.5 4.5-3 5 7 -2.5C-1 2-4.5 3.2-6 1.5Z" fill={color}/>;
+function AccentStripe({ x, y, s = 1, color }: { x: number; y: number; s?: number; color: string }) {
+  return <Path transform={`translate(${x} ${y}) scale(${s})`} d="M-7 4 L6 -4 L8 -1 L-5 7 Z" fill={color}/>;
 }
 
 // ------------------------------------------------------------------ body geometry
@@ -149,7 +149,7 @@ const SLEEVE_SHORT = 'M59 129 Q60 118 70 118 Q80 118 80 129 L76.5 161 Q65 165.5 
 function Graphic({ w, kind, ctx, x = 100, y = 150 }: { w: Worn; kind: NonNullable<WardrobeItem['preview']['graphic']>; ctx: Ctx; x?: number; y?: number }) {
   const ink = w.c[1];
   switch (kind) {
-    case 'swoosh': return <Swoosh x={114} y={139} s={0.9} color={ink}/>;
+    case 'stripe': return <AccentStripe x={114} y={139} s={0.9} color={ink}/>;
     case 'skull': return <G transform={`translate(${x} ${y})`}><Path d="M-11 -2a11 11 0 0 1 22 0c0 5-3 7-4 8v5h-14v-5c-1-1-4-3-4-8Z" fill={ink}/><Ellipse cx="-4.5" cy="-1" rx="3.4" ry="3.8" fill={w.c[0]}/><Ellipse cx="4.5" cy="-1" rx="3.4" ry="3.8" fill={w.c[0]}/><Path d="M0 3l-1.6 3h3.2Z" fill={w.c[0]}/><Path d="M-4 8v3M0 8v3M4 8v3" stroke={w.c[0]} strokeWidth="1.1"/><Path d="M-16 18q16-6 32 0" stroke={ink} strokeWidth="2" fill="none" opacity={0.7}/></G>;
     case 'pumpkin': return <G transform={`translate(${x} ${y})`}><Ellipse cx="0" cy="2" rx="13" ry="10.5" fill={ink}/><Path d="M-5 -7q5 4 10 0M0 -8v-4" stroke="#3C5A1E" strokeWidth="2.2" strokeLinecap="round" fill="none"/><Path d="M-7 -1l3 -3 3 3Z M1 -1l3 -3 3 3Z" fill="#2A1606"/><Path d="M-8 4q8 7 16 0l-3 2-2-2-3 2-3-2-2 2Z" fill="#2A1606"/></G>;
     case 'heart': return <Path transform={`translate(${x} ${y - 8}) scale(2.2)`} d="M0 6-4.5 1.5a2.6 2.6 0 0 1 4.5-3 2.6 2.6 0 0 1 4.5 3Z" fill={ink}/>;
@@ -196,7 +196,7 @@ function Shoe({ ctx, w }: { ctx: Ctx; w: Worn }) {
     <Path d={sole} fill={chunky ? '#F2F2F4' : v === 'sneaker' && luminance(c0) < 0.3 ? '#F2F2F4' : shade(c1, 0.25)}/>
     {chunky && <Path d="M67 348h39" stroke={c1} strokeWidth="1.6"/>}
     <Path d="M81.5 329h11M82 333.5h11M82.5 338h10" stroke={luminance(c0) > 0.5 ? '#C9C9CF' : '#555'} strokeWidth="1.1" strokeLinecap="round"/>
-    {w.item.preview.graphic === 'swoosh' && <Swoosh x={78} y={340} s={0.75} color={luminance(c0) > 0.5 ? '#C4C4CA' : '#FFF'}/>}
+    {w.item.preview.graphic === 'stripe' && <AccentStripe x={78} y={340} s={0.75} color={luminance(c0) > 0.5 ? '#C4C4CA' : '#FFF'}/>}
     {w.item.preview.graphic === 'stripes3' && <Path d="M73 338l4 -7M76.5 339l4 -7M80 340l4 -7" stroke={c1} strokeWidth="1.4"/>}
   </G>;
 }
@@ -213,7 +213,7 @@ function Bottom({ ctx, w }: { ctx: Ctx; w: Worn }) {
     <Path d="M66 198 Q100 204 134 198 L134.3 207 Q100 213 65.7 207 Z" fill={dark}/>
     {v === 'joggers' && <Both><Path d="M73 312 L96 312 L96 322 L73.5 322 Z" fill={dark}/></Both>}
     {v === 'joggers' && w.item.preview.graphic === 'stripes3' && <Both><Path d="M66.5 208 L72.5 314M69 208 L75 314M71.5 208 L77.5 314" stroke={w.c[1]} strokeWidth="1.2"/></Both>}
-    {v === 'joggers' && w.item.preview.graphic === 'swoosh' && <Swoosh x={88} y={226} s={0.7} color="#FFF"/>}
+    {v === 'joggers' && w.item.preview.graphic === 'stripe' && <AccentStripe x={88} y={226} s={0.7} color="#FFF"/>}
     {v === 'cargo' && <Both>
       <Path d="M63.7 236 L77.5 236 L78 272 Q71 274 64.6 272 Z" fill={shade(w.c[0], -0.05)} stroke="#000" strokeOpacity={0.2} strokeWidth="0.7"/>
       <Path d="M64.4 269 Q71 271.5 77.9 269 L78 272 Q71 274 64.6 272 Z" fill="#000" opacity={0.12}/>
@@ -291,7 +291,7 @@ function OuterBody({ ctx, w }: { ctx: Ctx; w: Worn }) {
     {v === 'puffer' && <Path d="M100 124 L100 210" stroke={w.c[1]} strokeWidth="1.6"/>}
     {ribbed && <><Path d={closed ? 'M61 197 Q100 203 139 197 L139 205 Q100 211 61 205 Z' : 'M61 198 Q80 202 97.5 199 L97.5 206 Q80 209 61 205 Z'} fill={w.c[v === 'varsity' ? 1 : 0]} opacity={0.95}/>{!closed && <G transform={MIRROR}><Path d="M61 198 Q80 202 97.5 199 L97.5 206 Q80 209 61 205 Z" fill={w.c[1]}/></G>}
       <Path d={closed ? 'M61 200.5 Q100 206.5 139 200.5' : 'M61 201 Q80 205 97.5 202'} stroke={w.c[2]} strokeWidth="1.2" fill="none"/>{closed && <Path d="M84 114 Q100 124 116 114 L116 119 Q100 129 84 119 Z" fill={shade(base, -0.25)}/>}</>}
-    {w.item.preview.graphic === 'swoosh' && <Swoosh x={115} y={139} s={0.95} color={w.c[1]}/>}
+    {w.item.preview.graphic === 'stripe' && <AccentStripe x={115} y={139} s={0.95} color={w.c[1]}/>}
     {w.item.preview.graphic === 'logo' && <Rect x="105" y="141" width="10" height="7" rx="1" fill={w.c[1]}/>}
   </G>;
 }
@@ -363,7 +363,7 @@ export function BodyParts({ ctx }: { ctx: Ctx }) {
     {sockW && <Both><Cloth d={sockW.item.preview.variant === 'long' ? 'M77 292 L97.6 292 L95.6 340 L80.4 340 Z' : 'M79 316 L96.6 316 L95.6 340 L80.4 340 Z'} fill={paint(ctx, 'socks')} ctx={ctx} v={false}/>
       <Path d={sockW.item.preview.variant === 'long' ? 'M77 295 L97.5 295' : 'M79 319 L96.5 319'} stroke={shade(sockW.c[0], -0.2)} strokeWidth="2"/>
       {sockW.item.preview.graphic === 'stripes3' && <Path d={sockW.item.preview.variant === 'long' ? 'M77.3 300 L97.4 300M77.4 304 L97.3 304' : 'M79 323 L96.4 323'} stroke={sockW.c[1]} strokeWidth="1.6"/>}
-      {sockW.item.preview.graphic === 'swoosh' && <Swoosh x={86} y={330} s={0.55} color={sockW.c[1]}/>}</Both>}
+      {sockW.item.preview.graphic === 'stripe' && <AccentStripe x={86} y={330} s={0.55} color={sockW.c[1]}/>}</Both>}
     {it.shoes && <Both><Shoe ctx={ctx} w={it.shoes}/></Both>}
     {!dress && it.bottom && <Bottom ctx={ctx} w={it.bottom}/>}
     {outer && <HoodBack ctx={ctx} w={outer}/>}
@@ -614,7 +614,7 @@ function Hat({ ctx, w }: { ctx: Ctx; w: Worn }) {
   const v = w.item.preview.variant;
   if (v === 'beanie') return <G><Cloth d="M66 60 Q64 16 100 14 Q136 16 134 60 Z" fill={c0} ctx={ctx}/><Path d="M78 22 L76 52M89 16 L88 52M100 14 L100 52M111 16 L112 52M122 22 L124 52" stroke={shade(c0, -0.3)} strokeWidth="1" opacity={0.6}/><Cloth d="M63 51 Q100 43 137 51 L137 64 Q100 56 63 64 Z" fill={shade(c0, -0.08)} ctx={ctx} v={false}/></G>;
   if (v === 'cap') return <G><Cloth d="M68 56 Q67 21 100 20 Q133 21 132 56 Q100 48 68 56 Z" fill={c0} ctx={ctx}/><Path d="M100 21 L100 50M84 24 Q90 38 88 52M116 24 Q110 38 112 52" stroke="#000" strokeOpacity={0.15} strokeWidth="0.9" fill="none"/><Circle cx="100" cy="21" r="2.4" fill={shade(c0, -0.2)}/>
-    <Cloth d="M65 56 Q100 45 135 56 Q133 67 100 65 Q67 67 65 56 Z" fill={c1} ctx={ctx} v={false}/>{w.item.preview.graphic === 'swoosh' && <Swoosh x={100} y={40} s={1.3} color={c1}/>}</G>;
+    <Cloth d="M65 56 Q100 45 135 56 Q133 67 100 65 Q67 67 65 56 Z" fill={c1} ctx={ctx} v={false}/>{w.item.preview.graphic === 'stripe' && <AccentStripe x={100} y={40} s={1.3} color={c1}/>}</G>;
   if (v === 'bucket') return <G><Cloth d="M71 52 Q71 20 100 19 Q129 20 129 52 Z" fill={c0} ctx={ctx}/><Cloth d="M57 57 Q100 43 143 57 L150 70 Q100 57 50 70 Z" fill={shade(c0, -0.05)} ctx={ctx} v={false}/><Path d="M60 62 Q100 50 140 62" stroke="#FFF" strokeOpacity={0.15} strokeWidth="0.9" fill="none"/></G>;
   return <G><Cloth d="M72 51 Q69 19 88 21 Q100 28 112 21 Q131 19 128 51 Z" fill={c0} ctx={ctx}/><Path d="M71.5 43 Q100 37 128.5 43 L128.6 51 Q100 45 71.4 51 Z" fill={c1}/><Cloth d="M50 56 Q100 40 150 56 Q141 64 100 55 Q59 64 50 56 Z" fill={shade(c0, -0.06)} ctx={ctx} v={false}/></G>;
 }
