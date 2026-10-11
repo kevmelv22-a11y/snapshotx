@@ -160,7 +160,6 @@ export default function StaffPanel() {
     if(statsResult.error && isMissingRpc(statsResult.error)) {
       setStatsAreFallback(true);
       setStats(await fetchVisibleStats());
-      setNotice('De staffstatistiekfunctie ontbreekt op de server. Dit zijn de aantallen die jouw account rechtstreeks mag zien.');
     } else if(statsResult.error) setNotice(`Dashboardtellers niet geladen: ${statsResult.error.message}`);
     else {setStatsAreFallback(false);const row=statsResult.data?.[0];if(row)setStats({user_count:Number(row.user_count),open_report_count:Number(row.open_report_count),active_ban_count:Number(row.active_ban_count),conversation_count:Number(row.conversation_count)});}
     if(isStaff){
@@ -185,7 +184,6 @@ export default function StaffPanel() {
           setProfileResults(previous => append ? [...previous, ...rows] : rows);
           setProfileCursor(rows.length ? rows[rows.length - 1].id : null);
           setProfileHasMore(rows.length === 50);
-          setNotice('De serverzoekfunctie ontbreekt. De lijst zoekt rechtstreeks in profielen die jouw account mag zien.');
           setProfileSearchLoading(false);
           return;
         } catch {
