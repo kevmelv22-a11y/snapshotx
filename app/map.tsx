@@ -6,7 +6,10 @@ import {router, useFocusEffect} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import FriendMap from '../components/FriendMap';
 import type {Pin, Point} from '../components/FriendMap.native';
-import {MapAvatar} from '../components/MapAvatar';
+import {OwnAvatar} from '../components/avatar/OwnAvatar';
+import {FriendAvatar} from '../components/avatar/FriendAvatar';
+import {useWardrobeSync} from '../hooks/useWardrobeSync';
+import {useFriendOutfits} from '../hooks/useFriendOutfits';
 import {Media} from '../components/Media';
 import {useSession} from '../hooks/useSession';
 import {supabase} from '../lib/supabase';
@@ -19,6 +22,7 @@ export default function MapScreen() {
   const {session} = useSession();
   const uid = session?.user.id;
   const ownAppearance = readAvatarAppearance(session?.user.user_metadata?.snaplion_avatar);
+  useWardrobeSync(uid);
   const insets = useSafeAreaInsets();
   const [pins, setPins] = useState<Pin[]>([]);
   const [own, setOwn] = useState<Pin | null>(null);
@@ -91,9 +95,17 @@ export default function MapScreen() {
           setNotice('Geef locatietoegang om jezelf live op de kaart te zien.');
           return;
         }
-        const first = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced});
+        // expo-location rejects with long English native text (FunctionCallException … kCLErrorDomain error 0 when no fix
+        // is available yet); keep that in the console and show a short Dutch notice instead.
+        const first = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced}).catch((error: unknown) => {
+          console.warn('Locatie bepalen mislukt', error);
+          return null;
+        });
         if (cancelled) return;
+        if (!first) { setNotice('Je locatie kon niet worden bepaald. Controleer je locatie-instellingen en probeer het opnieuw.'); return; }
         setOwn({id: uid, name: 'Ik nu', latitude: first.coords.latitude, longitude: first.coords.longitude});
+        // Watch errors (2nd callback) are transient CoreLocation hiccups that arrive as raw English native text; show a
+        // Dutch notice instead, the watcher keeps running and recovers by itself.
         const watcher = await Location.watchPositionAsync({accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 5}, position => {
           if (cancelled) return;
           const {latitude, longitude} = position.coords;
@@ -107,7 +119,7 @@ export default function MapScreen() {
             const {error} = await supabase.from('sx_locations').upsert({user_id: uid, latitude, longitude, sharing: true, updated_at: new Date().toISOString()});
             if (error) throw error;
           }).catch(error => { setNotice((error as Error).message); });
-        }, reason => setNotice(reason));
+        }, () => setNotice('Je locatie kon even niet worden bepaald. We proberen het automatisch opnieuw.'));
         if (cancelled) watcher.remove(); else subscription = watcher;
       } catch (error) { if (!cancelled) setNotice((error as Error).message); }
     })();
@@ -177,17 +189,19 @@ export default function MapScreen() {
     else setMemories((data || []) as MemoryRow[]);
   }
 
+  // Friends' saved wardrobe outfits (batched + cached); friends without one keep the classic avatar art.
+  const friendOutfits = useFriendOutfits(pins.map(pin => pin.id), {live: true});
   const filtered = pins.filter(pin => pin.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const selected = pins.find(pin => pin.id === selectedId);
   return <View style={styles.root}>
-    <FriendMap pins={filtered} own={own} ownAppearance={ownAppearance} trail={footsteps ? trail : []} selectedId={selectedId} focusOwn={focusOwn} focusNetherlands={focusNetherlands} onSelect={setSelectedId} onLocate={() => void locate()}/>
+    <FriendMap pins={filtered} own={own} ownAppearance={ownAppearance} friendOutfits={friendOutfits} trail={footsteps ? trail : []} selectedId={selectedId} focusOwn={focusOwn} focusNetherlands={focusNetherlands} onSelect={setSelectedId} onLocate={() => void locate()}/>
     <View style={[styles.header, {top: insets.top + 8}]} pointerEvents="box-none">
       <View style={styles.titleRow}>
         <View style={styles.headerGroup}>
-          <Pressable style={styles.round} onPress={() => router.push('/(tabs)/profile')} accessibilityLabel="Mijn profiel"><MapAvatar id={uid || 'me'} size={42} appearance={ownAppearance}/></Pressable>
+          <Pressable style={styles.round} onPress={() => router.push('/(tabs)/profile')} accessibilityLabel="Mijn profiel"><OwnAvatar userId={uid} size={42} appearance={ownAppearance}/></Pressable>
           <Pressable style={styles.round} onPress={() => {if (searchOpen) setQuery(''); setSearchOpen(value => !value);}} accessibilityLabel="Vrienden op de kaart zoeken"><Ionicons name="search" size={23} color="#fff"/></Pressable>
         </View>
-        <View style={styles.placePill}><Text style={styles.title}>SNAPLION</Text><Text style={styles.placeSubtitle}>{selected ? selected.name : 'Nederland'}</Text></View>
+        <View style={styles.placePill}><Text style={styles.title}>SnapShot X</Text><Text style={styles.placeSubtitle}>{selected ? selected.name : 'Nederland'}</Text></View>
         <Pressable style={styles.round} onPress={() => router.push('/settings')} accessibilityLabel="Kaartinstellingen"><Ionicons name="settings-outline" size={23} color="#fff"/></Pressable>
       </View>
       {searchOpen && <View style={styles.search}><Ionicons name="search" size={20} color="#D9D0E4"/><TextInput autoFocus style={styles.input} value={query} onChangeText={setQuery} placeholder="Zoek vrienden op de kaart" placeholderTextColor="#C5BFCF" accessibilityLabel="Zoek vrienden op de kaart"/><Pressable onPress={() => {setQuery(''); setSearchOpen(false);}} accessibilityLabel="Zoeken sluiten"><Ionicons name="close" size={20} color="#fff"/></Pressable></View>}
@@ -204,12 +218,12 @@ export default function MapScreen() {
         <Pressable style={styles.action} onPress={() => router.push('/discover')} accessibilityLabel="Trending verhalen bekijken"><Ionicons name="flame-outline" size={17} color="#fff"/><Text style={styles.actionText}>Trending</Text></Pressable>
         <Pressable style={[styles.action, footsteps && styles.active]} onPress={() => setFootsteps(value => !value)} accessibilityLabel="Voetstappen tijdens deze sessie tonen"><Ionicons name="footsteps-outline" size={17} color="#fff"/><Text style={styles.actionText}>Voetstappen</Text></Pressable>
       </View>
-      {selected ? <Pressable style={[styles.friendBanner, !selected.homeConfirmed && styles.friendNeutral]} onPress={() => setSelectedId(null)} accessibilityLabel={`Locatie van ${selected.name} sluiten`}><MapAvatar id={selected.id} size={35}/><Text style={[styles.friendText, !selected.homeConfirmed && styles.friendNeutralText]}>{selected.homeConfirmed ? `🏠 ${selected.username || selected.name} 💙 is thuis` : `${selected.name} deelt locatie met jou`}</Text><Ionicons name="close" size={18} color={selected.homeConfirmed ? '#251C21' : '#fff'}/></Pressable> :
+      {selected ? <Pressable style={[styles.friendBanner, !selected.homeConfirmed && styles.friendNeutral]} onPress={() => setSelectedId(null)} accessibilityLabel={`Locatie van ${selected.name} sluiten`}><FriendAvatar id={selected.id} outfit={friendOutfits.get(selected.id)} size={35} name={selected.name}/><Text style={[styles.friendText, !selected.homeConfirmed && styles.friendNeutralText]}>{selected.homeConfirmed ? `🏠 ${selected.username || selected.name} 💙 is thuis` : `${selected.name} deelt locatie met jou`}</Text><Ionicons name="close" size={18} color={selected.homeConfirmed ? '#251C21' : '#fff'}/></Pressable> :
         <View style={styles.hint}><Ionicons name="sparkles" size={17} color="#FFE436"/><Text style={styles.hintText}>{pins.length ? `${pins.length} vriend${pins.length === 1 ? '' : 'en'} op de kaart` : 'Nog geen vrienden die locatie delen'}</Text></View>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.people}>
         <Pressable style={styles.dockControl} onPress={() => setSearchOpen(true)} accessibilityLabel="Vrienden op kaart zoeken"><Ionicons name="search" size={27} color="#fff"/></Pressable>
-        {own && <Pressable style={styles.person} onPress={() => router.push('/avatar-editor')} accessibilityLabel="Mijn personage aanpassen"><MapAvatar id={own.id} size={58} selected appearance={ownAppearance}/><Text style={styles.personName}>Ik nu</Text></Pressable>}
-        {filtered.map(pin => <Pressable key={pin.id} style={styles.person} onPress={() => setSelectedId(pin.id)} accessibilityLabel={`Locatie van ${pin.name} bekijken`}><MapAvatar id={pin.id} size={58} selected={pin.id === selectedId}/><Text numberOfLines={1} style={styles.personName}>{pin.name}</Text></Pressable>)}
+        {own && <Pressable style={styles.person} onPress={() => router.push('/avatar-editor')} accessibilityLabel="Mijn personage aanpassen"><OwnAvatar userId={own.id} size={58} selected appearance={ownAppearance}/><Text style={styles.personName}>Ik nu</Text></Pressable>}
+        {filtered.map(pin => <Pressable key={pin.id} style={styles.person} onPress={() => setSelectedId(pin.id)} accessibilityLabel={`Locatie van ${pin.name} bekijken`}><FriendAvatar id={pin.id} outfit={friendOutfits.get(pin.id)} size={58} selected={pin.id === selectedId} name={pin.name}/><Text numberOfLines={1} style={styles.personName}>{pin.name}</Text></Pressable>)}
         {!filtered.length && <Pressable style={styles.emptyPerson} onPress={() => router.push('/(tabs)/friends')}><Ionicons name="person-add" size={22} color="#FFE436"/><Text style={styles.personName}>{query ? 'Geen resultaat' : 'Voeg vrienden toe'}</Text></Pressable>}
         <Pressable style={styles.dockControl} onPress={() => setFocusNetherlands(value => value + 1)} accessibilityLabel="Heel Nederland bekijken"><Ionicons name="map-outline" size={26} color="#fff"/></Pressable>
       </ScrollView>
