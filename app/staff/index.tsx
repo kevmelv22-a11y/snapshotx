@@ -21,6 +21,52 @@ type ReportContext = { target_type: string; target_id: string|null; target_user_
 type StaffStats = { user_count: number; open_report_count: number; active_ban_count: number; conversation_count: number };
 type StaffRoster = { user_id: string; username: string|null; display_name: string|null; role_names: string[] };
 
+function isMissingRpc(error: { code?: string; message?: string } | null): boolean {
+  return !!error && (error.code === 'PGRST202' || /could not find the function .*schema cache/i.test(error.message || ''));
+}
+
+async function fetchProfilesFallback(term: string, cursor: string | null): Promise<Person[]> {
+  const select = 'id,username,display_name,created_at,is_verified';
+  const needle = term.trim();
+  if (isUuid(needle)) {
+    let request = supabase.from('profiles').select(select).eq('id', needle).limit(50);
+    if (cursor) request = request.gt('id', cursor);
+    const { data, error } = await request;
+    if (error) throw error;
+    return (data || []) as Person[];
+  }
+
+  const fields = needle ? ['username', 'display_name'] as const : [null] as const;
+  const pages = await Promise.all(fields.map(async field => {
+    let request = supabase.from('profiles').select(select).order('id', { ascending: true }).limit(50);
+    if (cursor) request = request.gt('id', cursor);
+    if (field) request = request.ilike(field, `%${needle}%`);
+    const { data, error } = await request;
+    if (error) throw error;
+    return (data || []) as Person[];
+  }));
+
+  const unique = new Map<string, Person>();
+  for (const person of pages.flat()) unique.set(person.id, person);
+  return [...unique.values()].sort((a, b) => a.id.localeCompare(b.id)).slice(0, 50);
+}
+
+async function fetchVisibleStats(): Promise<StaffStats> {
+  const now = new Date().toISOString();
+  const [users, reports, bans, chats] = await Promise.all([
+    supabase.from('profiles').select('id', { count: 'exact', head: true }),
+    supabase.from('sx_reports').select('id', { count: 'exact', head: true }).in('status', ['open', 'reviewing']),
+    supabase.from('sx_staff_bans').select('id', { count: 'exact', head: true }).is('revoked_at', null).or(`ends_at.is.null,ends_at.gt.${now}`),
+    supabase.from('sx_threads').select('id', { count: 'exact', head: true }),
+  ]);
+  return {
+    user_count: users.error ? 0 : users.count ?? 0,
+    open_report_count: reports.error ? 0 : reports.count ?? 0,
+    active_ban_count: bans.error ? 0 : bans.count ?? 0,
+    conversation_count: chats.error ? 0 : chats.count ?? 0,
+  };
+}
+
 const NAV: { id: Section; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'grid-outline' }, { id: 'users', label: 'Gebruikers', icon: 'people-outline' },
   { id: 'moderation', label: 'Chats', icon: 'chatbubbles-outline' }, { id: 'bans', label: 'Bans', icon: 'ban-outline' },
@@ -93,6 +139,7 @@ export default function StaffPanel() {
   const [reportContexts, setReportContexts] = useState<Record<string, ReportContext>>({});
   const [reportContextLoading, setReportContextLoading] = useState<string|null>(null);
   const [stats, setStats] = useState<StaffStats>({ user_count: 0, open_report_count: 0, active_ban_count: 0, conversation_count: 0 });
+  const [statsAreFallback, setStatsAreFallback] = useState(false);
   const [staffRoster, setStaffRoster] = useState<StaffRoster[]>([]);
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
@@ -110,8 +157,12 @@ export default function StaffPanel() {
     if(peopleResult.error)setNotice(`Gebruikers niet geladen: ${peopleResult.error.message}`);else setPeople(peopleResult.data||[]);
     if(bansResult.error)setNotice(`Banoverzicht niet geladen: ${bansResult.error.message}`);
     else setBanEntries((bansResult.data||[]).filter(row=>!row.ends_at||new Date(row.ends_at).getTime()>Date.now()));
-    if(statsResult.error)setNotice(`Dashboardtellers niet geladen: ${statsResult.error.message}`);
-    else {const row=statsResult.data?.[0];if(row)setStats({user_count:Number(row.user_count),open_report_count:Number(row.open_report_count),active_ban_count:Number(row.active_ban_count),conversation_count:Number(row.conversation_count)});}
+    if(statsResult.error && isMissingRpc(statsResult.error)) {
+      setStatsAreFallback(true);
+      setStats(await fetchVisibleStats());
+      setNotice('De staffstatistiekfunctie ontbreekt op de server. Dit zijn de aantallen die jouw account rechtstreeks mag zien.');
+    } else if(statsResult.error) setNotice(`Dashboardtellers niet geladen: ${statsResult.error.message}`);
+    else {setStatsAreFallback(false);const row=statsResult.data?.[0];if(row)setStats({user_count:Number(row.user_count),open_report_count:Number(row.open_report_count),active_ban_count:Number(row.active_ban_count),conversation_count:Number(row.conversation_count)});}
     if(isStaff){
       const {data,error}=await supabase.from('audit_logs').select('id,actor_id,action,entity_type,entity_id,created_at,metadata').order('created_at',{ascending:false}).limit(100);
       if(error)setNotice(`Auditlog niet geladen: ${error.message}`);
@@ -127,6 +178,22 @@ export default function StaffPanel() {
     const { data, error } = await supabase.rpc('sx_staff_search_users', { p_query: term.trim(), p_after_id: cursor, p_limit: 50 });
     if (request !== profileSearchRequest.current) return;
     if (error) {
+      if (isMissingRpc(error)) {
+        try {
+          const rows = await fetchProfilesFallback(term, cursor);
+          if (request !== profileSearchRequest.current) return;
+          setProfileResults(previous => append ? [...previous, ...rows] : rows);
+          setProfileCursor(rows.length ? rows[rows.length - 1].id : null);
+          setProfileHasMore(rows.length === 50);
+          setNotice('De serverzoekfunctie ontbreekt. De lijst zoekt rechtstreeks in profielen die jouw account mag zien.');
+          setProfileSearchLoading(false);
+          return;
+        } catch {
+          setNotice('De serverzoekfunctie ontbreekt en profielen zoeken is niet toegestaan voor deze sessie.');
+          setProfileSearchLoading(false);
+          return;
+        }
+      }
       setNotice(`Gebruikers zoeken mislukt: ${error.message}`);
       setProfileSearchLoading(false);
       return;
@@ -231,7 +298,7 @@ export default function StaffPanel() {
       {!!notice && <Pressable onPress={() => setNotice('')} style={s.notice}><Ionicons name="information-circle-outline" size={18} color={s.color.accent} /><Text style={s.noticeText}>{notice}</Text><Ionicons name="close" size={16} color={s.color.muted} /></Pressable>}
       {section === 'dashboard' && <>
         <View style={s.hero}><View style={s.heroCopy}><Text style={s.heroKicker}>Snapshot X OPERATIONS</Text><Text style={s.heroTitle}>Goed dat je er bent.</Text><Text style={s.heroSub}>Moderatie en veiligheid, helder op één plek.</Text></View><View style={s.heroIcon}><Ionicons name="sparkles-outline" size={25} color={s.color.accent} /></View></View>
-        <View style={s.statsGrid}><Stat icon="people-outline" label="Gebruikers" value={String(stats.user_count)} hint="Alle profielen" /><Stat icon="flag-outline" label="Open meldingen" value={String(stats.open_report_count)} hint="Wachtrij" /><Stat icon="ban-outline" label="Actieve bans" value={String(stats.active_ban_count)} hint="Bans en lopende schorsingen" /><Stat icon="chatbubbles-outline" label="Gesprekken" value={String(stats.conversation_count)} hint="Alle gesprekken" /></View>
+        <View style={s.statsGrid}><Stat icon="people-outline" label="Gebruikers" value={String(stats.user_count)} hint={statsAreFallback ? 'Zichtbaar voor jouw rol' : 'Alle profielen'} /><Stat icon="flag-outline" label="Open meldingen" value={String(stats.open_report_count)} hint="Wachtrij" /><Stat icon="ban-outline" label="Actieve bans" value={String(stats.active_ban_count)} hint="Bans en lopende schorsingen" /><Stat icon="chatbubbles-outline" label="Gesprekken" value={String(stats.conversation_count)} hint={statsAreFallback ? 'Zichtbaar voor jouw account' : 'Alle gesprekken'} /></View>
         <View style={s.card}><View style={s.cardHead}><Text style={s.cardTitle}>Recente meldingen</Text><Pressable onPress={() => setSection('reports')}><Text style={s.link}>Alles bekijken</Text></Pressable></View>{reports.slice(0, 4).map(r => <ReportRow key={r.id} report={r} onPress={() => setSection('reports')} />)}{!reports.length && <Empty text="Er staan nog geen meldingen in de wachtrij." />}</View>
         <View style={s.privacyCard}><Ionicons name="eye-off-outline" size={19} color={s.color.accent} /><View style={{ flex: 1 }}><Text style={s.cardTitle}>Privacybewuste toegang</Text><Text style={s.muted}>Elke chatopening is redenplichtig en komt met actor, doel, reden en tijd in de auditlog.</Text></View></View>
       </>}
