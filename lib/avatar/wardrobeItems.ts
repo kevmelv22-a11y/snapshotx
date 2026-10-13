@@ -105,6 +105,12 @@ export const WARDROBE_ITEMS: WardrobeItem[] = [
   item('top-trivo-heart-tee', 'top', 'trivo', 'Hartjes-T-shirt', 79, ['#F7F2EC', '#E2477F'], { variant: 'tee', graphic: 'heart' }),
   item('top-rossano-silk-shirt', 'top', 'ROSSANO', 'Zijden overhemd', 279, ['#3B2A5E', '#D9C9F2'], { variant: 'shirt', pattern: 'swirl' }, true),
   item('top-kast-stripe-longsleeve', 'top', 'Kast Studio', 'Gestreepte longsleeve', null, ['#F2EFE8', '#26324F'], { variant: 'longsleeve', pattern: 'stripes' }),
+  // Eredivisie-style voetbalshirts (free, both character sets)
+  item('top-psv-jersey', 'top', 'Eindhoven FC', 'Rood-wit gestreept voetbalshirt', null, ['#E1061B', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
+  item('top-feyenoord-jersey', 'top', 'Rotterdam FC', 'Rood-wit gedeeld voetbalshirt', null, ['#E1061B', '#FFFFFF'], { variant: 'tee' }),
+  item('top-az-jersey', 'top', 'Alkmaar FC', 'Rood voetbalshirt', null, ['#D8141E', '#FFFFFF'], { variant: 'tee' }),
+  item('top-twente-jersey', 'top', 'Enschede FC', 'Rood voetbalshirt met witte kraag', null, ['#D2141C', '#FFFFFF'], { variant: 'tee' }),
+  item('top-utrecht-jersey', 'top', 'Domstad FC', 'Wit-rood voetbalshirt', null, ['#FFFFFF', '#D8141E'], { variant: 'tee' }),
   item('bottom-trivo-shorts', 'bottom', 'trivo', 'Sportshort', null, ['#2851A3', '#FFFFFF'], { variant: 'shorts', graphic: 'stripes2' }),
   item('bottom-rossano-plaid-skirt', 'bottom', 'ROSSANO', 'Ruitrok', 229, ['#7C1E2C', '#1B1B1E'], { variant: 'skirt', pattern: 'plaid' }),
   item('bottom-strideon-black-cargo', 'bottom', 'Strideon', 'Zwarte cargobroek', 129, ['#1E1E22'], { variant: 'cargo' }),
