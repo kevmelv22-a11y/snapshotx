@@ -1,6 +1,6 @@
 /**
- * The signed-in user's own avatar: the saved Bitmoji-kast outfit when there is one,
- * otherwise the classic SnapLion art (MapAvatar / MapExplorer) driven by the old editor.
+ * The signed-in user's own avatar: the saved avatarkast outfit when there is one,
+ * otherwise the classic SnapShot X art (MapAvatar / MapExplorer) driven by the old editor.
  */
 import React, { useId } from 'react';
 import { View } from 'react-native';
@@ -9,6 +9,8 @@ import { useOwnOutfit } from '../../hooks/useWardrobeSync';
 import type { AvatarAppearance } from '../../lib/avatar';
 import type { Outfit } from '../../lib/avatar/outfit';
 import { MapAvatar, MapExplorer } from '../MapAvatar';
+import { Avatar3DImage } from '../avatar3d/Avatar3D';
+import { ArtImage, bustArtFor, lookArtFor } from './ArtImage';
 import { ArmParts, BodyParts, FigureArt, HairBehindParts, HeadParts, LookDefs, MIRROR, OverlayParts, lookFromOutfit } from './AvatarArt';
 
 /** Full-figure crop used for map markers (fits the 82 × 119 MapExplorer footprint; leaves room for long hair). */
@@ -17,8 +19,19 @@ export const FIGURE_CROP: [number, number, number, number] = [30, 10, 140, 350];
 // Bust crop in avatar coordinates (head centre ≈ 100,70; shoulders ≈ y 120).
 const CX = 100, CY = 86, R = 68;
 
-/** Round bust portrait of a wardrobe outfit (static, no animation). */
+/** Round bust portrait of a wardrobe outfit: 3D snapshot on yellow, 2D art while loading / without WebGL. */
 export const WardrobePortrait = React.memo(function WardrobePortrait({ outfit, size, selected = false, label = 'Mijn avatar' }: { outfit: Outfit; size: number; selected?: boolean; label?: string }) {
+  const ring = Math.max(2, Math.round(size * 0.045));
+  const inner = size - ring * 2;
+  const bust = bustArtFor(outfit); // default character art (hair/skin personalisation not reflected)
+  return <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: ring, borderColor: selected ? '#FFE436' : '#E6A2EE', backgroundColor: '#FFE11A', overflow: 'hidden' }} accessibilityLabel={label}>
+    {bust ? <ArtImage art={bust} width={inner} height={inner} fit="top" zoom={1.35} offsetY={0.0}/> : <Avatar3DImage outfit={outfit} framing="head" pose="stand" width={inner} height={inner}
+      fallback={<View style={{ marginLeft: -ring, marginTop: -ring }}><WardrobePortrait2D outfit={outfit} size={size} selected={selected} label={label}/></View>}/>}
+  </View>;
+});
+
+/** Classic 2D portrait (fallback). */
+export const WardrobePortrait2D = React.memo(function WardrobePortrait2D({ outfit, size, selected = false, label = 'Mijn avatar' }: { outfit: Outfit; size: number; selected?: boolean; label?: string }) {
   const p = `op${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const look = lookFromOutfit(outfit);
   const ctx = { p, look };
@@ -57,7 +70,11 @@ export function OwnAvatar({ userId, size, appearance, selected, fallback }: OwnP
  */
 export function SizedFigure({ outfit, width }: { outfit: Outfit; width: number }) {
   const height = width * 119 / 82;
-  return <View style={{ width, height, pointerEvents: 'none' }}><FigureArt outfit={outfit} width={width} height={height} crop={FIGURE_CROP}/></View>;
+  const art = lookArtFor(outfit);
+  if (art) return <View style={{ width, height, pointerEvents: 'none' }}><ArtImage art={art} width={width} height={height}/></View>;
+  return <View style={{ width, height, pointerEvents: 'none' }}>
+    <Avatar3DImage outfit={outfit} framing="full" width={width} height={height} fallback={<FigureArt outfit={outfit} width={width} height={height} crop={FIGURE_CROP}/>}/>
+  </View>;
 }
 
 /** Full-body own avatar (map marker). Same footprint as MapExplorer (82 × 119 at size 82). */

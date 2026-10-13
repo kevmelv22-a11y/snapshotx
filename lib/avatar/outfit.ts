@@ -1,10 +1,10 @@
 /**
- * Pure outfit logic for the Bitmoji-kast (wardrobe) screen.
+ * Pure outfit logic for the avatarkast (wardrobe) screen.
  * No runtime imports, so it runs under `node --test` (type stripping) as well as in Metro.
  */
 
 export type WardrobeCategory = 'top' | 'bottom' | 'dress' | 'shoes' | 'socks' | 'bag' | 'outerwear' | 'hat' | 'accessory' | 'glasses';
-export type Layer = WardrobeCategory | 'hair' | 'skin';
+export type Layer = WardrobeCategory | 'hair' | 'skin' | 'eyes';
 export type HairStyle = 'curly' | 'short' | 'wavy' | 'buzz' | 'long' | 'afro' | 'bun';
 export const HAIR_STYLES: HairStyle[] = ['curly', 'short', 'wavy', 'buzz', 'long', 'afro', 'bun'];
 export type CategoryTab = 'featured' | 'all' | WardrobeCategory;
@@ -15,7 +15,7 @@ export type ItemPreview = {
   variant: string;
   pattern?: Pattern;
   /** Optional chest graphic / detail. */
-  graphic?: 'swoosh' | 'skull' | 'pumpkin' | 'heart' | 'logo' | 'stripes3' | 'crest';
+  graphic?: 'wave' | 'skull' | 'pumpkin' | 'heart' | 'patch' | 'stripes2' | 'star';
 };
 
 export type WardrobeItem = {
@@ -133,7 +133,7 @@ export function redoHistory(h: OutfitHistory): OutfitHistory {
 
 // ---------------------------------------------------------------- persistence helpers
 const HEX_RE = /^#[0-9a-f]{6}$/i;
-const LAYERS: Layer[] = [...CATEGORIES, 'hair', 'skin'];
+const LAYERS: Layer[] = [...CATEGORIES, 'hair', 'skin', 'eyes'];
 
 /** Validates a stored outfit; unknown ids / categories fall back to the default outfit. */
 export function parseOutfit(value: unknown, items: readonly Pick<WardrobeItem, 'id' | 'category'>[]): Outfit {

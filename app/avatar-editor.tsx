@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Alert,Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
+import {Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {router} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import {supabase} from '../lib/supabase';
 import {useSession} from '../hooks/useSession';
 import {useOwnOutfit} from '../hooks/useWardrobeSync';
 import {useWardrobe} from '../stores/wardrobe';
+import {useConfirmDialog} from '../components/ConfirmDialog';
 
 type Category=keyof AvatarAppearance;
 type Mode='mode'|'kast'|'avatar';
@@ -22,7 +23,7 @@ const categoryTitle:Record<Category,string>={skin:'Huidskleur',hair:'Haarkleur',
 type Step={a:AvatarAppearance;touched:AppearanceField[]};
 const touch=(touched:AppearanceField[],fields:readonly AppearanceField[])=>[...new Set([...touched,...fields])];
 
-/** Preview figure: the saved Bitmoji-kast outfit with the touched classic appearance fields on top, else the classic art. */
+/** Preview figure: the saved avatarkast outfit with the touched classic appearance fields on top, else the classic art. */
 function Figure({uid,outfit,appearance,touched,size,own=false}:{uid:string|undefined;outfit:Outfit|null;appearance:AvatarAppearance;touched:readonly AppearanceField[];size:number;own?:boolean}){
   if(outfit)return <SizedFigure outfit={mergeAppearance(outfit,appearance,touched)} width={size}/>;
   return <MapExplorer id={uid||'me'} appearance={appearance} size={size} own={own}/>;
@@ -35,7 +36,7 @@ export default function AvatarEditor(){
   const uid=session?.user.id;
   const insets=useSafeAreaInsets();
   const {height}=useWindowDimensions();
-  // Saved Bitmoji-kast outfit (null = none): clothes come from it, this editor only adds skin/hair/hairstyle.
+  // Saved avatarkast outfit (null = none): clothes come from it, this editor only adds skin/hair/hairstyle.
   const outfit=useOwnOutfit(uid);
   const [mode,setMode]=useState<Mode>(()=>outfit?'avatar':'mode');
   const [category,setCategory]=useState<Category>(()=>outfit?'skin':'top');
@@ -52,6 +53,7 @@ export default function AvatarEditor(){
   const [onlySelected,setOnlySelected]=useState(false);
   const [busy,setBusy]=useState(false);
   const [notice,setNotice]=useState('');
+  const confirm=useConfirmDialog();
 
   function change(next:AvatarAppearance,fields:readonly AppearanceField[]=[]){
     const nextTouched=touch(touched,fields);
@@ -76,10 +78,7 @@ export default function AvatarEditor(){
   function discard(){
     const original=readAvatarAppearance(session?.user.user_metadata?.snaplion_avatar);
     if(JSON.stringify(original)===JSON.stringify(draft)&&!touched.length){router.back();return}
-    Alert.alert('Wijzigingen weggooien?','Je avatar is nog niet opgeslagen.',[
-      {text:'Verder bewerken',style:'cancel'},
-      {text:'Weggooien',style:'destructive',onPress:()=>router.back()},
-    ]);
+    confirm.ask({title:'Wijzigingen weggooien?',message:'Je avatar is nog niet opgeslagen.',cancelLabel:'Verder bewerken',confirmLabel:'Weggooien',destructive:true},()=>{router.back();return null;});
   }
   function saveLook(){
     const next=[draft,...looks.filter(look=>JSON.stringify(look)!==JSON.stringify(draft))].slice(0,12);
@@ -96,12 +95,12 @@ export default function AvatarEditor(){
     <View style={[s.stage,{paddingTop:insets.top+10}]}>
       <View style={s.topbar}>
         <Pressable style={s.close} onPress={discard} accessibilityLabel="Editor sluiten"><Ionicons name="close" size={28} color="#fff"/></Pressable>
-        <Text style={s.brand}>SNAPLION</Text>
+        <Text style={s.brand}>SnapShot X</Text>
         <Pressable style={s.save} onPress={()=>void save()} disabled={busy} accessibilityLabel="Avatar opslaan"><Text style={s.saveText}>{busy?'Opslaan…':'Opslaan'}</Text></Pressable>
       </View>
       <View style={s.preview}>
         <View style={s.heroAvatar}><Figure uid={uid} outfit={outfit} appearance={draft} touched={touched} size={Math.min(175,Math.max(125,(height-insets.top-insets.bottom)*0.2))} own/></View>
-        <Text style={s.previewCaption}>{outfit?'Jouw avatar · outfit uit je Bitmoji-kast':'Jouw avatar · past direct mee aan'}</Text>
+        <Text style={s.previewCaption}>{outfit?'Jouw avatar · outfit uit je avatarkast':'Jouw avatar · past direct mee aan'}</Text>
       </View>
       <View style={s.history}>
         <Pressable style={[s.historyButton,!history.length&&s.disabled]} onPress={undo} disabled={!history.length} accessibilityLabel="Ongedaan maken"><Ionicons name="arrow-undo" size={26} color="#fff"/></Pressable>
@@ -121,9 +120,9 @@ export default function AvatarEditor(){
       </ScrollView>:mode==='mode'&&outfit?<ScrollView contentContainerStyle={s.catalog}>
         <View style={s.kastInfo}>
           <Ionicons name="shirt-outline" size={26} color="#69368C"/>
-          <Text style={s.kastTitle}>Je kleding komt uit je Bitmoji-kast</Text>
+          <Text style={s.kastTitle}>Je kleding komt uit je avatarkast</Text>
           <Text style={s.kastBody}>Je hebt een outfit opgeslagen in de kast, dus die kleren zie je overal op je avatar. Huidskleur, haarkleur en kapsel pas je hier aan bij Avatar; die wijzigingen komen ook op je kast-avatar.</Text>
-          <Pressable style={s.wardrobeSave} onPress={()=>router.push('/avatar/kast')} accessibilityLabel="Open de Bitmoji-kast"><Ionicons name="shirt" color="#fff" size={18}/><Text style={s.wardrobeText}>Open de kast</Text></Pressable>
+          <Pressable style={s.wardrobeSave} onPress={()=>router.push('/avatar/kast')} accessibilityLabel="Open de avatarkast"><Ionicons name="shirt" color="#fff" size={18}/><Text style={s.wardrobeText}>Open de kast</Text></Pressable>
         </View>
       </ScrollView>:<>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.categoryBar}>
@@ -147,6 +146,7 @@ export default function AvatarEditor(){
       </>}
       {!!notice&&<Pressable onPress={()=>setNotice('')} style={s.notice}><Text style={s.noticeText}>{notice} ×</Text></Pressable>}
     </View>
+    {confirm.dialog}
   </View>;
 }
 

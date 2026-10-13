@@ -1,5 +1,5 @@
 /**
- * Account sync for the Bitmoji-kast (table public.sx_avatar_outfits, see
+ * Account sync for the avatarkast (table public.sx_avatar_outfits, see
  * supabase/migrations/20261007150000_avatar_outfits.sql). Local-first: every failure (table not
  * migrated yet, offline, RLS, ...) is swallowed with one console warning and the app keeps working
  * from AsyncStorage. Nothing here touches payments: unlocked ids come from the MOCK purchase flow.
@@ -16,7 +16,7 @@ let warned = false;
 function warnOnce(action: string, message: string) {
   if (warned) return;
   warned = true;
-  console.warn(`[bitmoji-kast] Accountsync niet beschikbaar (${action}): ${message}. Outfit blijft lokaal opgeslagen; vrienden zonder gesynchroniseerde outfit tonen de klassieke avatar.`);
+  console.warn(`[avatarkast] Accountsync niet beschikbaar (${action}): ${message}. Outfit blijft lokaal opgeslagen; vrienden zonder gesynchroniseerde outfit tonen de klassieke avatar.`);
 }
 
 type Row = { outfit: unknown; unlocked_item_ids: unknown; updated_at: string | null };

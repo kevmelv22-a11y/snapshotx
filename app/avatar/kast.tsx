@@ -1,5 +1,5 @@
 /**
- * Bitmoji-kast: avatar wardrobe editor. Saved locally first (AsyncStorage via stores/wardrobe), then
+ * Avatarkast: avatar wardrobe editor. Saved locally first (AsyncStorage via stores/wardrobe), then
  * best-effort synced to the account (sx_avatar_outfits; silently local-only when unavailable).
  * Paid items use a MOCK purchase that only unlocks the item: no payment is ever made.
  */
@@ -23,6 +23,8 @@ import {
   CATEGORY_TABS, CHIP_CATEGORIES, CURATED_LOOKS, HAIR_STYLE_LABELS, ITEMS_BY_ID, SKIN_SWATCHES, WARDROBE_ITEMS, swatchesFor, type CuratedLook,
 } from '../../lib/avatar/wardrobeItems';
 import { useWardrobe } from '../../stores/wardrobe';
+import { useAvatarPose } from '../../stores/avatarPose';
+import { PosePicker } from '../../components/avatar/PosePicker';
 
 type SheetTab = 'mode' | 'kast' | 'avatar';
 type ModeFilter = 'featured' | 'premium';
@@ -319,28 +321,28 @@ function CardGlow({ width, height }: { width: number; height: number }) {
 }
 
 const BRAND_STYLE: Record<string, object> = {
-  blueberry: { fontWeight: '900', letterSpacing: -0.2 },
-  Nike: { fontWeight: '900', fontStyle: 'italic', letterSpacing: 0.5 },
-  carhartt: { fontWeight: '800', letterSpacing: 0.2 },
-  'CLUB SPORTIF': { fontFamily: SERIF, fontWeight: '700', letterSpacing: 1.2, fontSize: 10 },
-  VERSACE: { fontFamily: SERIF, letterSpacing: 2.4, fontSize: 12 },
-  BALENCIAGA: { fontWeight: '800', letterSpacing: 1, fontSize: 9.5 },
-  COACH: { fontFamily: SERIF, fontWeight: '700', letterSpacing: 2.2 },
-  adidas: { fontWeight: '800', letterSpacing: 0.3 },
-  DRESSX: { fontWeight: '900', letterSpacing: 1.6 },
-  'MIU MIU': { fontWeight: '600', letterSpacing: 2.6 },
-  Paramount: { fontFamily: SERIF, fontStyle: 'italic', letterSpacing: 0.3 },
-  LACOSTE: { fontWeight: '600', letterSpacing: 1.8, fontSize: 10.5 },
-  PRADA: { fontFamily: SERIF, fontWeight: '800', letterSpacing: 2.2 },
-  UGG: { fontFamily: SERIF, fontWeight: '900', letterSpacing: 1.4, fontSize: 13 },
-  crocs: { fontWeight: '900', fontStyle: 'italic' },
+  'Basisbes': { fontWeight: '900', letterSpacing: -0.2 },
+  'Strideon': { fontWeight: '900', fontStyle: 'italic', letterSpacing: 0.5 },
+  'Ploeg & Co': { fontWeight: '800', letterSpacing: 0.2 },
+  'CLUB VELDE': { fontFamily: SERIF, fontWeight: '700', letterSpacing: 1.2, fontSize: 10 },
+  'AURELIO': { fontFamily: SERIF, letterSpacing: 2.4, fontSize: 12 },
+  'BALDERO': { fontWeight: '800', letterSpacing: 1, fontSize: 9.5 },
+  'LINDEHOF': { fontFamily: SERIF, fontWeight: '700', letterSpacing: 2.2 },
+  'trivo': { fontWeight: '800', letterSpacing: 0.3 },
+  'PIXELWEAR': { fontWeight: '900', letterSpacing: 1.6 },
+  'LUNE LUNE': { fontWeight: '600', letterSpacing: 2.6 },
+  'Sterrenzaal': { fontFamily: SERIF, fontStyle: 'italic', letterSpacing: 0.3 },
+  'MAISON ORLÉ': { fontWeight: '600', letterSpacing: 1.8, fontSize: 10.5 },
+  'ROSSANO': { fontFamily: SERIF, fontWeight: '800', letterSpacing: 2.2 },
+  'WOLKJE': { fontFamily: SERIF, fontWeight: '900', letterSpacing: 1.4, fontSize: 13 },
+  'klompz': { fontWeight: '900', fontStyle: 'italic' },
   'Festive Fashion': { fontFamily: SERIF, fontStyle: 'italic' },
-  'SNAP NATION': { fontWeight: '900', letterSpacing: 0.4, fontSize: 10 },
-  OVERTIME: { fontWeight: '900', fontStyle: 'italic', letterSpacing: 0.8 },
+  'FLITS CREW': { fontWeight: '900', letterSpacing: 0.4, fontSize: 10 },
+  'VERLENGING': { fontWeight: '900', fontStyle: 'italic', letterSpacing: 0.8 },
 };
 
 function BrandLabel({ brand }: { brand: string }) {
-  if (brand === 'Bitmoji Fashion') return <Text style={s.brand} numberOfLines={1}>Bitmoji <Text style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: '700' }}>Fashion</Text></Text>;
+  if (brand === 'Kast Studio') return <Text style={s.brand} numberOfLines={1}>Kast <Text style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: '700' }}>Studio</Text></Text>;
   return <Text style={[s.brand, BRAND_STYLE[brand]]} numberOfLines={1}>{brand}</Text>;
 }
 
@@ -395,7 +397,9 @@ function AvatarPanel({ outfit, bottomPad, onApply }: { outfit: Outfit; bottomPad
     if (color) colors.hair = color; else delete colors.hair;
     onApply({ ...outfit, colors });
   };
+  const pose = useAvatarPose(st => st.pose);
   return <ScrollView style={{ flex: 1 }} contentContainerStyle={[s.avatarPanel, { paddingBottom: bottomPad }]} showsVerticalScrollIndicator={false}>
+    <PosePicker outfit={outfit} value={pose} onChange={useAvatarPose.getState().setPose}/>
     <Text style={s.panelTitle}>Kapsel</Text>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.looksScroll} contentContainerStyle={s.looksRow}>
       {HAIR_STYLES.map(style => <HairCard key={style} style={style} outfit={outfit} selected={outfit.hairStyle === style} onPress={() => onApply({ ...outfit, hairStyle: style })}/>)}
@@ -429,7 +433,7 @@ function AvatarPanel({ outfit, bottomPad, onApply }: { outfit: Outfit; bottomPad
       <View style={s.editorIcon}><Ionicons name="color-wand-outline" size={20} color="#FFF"/></View>
       <View style={{ flex: 1 }}>
         <Text style={s.editorTitle}>Klassieke avatar-editor</Text>
-        <Text style={s.editorSub}>Gezicht, kapsel en kleding van je SnapLion-avatar</Text>
+        <Text style={s.editorSub}>Gezicht, kapsel en kleding van je SnapShot X-avatar</Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color="#8E8E93"/>
     </Pressable>

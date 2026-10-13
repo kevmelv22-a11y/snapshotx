@@ -11,7 +11,7 @@ import { fetchRemoteOutfit, pushRemoteOutfit } from '../lib/avatar/outfitSync';
 import { WARDROBE_ITEMS, type WardrobeItem } from '../lib/avatar/wardrobeItems';
 
 /**
- * Bitmoji-kast state. Persisted locally (AsyncStorage): `saved`, `savedAt`, `unlocked`, `ownerId`.
+ * Avatarkast (wardrobe) state. Persisted locally (AsyncStorage): `saved`, `savedAt`, `unlocked`, `ownerId`.
  * Account sync is best-effort on top of that (see lib/avatar/outfitSync.ts): local first, remote second.
  * Draft + undo/redo history live in memory while the editor is open.
  */
