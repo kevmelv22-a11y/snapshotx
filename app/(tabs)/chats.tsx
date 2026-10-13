@@ -38,7 +38,7 @@ export default function Chats(){
   if(filter==='stories')return !preview&&x.peerIds.some(id=>storyIds.includes(id));
   return filter==='all'||filter==='ai';
  })},[rows,preview,query,filter,nearbyIds,storyIds]);
- // Friends' saved avatarkast outfits (one batched, cached RPC); rows without one keep the initial bubble.
+ // Friends' saved Avatar-kast outfits (one batched, cached RPC); rows without one keep the initial bubble.
  const friendOutfits=useFriendOutfits(useMemo(()=>[...rows.filter(x=>!x.isGroup).flatMap(x=>x.peerIds),...friends.map(x=>x.id)],[rows,friends]),{live:true});
  async function openComposer(){if(!uid)return;setError('');const result=await supabase.from('sx_friends').select('friend_id').eq('user_id',uid);if(result.error){setError(result.error.message);return}const ids=(result.data||[]).map(x=>x.friend_id);friendOutfitCache.prune(ids);if(!ids.length){router.push('/(tabs)/friends');return}const p=await supabase.from('profiles').select('id,display_name').in('id',ids);if(p.error){setError(p.error.message);return}setFriends(p.data||[]);setSelected([]);setNewOpen(true)}
  async function createChat(){if(busy||!selected.length)return;setBusy(true);try{const {data,error:e}=await supabase.rpc('sx_open_thread',{participants:selected,group_title:selected.length>1?groupName.trim()||'Nieuwe groep':null});if(e)throw e;setNewOpen(false);setGroupName('');await load();router.push({pathname:'/chat/[id]',params:{id:data}})}catch(e){setError((e as Error).message)}finally{setBusy(false)}}

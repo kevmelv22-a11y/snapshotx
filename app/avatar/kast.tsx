@@ -1,5 +1,5 @@
 /**
- * Avatarkast: avatar wardrobe editor. Saved locally first (AsyncStorage via stores/wardrobe), then
+ * Avatar-kast: avatar wardrobe editor. Saved locally first (AsyncStorage via stores/wardrobe), then
  * best-effort synced to the account (sx_avatar_outfits; silently local-only when unavailable).
  * Paid items use a MOCK purchase that only unlocks the item: no payment is ever made.
  */
@@ -433,7 +433,7 @@ function AvatarPanel({ outfit, bottomPad, onApply }: { outfit: Outfit; bottomPad
       <View style={s.editorIcon}><Ionicons name="color-wand-outline" size={20} color="#FFF"/></View>
       <View style={{ flex: 1 }}>
         <Text style={s.editorTitle}>Klassieke avatar-editor</Text>
-        <Text style={s.editorSub}>Gezicht, kapsel en kleding van je SnapShot X-avatar</Text>
+        <Text style={s.editorSub}>Gezicht, kapsel en kleding van je Snapshot X-avatar</Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color="#8E8E93"/>
     </Pressable>

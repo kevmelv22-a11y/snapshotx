@@ -23,7 +23,7 @@ const categoryTitle:Record<Category,string>={skin:'Huidskleur',hair:'Haarkleur',
 type Step={a:AvatarAppearance;touched:AppearanceField[]};
 const touch=(touched:AppearanceField[],fields:readonly AppearanceField[])=>[...new Set([...touched,...fields])];
 
-/** Preview figure: the saved avatarkast outfit with the touched classic appearance fields on top, else the classic art. */
+/** Preview figure: the saved Avatar-kast outfit with the touched classic appearance fields on top, else the classic art. */
 function Figure({uid,outfit,appearance,touched,size,own=false}:{uid:string|undefined;outfit:Outfit|null;appearance:AvatarAppearance;touched:readonly AppearanceField[];size:number;own?:boolean}){
   if(outfit)return <SizedFigure outfit={mergeAppearance(outfit,appearance,touched)} width={size}/>;
   return <MapExplorer id={uid||'me'} appearance={appearance} size={size} own={own}/>;
@@ -36,7 +36,7 @@ export default function AvatarEditor(){
   const uid=session?.user.id;
   const insets=useSafeAreaInsets();
   const {height}=useWindowDimensions();
-  // Saved avatarkast outfit (null = none): clothes come from it, this editor only adds skin/hair/hairstyle.
+  // Saved Avatar-kast outfit (null = none): clothes come from it, this editor only adds skin/hair/hairstyle.
   const outfit=useOwnOutfit(uid);
   const [mode,setMode]=useState<Mode>(()=>outfit?'avatar':'mode');
   const [category,setCategory]=useState<Category>(()=>outfit?'skin':'top');
@@ -100,7 +100,7 @@ export default function AvatarEditor(){
       </View>
       <View style={s.preview}>
         <View style={s.heroAvatar}><Figure uid={uid} outfit={outfit} appearance={draft} touched={touched} size={Math.min(175,Math.max(125,(height-insets.top-insets.bottom)*0.2))} own/></View>
-        <Text style={s.previewCaption}>{outfit?'Jouw avatar · outfit uit je avatarkast':'Jouw avatar · past direct mee aan'}</Text>
+        <Text style={s.previewCaption}>{outfit?'Jouw avatar · outfit uit je Avatar-kast':'Jouw avatar · past direct mee aan'}</Text>
       </View>
       <View style={s.history}>
         <Pressable style={[s.historyButton,!history.length&&s.disabled]} onPress={undo} disabled={!history.length} accessibilityLabel="Ongedaan maken"><Ionicons name="arrow-undo" size={26} color="#fff"/></Pressable>
@@ -120,9 +120,9 @@ export default function AvatarEditor(){
       </ScrollView>:mode==='mode'&&outfit?<ScrollView contentContainerStyle={s.catalog}>
         <View style={s.kastInfo}>
           <Ionicons name="shirt-outline" size={26} color="#69368C"/>
-          <Text style={s.kastTitle}>Je kleding komt uit je avatarkast</Text>
+          <Text style={s.kastTitle}>Je kleding komt uit je Avatar-kast</Text>
           <Text style={s.kastBody}>Je hebt een outfit opgeslagen in de kast, dus die kleren zie je overal op je avatar. Huidskleur, haarkleur en kapsel pas je hier aan bij Avatar; die wijzigingen komen ook op je kast-avatar.</Text>
-          <Pressable style={s.wardrobeSave} onPress={()=>router.push('/avatar/kast')} accessibilityLabel="Open de avatarkast"><Ionicons name="shirt" color="#fff" size={18}/><Text style={s.wardrobeText}>Open de kast</Text></Pressable>
+          <Pressable style={s.wardrobeSave} onPress={()=>router.push('/avatar/kast')} accessibilityLabel="Open de Avatar-kast"><Ionicons name="shirt" color="#fff" size={18}/><Text style={s.wardrobeText}>Open de kast</Text></Pressable>
         </View>
       </ScrollView>:<>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.categoryBar}>

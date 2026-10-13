@@ -121,13 +121,13 @@ begin
   exception when others then
     v_headers := '{}'::jsonb;
   end;
-  v_ip_text := coalesce(v_headers->>'cf-connecting-ip', v_headers->>'x-real-ip', split_part(coalesce(v_headers->>'x-forwarded-for',''), ',', 1));
-  v_ip_text := nullif(trim(v_ip_text), '');
+  -- Match record-login-history: only use the proxy headers accepted there.
+  v_ip_text := coalesce(nullif(trim(v_headers->>'cf-connecting-ip'), ''), nullif(trim(v_headers->>'x-real-ip'), ''));
   if v_ip_text is not null then
     begin v_ip := v_ip_text::inet; exception when others then v_ip := null; end;
   end if;
   -- Header name kept for compatibility with lib/supabase.ts and existing installs.
-  v_device_text := nullif(v_headers->>'x-snaplion-device-id','');
+  v_device_text := nullif(trim(v_headers->>'x-snaplion-device-id'),'');
   if v_device_text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
     v_device := v_device_text::uuid;
   end if;
@@ -358,18 +358,80 @@ revoke all on function app_private.sx_staff_revoke_ban(uuid,text) from public, a
 
 -- ---------------------------------------------------------------- public RPC wrappers
 -- SECURITY DEFINER so they can reach app_private; authorization happens inside the private functions.
+-- Explicit active-ban gate in each wrapper (same as 20261009103958_restore_staff_ban_gate.sql), so
+-- applying this file after that one never drops the gate.
 create or replace function public.sx_staff_list_chats()
 returns table(thread_id uuid,title text,created_at timestamptz,member_count bigint,last_message_at timestamptz)
-language sql security definer set search_path = '' as $$ select * from app_private.sx_staff_list_chats() $$;
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is null or app_private.sx_request_is_banned() then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+  return query select * from app_private.sx_staff_list_chats();
+end;
+$$;
+
 create or replace function public.sx_staff_read_chat(p_thread_id uuid,p_reason text)
 returns table(message_id uuid,sender_id uuid,kind text,body text,created_at timestamptz,is_deleted boolean)
-language sql security definer set search_path = '' as $$ select * from app_private.sx_staff_read_chat(p_thread_id,p_reason) $$;
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is null or app_private.sx_request_is_banned() then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+  return query select * from app_private.sx_staff_read_chat(p_thread_id,p_reason);
+end;
+$$;
+
 create or replace function public.sx_staff_delete_message(p_message_id uuid,p_reason text)
-returns void language sql security definer set search_path = '' as $$ select app_private.sx_staff_delete_message(p_message_id,p_reason) $$;
-create or replace function public.sx_staff_create_ban(p_type text,p_user_id uuid,p_ip inet,p_device_id uuid,p_duration_minutes integer,p_reason text)
-returns uuid language sql security definer set search_path = '' as $$ select app_private.sx_staff_create_ban(p_type,p_user_id,p_ip,p_device_id,p_duration_minutes,p_reason) $$;
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is null or app_private.sx_request_is_banned() then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+  perform app_private.sx_staff_delete_message(p_message_id,p_reason);
+end;
+$$;
+
+create or replace function public.sx_staff_create_ban(
+  p_type text,p_user_id uuid,p_ip inet,p_device_id uuid,p_duration_minutes integer,p_reason text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is null or app_private.sx_request_is_banned() then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+  return app_private.sx_staff_create_ban(p_type,p_user_id,p_ip,p_device_id,p_duration_minutes,p_reason);
+end;
+$$;
+
 create or replace function public.sx_staff_revoke_ban(p_ban_id uuid,p_reason text)
-returns void language sql security definer set search_path = '' as $$ select app_private.sx_staff_revoke_ban(p_ban_id,p_reason) $$;
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is null or app_private.sx_request_is_banned() then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+  perform app_private.sx_staff_revoke_ban(p_ban_id,p_reason);
+end;
+$$;
+
 revoke all on function public.sx_staff_list_chats() from public, anon;
 revoke all on function public.sx_staff_read_chat(uuid,text) from public, anon;
 revoke all on function public.sx_staff_delete_message(uuid,text) from public, anon;
@@ -404,7 +466,7 @@ $$;
 revoke all on function public.sx_review_report(uuid,public.report_status,text) from public, anon;
 grant execute on function public.sx_review_report(uuid,public.report_status,text) to authenticated;
 
--- Role management as in staff-security-guards.sql (superseded by 20261008090100_staff_panel_1b.sql,
+-- Role management as in staff-security-guards.sql (superseded by 20261012090100_staff_panel_1b.sql,
 -- which adds revoke-what-you-can-grant and the last-owner guard).
 create or replace function public.sx_manage_staff_role(p_user_id uuid,p_role public.staff_role,p_grant boolean)
 returns void language plpgsql security definer set search_path = '' as $$

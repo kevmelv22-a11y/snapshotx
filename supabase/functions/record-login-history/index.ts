@@ -29,8 +29,8 @@ Deno.serve(async (request) => {
     return Response.json({ error: "Invalid device identifier" }, { status: 400, headers: corsHeaders });
   }
 
-  const rawIp = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-real-ip");
-  const ip = rawIp && isIP(rawIp.trim()) ? rawIp.trim() : null;
+  const rawIp = request.headers.get("cf-connecting-ip")?.trim() || request.headers.get("x-real-ip")?.trim() || null;
+  const ip = rawIp && isIP(rawIp) ? rawIp : null;
   const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { error } = await service.from("sx_login_history").insert({
     user_id: user.id,

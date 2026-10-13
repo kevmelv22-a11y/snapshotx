@@ -1,6 +1,6 @@
 /**
  * Bridge between the classic avatar editor (/avatar-editor, AvatarAppearance indices stored in
- * user_metadata.snaplion_avatar) and the avatarkast outfit (stores/wardrobe.ts).
+ * user_metadata.snaplion_avatar) and the Avatar-kast outfit (stores/wardrobe.ts).
  * Pure (type-only imports) so it runs under `node --test`.
  *
  * Precedence, once a wardrobe outfit is saved:

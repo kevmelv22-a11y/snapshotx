@@ -21,7 +21,7 @@ type DashboardCounts = { users_total: number; users_new_7d: number; reports_open
 type StaffMember = { user_id: string; username: string | null; display_name: string | null; roles: string[]; is_banned: boolean };
 const REPORT_COLUMNS = 'id,reporter_id,message_id,story_id,reason,status,created_at,review_note';
 const REPORT_COLUMNS_1B = `${REPORT_COLUMNS},reported_user_id,content_snapshot,action_taken,action_ref`;
-const MIGRATION_HINT = 'migratie 20261008090100 nog niet toegepast';
+const MIGRATION_HINT = 'migratie 20261012090100 nog niet toegepast';
 type Audit = { id: string; actor_id: string|null; action: string; entity_type: string | null; entity_id: string | null; created_at: string; metadata?: Record<string,unknown> | null };
 type Person = { id: string; username: string | null; display_name: string | null; created_at: string | null; is_verified: boolean | null; is_banned?: boolean | null; total_count?: number | null };
 type BanEntry = { id: string; ban_type: 'user'|'ip'|'device'; target_user_id: string|null; target_ip: string|null; target_device_id: string|null; issued_by: string|null; reason: string; created_at: string; ends_at: string|null; revoked_at: string|null };
@@ -281,14 +281,14 @@ export default function StaffPanel() {
 
   if (ready && !session) return <Redirect href="/(auth)/login" />;
   if (loading) return <View style={s.center}><Text style={s.muted}>Staffrechten controleren…</Text></View>;
-  if (!isStaff) return <View style={s.center}><Ionicons name="shield-checkmark-outline" size={38} color={s.color.accent} /><Text style={s.title}>Geen toegang</Text><Text style={s.muted}>Alleen aangewezen SnapShot X-staffleden kunnen dit paneel openen.</Text><Action label="Opnieuw controleren" onPress={() => void refresh()} /></View>;
+  if (!isStaff) return <View style={s.center}><Ionicons name="shield-checkmark-outline" size={38} color={s.color.accent} /><Text style={s.title}>Geen toegang</Text><Text style={s.muted}>Alleen aangewezen Snapshot X-staffleden kunnen dit paneel openen.</Text><Action label="Opnieuw controleren" onPress={() => void refresh()} /></View>;
 
   return <View style={[s.root, { paddingTop: insets.top }]}>
     <View style={[s.topbar, { gap: header.gap, paddingHorizontal: header.padding }]}>
-      <View style={s.brand}><View style={s.brandMark}><Ionicons name="shield-checkmark" size={18} color="#fff" /></View><View style={s.brandText}><Text style={s.brandTitle} numberOfLines={1}>SnapShot X</Text><Text style={s.brandSub} numberOfLines={1}>STAFF CONSOLE</Text></View></View>
+      <View style={s.brand}><View style={s.brandMark}><Ionicons name="shield-checkmark" size={18} color="#fff" /></View><View style={s.brandText}><Text style={s.brandTitle} numberOfLines={1}>Snapshot X</Text><Text style={s.brandSub} numberOfLines={1}>STAFF CONSOLE</Text></View></View>
       {wideLayout && <View style={s.headerSearch}><Ionicons name="search-outline" size={16} color={s.color.muted} /><TextInput value={query} onChangeText={v => { setQuery(v); setSearchPage(0); }} onFocus={() => setSection('users')} placeholder="Zoek gebruiker of ID" placeholderTextColor={s.color.muted} style={s.headerSearchInput} autoCapitalize="none" /></View>}
       <Pressable onPress={() => setSection('reports')} style={s.headerIcon} accessibilityLabel="Meldingen openen"><Ionicons name="notifications-outline" size={19} color={s.color.text} />{openReports > 0 && <View style={s.notificationDot} />}</Pressable>
-      <Pressable onPress={() => setSection('settings')} style={[s.staffProfile, header.profile === 'icon' && s.staffProfileIcon]} accessibilityRole="button" accessibilityLabel={`${roles[0] || 'Staff'} · ${session?.user.email || 'SnapShot X staff'} · instellingen`}>{header.profile === 'icon' ? <><Ionicons name="person-circle-outline" size={20} color={s.color.text} /><View style={[s.onlineDot, s.onlineDotIcon]} /></> : <><View style={s.onlineDot} /><View style={s.staffProfileText}><Text style={s.staffRole} numberOfLines={1}>{roles[0] || 'Staff'}</Text>{header.profile === 'full' && <Text style={s.staffEmail} numberOfLines={1}>{session?.user.email || 'SnapShot X staff'}</Text>}</View><Ionicons name="chevron-down" size={13} color={s.color.muted} /></>}</Pressable>
+      <Pressable onPress={() => setSection('settings')} style={[s.staffProfile, header.profile === 'icon' && s.staffProfileIcon]} accessibilityRole="button" accessibilityLabel={`${roles[0] || 'Staff'} · ${session?.user.email || 'Snapshot X staff'} · instellingen`}>{header.profile === 'icon' ? <><Ionicons name="person-circle-outline" size={20} color={s.color.text} /><View style={[s.onlineDot, s.onlineDotIcon]} /></> : <><View style={s.onlineDot} /><View style={s.staffProfileText}><Text style={s.staffRole} numberOfLines={1}>{roles[0] || 'Staff'}</Text>{header.profile === 'full' && <Text style={s.staffEmail} numberOfLines={1}>{session?.user.email || 'Snapshot X staff'}</Text>}</View><Ionicons name="chevron-down" size={13} color={s.color.muted} /></>}</Pressable>
       <Pressable onPress={() => void load()} style={s.refresh} accessibilityLabel="Ververs staffgegevens"><Ionicons name="refresh" size={19} color={s.color.text} /></Pressable>
     </View>
     <View style={wideLayout ? s.wideBody : s.mobileBody}>

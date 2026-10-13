@@ -278,7 +278,7 @@ export default function MapScreen() {
     else setMemories((data || []) as MemoryRow[]);
   }
 
-  // Friends' saved wardrobe outfits (batched + cached); friends without one keep the classic SnapShot X art.
+  // Friends' saved wardrobe outfits (batched + cached); friends without one keep the classic avatar art.
   const friendOutfits = useFriendOutfits(pins.map(pin => pin.id), {live: true});
   const filtered = pins.filter(pin => pin.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const selected = pins.find(pin => pin.id === selectedId);

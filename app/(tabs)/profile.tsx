@@ -42,7 +42,7 @@ export default function Profile(){
   friends={friends.map(f=>{const o=outfits.get(f.id);return {...f,outfit:o&&o!=='pending'?o:null,fallback:<MapAvatar id={f.id} size={70}/>}})}
   onMenu={()=>router.back()} onSettings={()=>router.push('/settings')} onAvatar={()=>router.push('/avatar/mode')} onStory={()=>router.push('/(tabs)/stories')} onFriends={()=>router.push('/(tabs)/friends')} onMap={()=>router.push('/map')} onTimers={()=>setNotice('Afteltimers komen binnenkort.')}
   footer={<View style={{marginTop:6}}>
-   {tile('shirt-outline','Avatarkast','/avatar/kast')}
+   {tile('shirt-outline','Avatar-kast','/avatar/kast')}
    {tile('happy-outline','Avatarstickers','/avatar/stickers')}
    {tile('color-palette-outline','Klassieke avatar-editor','/avatar-editor')}
    {isStaff&&tile('shield-checkmark-outline','Staff- en moderatiepaneel','/staff')}

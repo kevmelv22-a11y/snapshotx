@@ -1,6 +1,6 @@
 /**
  * Step 11: in-memory MOCK of the staff backend (tables + RPCs used by app/staff). Mirrors the authorization
- * and validation of the SQL in migrations 20261008090000 / 20261008090100 / 20261013200000 (role checks,
+ * and validation of the SQL in migrations 20261012090000 / 20261012090100 / 20261013200000 (role checks,
  * UUID device ids, 180-day login-history check for IP/device bans, owner rules, audit row per action).
  * Dev/tests only — never talks to Supabase. Pure TS (no React Native imports).
  */

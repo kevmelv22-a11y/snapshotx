@@ -1,6 +1,6 @@
 -- =====================================================================================================
 -- NOT APPLIED YET. Written 2026-10-08 (phase 1b); has NOT been run against the live Supabase project.
--- Requires 20261008090000_staff_moderation_consolidated.sql (app_private.sx_require_staff & co).
+-- Requires 20261012090000_staff_moderation_consolidated.sql (app_private.sx_require_staff & co).
 -- Only tested on a throwaway local Postgres 17 with stubbed Supabase/legacy objects. Idempotent.
 -- =====================================================================================================
 -- Staff panel backend for phase 1b:
@@ -315,7 +315,7 @@ grant execute on function public.sx_manage_staff_role(uuid,public.staff_role,boo
 
 -- ---------------------------------------------------------------- audit visibility
 -- Admins and owners read the whole audit log (role changes included); moderators keep the
--- moderation-only view from 20261008090000.
+-- moderation-only view from 20261012090000.
 drop policy if exists sx_audit_logs_admin_read on public.audit_logs;
 create policy sx_audit_logs_admin_read on public.audit_logs for select to authenticated
 using (not app_private.sx_request_is_banned() and app_private.sx_staff_has_role(array['ADMIN','OWNER']));

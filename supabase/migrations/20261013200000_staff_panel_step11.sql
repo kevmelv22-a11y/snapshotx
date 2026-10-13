@@ -1,5 +1,5 @@
 -- Step 11 (staff panel): direct warnings, staff X+ grants, per-user moderation summary. NOT APPLIED.
--- Uses app_private.sx_require_staff / sx_audit_meta from 20261008090000 and sx_entitlements from 20261013120100.
+-- Uses app_private.sx_require_staff / sx_audit_meta from 20261012090000 and sx_entitlements from 20261013120100.
 
 create or replace function public.sx_staff_warn_user(p_user_id uuid, p_reason text)
 returns uuid language plpgsql security definer set search_path = '' as $$

@@ -1,5 +1,5 @@
 /**
- * Friends' saved avatarkast outfits: batched fetch + cache, persisted per signed-in user (pure, no runtime
+ * Friends' saved Avatar-kast outfits: batched fetch + cache, persisted per signed-in user (pure, no runtime
  * imports, so it runs under `node --test`; the Supabase RPC call and the storage are injected, see
  * lib/avatar/outfitSync.ts and hooks/useFriendOutfits.ts).
  *
