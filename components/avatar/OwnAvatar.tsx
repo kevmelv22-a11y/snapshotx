@@ -9,7 +9,8 @@ import { useStartOutfit } from '../../hooks/useWardrobeSync';
 import type { AvatarAppearance } from '../../lib/avatar';
 import type { Outfit } from '../../lib/avatar/outfit';
 import { Avatar3DImage } from '../avatar3d/Avatar3D';
-import { ArtImage, bustArtFor, lookArtFor } from './ArtImage';
+import { ArtImage, lookArtFor } from './ArtImage';
+import { AvatarBust } from './AvatarBust';
 import { ArmParts, BodyParts, FigureArt, HairBehindParts, HeadParts, LookDefs, MIRROR, OverlayParts, lookFromOutfit } from './AvatarArt';
 
 /** Full-figure crop used for map markers (fits the 82 × 119 MapExplorer footprint; leaves room for long hair). */
@@ -18,15 +19,10 @@ export const FIGURE_CROP: [number, number, number, number] = [30, 10, 140, 350];
 // Bust crop in avatar coordinates (head centre ≈ 100,70; shoulders ≈ y 120).
 const CX = 100, CY = 86, R = 68;
 
-/** Round bust portrait of a wardrobe outfit: 3D snapshot on yellow, 2D art while loading / without WebGL. */
+/** Round bust portrait of a wardrobe outfit: head+shoulders crop of the same art the doll shows (AvatarBust). */
 export const WardrobePortrait = React.memo(function WardrobePortrait({ outfit, size, selected = false, label = 'Mijn avatar' }: { outfit: Outfit; size: number; selected?: boolean; label?: string }) {
   const ring = Math.max(2, Math.round(size * 0.045));
-  const inner = size - ring * 2;
-  const bust = bustArtFor(outfit); // default character art (hair/skin personalisation not reflected)
-  return <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: ring, borderColor: selected ? '#FFE436' : '#E6A2EE', backgroundColor: '#FFE11A', overflow: 'hidden' }} accessibilityLabel={label}>
-    {bust ? <ArtImage art={bust} width={inner} height={inner} fit="top" zoom={1.35} offsetY={0.0}/> : <Avatar3DImage outfit={outfit} framing="head" pose="stand" width={inner} height={inner}
-      fallback={<View style={{ marginLeft: -ring, marginTop: -ring }}><WardrobePortrait2D outfit={outfit} size={size} selected={selected} label={label}/></View>}/>}
-  </View>;
+  return <AvatarBust outfit={outfit} size={size} ring={ring} ringColor={selected ? '#FFE436' : '#E6A2EE'} label={label}/>;
 });
 
 /** Classic 2D portrait (fallback). */

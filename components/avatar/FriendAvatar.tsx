@@ -31,7 +31,9 @@ function useTestId(id: string, outfit: OutfitProp): string {
 export function FriendAvatar({ id, outfit, size, selected, name, fallback }: Props) {
   const testID = useTestId(id, outfit);
   let content: React.ReactNode;
-  if (friendArtFor(id)) {
+  if (outfit && outfit !== 'pending') {
+    content = <WardrobePortrait outfit={outfit} size={size} selected={selected} label={name ? `Avatar van ${name}` : 'Avatar van vriend'}/>;
+  } else if (friendArtFor(id)) {
     content = <FriendArtCircle id={id} size={size} selected={selected}/>;
   } else if (outfit === 'pending') {
     content = <View accessibilityLabel={name ? `Avatar van ${name} wordt geladen` : 'Avatar wordt geladen'} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#2C2536', borderWidth: Math.max(2, Math.round(size / 20)), borderColor: selected ? '#FFE436' : '#4A4058' }}/>;

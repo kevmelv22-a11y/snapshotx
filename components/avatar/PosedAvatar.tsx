@@ -9,7 +9,9 @@ import { Ellipse, G, Path } from 'react-native-svg';
 import type { Outfit } from '../../lib/avatar/outfit';
 import { getPose, type AvatarSticker, type PoseId } from '../../lib/avatar/poses';
 import { Avatar3DImage } from '../avatar3d/Avatar3D';
-import { ArtImage, bustArtFor, poseArtFor } from './ArtImage';
+import { ArtImage, poseArtFor } from './ArtImage';
+import { AvatarBust } from './AvatarBust';
+import type { ArtKey } from '../../lib/avatar/avatarArt';
 import type { Framing } from '../avatar3d/scene';
 import { ArmParts, BodyParts, HairBehindParts, hasHairBehind, HeadParts, LayerSvg, lookFromOutfit, MIRROR, OverlayParts } from './AvatarArt';
 
@@ -22,8 +24,9 @@ export const PosedAvatar = React.memo(function PosedAvatar(props: { outfit: Outf
   const { outfit, pose, width, height, upper = false, viewBox } = props;
   const framing: Framing = viewBox === BUST_VIEWBOX ? 'bust' : upper ? 'sticker' : 'full';
   // Default: pre-rendered art of the default character (personalisation not reflected); else 3D → 2D.
-  const bust = framing === 'bust' ? bustArtFor(outfit) : null;
-  const art = bust ?? poseArtFor(outfit, pose);
+  if (framing === 'bust') return <View style={{ width, height }} pointerEvents="none" testID={`posed-avatar:${getPose(pose).id}`}><AvatarBust outfit={outfit} size={Math.min(width, height)}/></View>;
+  const bust = null as ArtKey | null;
+  const art = poseArtFor(outfit, pose);
   if (art) return <View style={{ width, height }} pointerEvents="none" testID={`posed-avatar:${getPose(pose).id}`}>
     {bust ? <ArtImage art={bust} width={width} height={height} fit="top" zoom={1.05} offsetY={0.02}/>
       : upper ? <ArtImage art={art} width={width} height={height} fit="top" zoom={pose === 'cheer' || pose === 'shrug' ? 1 : 1.25} offsetY={0.02}/>
