@@ -36,15 +36,21 @@ function seedDemo(m: StaffMock) {
   const I = MOCK_IDS, iso = (o: number) => m.iso(o);
   m.t.profiles.push({ id: EXTRA.noor, username: 'noor', display_name: 'Noor El Amrani', created_at: iso(-3 * D), is_verified: false },
     { id: EXTRA.tim, username: 'tim_vd', display_name: 'Tim van Dijk', created_at: iso(-20 * D), is_verified: false });
-  m.t.profiles.forEach((p, i) => { p.avatar_path = null; p.activity_score = 40 + i * 7; });
-  const friends = [I.aria, I.bram, I.cleo, I.daan, I.eva, I.admin];
+  m.t.profiles.forEach((p, i) => { p.gender = 'male'; p.avatar_path = null; p.activity_score = 400 + i * 37; });
+  // Demo look: Kevin = the default character; his 4 friends have their own portraits (lib/avatar/friendArt).
+  Object.assign(m.profile(ME)!, { username: 'kv.savage', display_name: 'Kevin', activity_score: 84732 });
+  Object.assign(m.profile(I.aria)!, { display_name: 'Aria de Vries' });
+  [I.aria, I.eva, I.cleo, EXTRA.noor].forEach(id => { m.profile(id)!.gender = 'female'; });
+  Object.assign(m.profile(I.eva)!, { display_name: 'Eva Smit' });
+  Object.assign(m.profile(I.cleo)!, { display_name: 'Cleo Jansen' });
+  const friends = [I.aria, I.eva, I.cleo, EXTRA.noor];
   m.t.sx_friends = friends.flatMap(f => [{ user_id: ME, friend_id: f, created_at: iso(-30 * D) }, { user_id: f, friend_id: ME, created_at: iso(-30 * D) }]);
-  m.t.sx_friend_requests = [{ id: 'fr000000-0000-4000-8000-000000000001', sender_id: EXTRA.noor, recipient_id: ME, status: 'pending', created_at: iso(-2 * H) }];
+  m.t.sx_friend_requests = [{ id: 'fr000000-0000-4000-8000-000000000001', sender_id: EXTRA.tim, recipient_id: ME, status: 'pending', created_at: iso(-2 * H) }];
   m.t.sx_threads.push({ id: T.aria, title: null, created_at: iso(-10 * D), member_count: 2, retention_mode: 'keep' }, { id: T.eva, title: null, created_at: iso(-4 * D), member_count: 2, retention_mode: 'keep' });
   m.t.sx_threads.forEach(t => { t.retention_mode ??= 'keep'; });
   m.t.sx_members = [
     { thread_id: T.aria, user_id: ME }, { thread_id: T.aria, user_id: I.aria }, { thread_id: T.eva, user_id: ME }, { thread_id: T.eva, user_id: I.eva },
-    ...[ME, I.daan, I.eva, I.cleo, I.bram].map(u => ({ thread_id: T.crew, user_id: u })),
+    ...[ME, EXTRA.noor, I.eva, I.cleo, I.aria].map(u => ({ thread_id: T.crew, user_id: u })),
     { thread_id: 'c0000000-0000-4000-8000-000000000001', user_id: I.aria }, { thread_id: 'c0000000-0000-4000-8000-000000000001', user_id: I.bram },
   ];
   const msg = (thread_id: string, sender_id: string, body: string, ago: number, kind = 'text', media_path: string | null = null) =>
@@ -53,18 +59,18 @@ function seedDemo(m: StaffMock) {
     msg(T.aria, I.aria, 'Hé Kevin! Kom je vanavond ook naar het concert? 🎸', 5 * H), msg(T.aria, ME, 'Ja zeker, om 8 uur bij de ingang?', 4.8 * H),
     msg(T.aria, I.aria, 'Top, tot dan! 🙌', 4.7 * H), msg(T.aria, I.aria, 'photo', 1.2 * H, 'snap', 'demo/concert.svg'),
     msg(T.eva, I.eva, 'Heb je de foto’s van zaterdag nog?', 26 * H), msg(T.eva, ME, 'Komen eraan! Even zoeken 😅', 25 * H), msg(T.eva, I.eva, 'Haha oké 😄', 20 * H),
-    msg(T.crew, I.cleo, 'Wie neemt de bal mee?', 3.5 * H), msg(T.crew, I.bram, 'Ik! ⚽', 3.4 * H));
+    msg(T.crew, I.cleo, 'Wie neemt de bal mee?', 3.5 * H), msg(T.crew, EXTRA.noor, 'Ik! ⚽', 3.4 * H));
   const st = (owner_id: string, path: string, caption: string | null, ago: number, visibility = 'friends') =>
     ({ id: newId(), owner_id, media_path: path, media_type: 'photo', caption, visibility, created_at: iso(-ago), expires_at: iso(24 * H - ago) });
   m.t.sx_stories.forEach((s, i) => { s.media_path = i ? 'demo/stad.svg' : 'demo/pizza.svg'; s.media_type = 'photo'; s.expires_at = m.iso(16 * H); });
   m.t.sx_stories.push(st(I.aria, 'demo/strand.svg', 'Zon, zee en zand ☀️', 2 * H, 'everyone'), st(I.aria, 'demo/koffie.svg', null, 1 * H),
-    st(I.eva, 'demo/hond.svg', 'Max is jarig! 🎂', 3 * H, 'everyone'), st(I.bram, 'demo/fiets.svg', 'Rondje Vondelpark', 5 * H),
-    st(I.admin, 'demo/zonsondergang.svg', 'Wat een avond', 7 * H, 'everyone'), st(ME, 'demo/stad.svg', 'Mijn stad 🏙️', 9 * H, 'everyone'));
+    st(I.eva, 'demo/hond.svg', 'Max is jarig! 🎂', 3 * H, 'everyone'), st(I.cleo, 'demo/fiets.svg', 'Rondje Vondelpark', 5 * H),
+    st(EXTRA.noor, 'demo/zonsondergang.svg', 'Wat een avond', 7 * H, 'everyone'));
   m.t.sx_story_views = []; m.t.sx_story_reactions = []; m.t.sx_reactions = []; m.t.sx_receipts = []; m.t.sx_blocks = [];
   m.t.sx_highlight_likes = []; m.t.sx_highlight_shares = []; m.t.sx_location_allowed = []; m.t.sx_push_tokens = [];
   m.t.sx_preferences = [{ user_id: ME, language: 'nl', find_me: true }];
   const loc = (user_id: string, lat: number, lng: number, ago: number) => ({ user_id, latitude: lat, longitude: lng, sharing: true, home_confirmed: false, updated_at: iso(-ago), share_audience: 'friends', ghost_until: null, ghost_forever: false });
-  m.t.sx_locations = [loc(ME, 52.3676, 4.9041, 5 * 60e3), loc(I.aria, 52.3731, 4.8922, 10 * 60e3), loc(I.eva, 52.3584, 4.8811, 40 * 60e3), loc(I.bram, 52.3600, 4.9200, 2 * H), loc(I.daan, 52.3791, 4.9003, 15 * 60e3)];
+  m.t.sx_locations = [loc(ME, 52.3676, 4.9041, 5 * 60e3), loc(I.aria, 52.3731, 4.8922, 10 * 60e3), loc(I.eva, 52.3584, 4.8811, 40 * 60e3), loc(I.cleo, 52.3600, 4.9200, 2 * H), loc(EXTRA.noor, 52.3791, 4.9003, 15 * 60e3)];
   m.t.memories = [{ id: newId(), owner_id: ME, storage_path: 'demo/zonsondergang.svg', media_type: 'photo', created_at: iso(-40 * D), private: false, caption: null, deleted_at: null },
     { id: newId(), owner_id: ME, storage_path: 'demo/pizza.svg', media_type: 'photo', created_at: iso(-370 * D), private: false, caption: 'Pizza-avond', deleted_at: null }];
   m.t.sx_memory_vault = []; m.t.sx_avatar_outfits = [];
@@ -159,9 +165,13 @@ export class DemoClient {
   private authCbs = new Set<(e: string, s: unknown) => void>();
   private uploads: Record<string, string> = {};
   private session: Row | null = null;
-  private meta: Row = { display_name: 'Kevin' };
+  private meta: Row = { display_name: 'Kevin', gender: 'male' };
   constructor() {
-    try { if (globalThis.localStorage?.getItem('sx-demo-signed-in') === '1') this.session = this.makeSession(); } catch {}
+    try {
+      const meta = JSON.parse(globalThis.localStorage?.getItem('sx-demo-meta') ?? 'null') as Row | null;
+      if (meta) { Object.assign(this.meta, meta); Object.assign(this.m.profile(ME) ?? {}, { gender: meta.gender === 'female' ? 'female' : 'male', ...(meta.display_name ? { display_name: meta.display_name } : {}), ...(meta.username ? { username: meta.username } : {}) }); }
+      if (globalThis.localStorage?.getItem('sx-demo-signed-in') === '1') this.session = this.makeSession();
+    } catch {}
   }
   private makeSession(): Row {
     return { access_token: 'demo', refresh_token: 'demo', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600,
@@ -169,7 +179,7 @@ export class DemoClient {
   }
   private setSession(s: Row | null, event: string) {
     this.session = s;
-    try { globalThis.localStorage?.setItem('sx-demo-signed-in', s ? '1' : '0'); } catch {}
+    try { globalThis.localStorage?.setItem('sx-demo-signed-in', s ? '1' : '0'); globalThis.localStorage?.setItem('sx-demo-meta', JSON.stringify(this.meta)); } catch {}
     this.authCbs.forEach(cb => setTimeout(() => cb(event, s), 0));
   }
   emit(table: string, event: string, row: Row) {
@@ -259,8 +269,14 @@ export class DemoClient {
     },
     getSession: async () => ({ data: { session: this.session }, error: null }),
     getUser: async () => ({ data: { user: (this.session?.user as Row) ?? null }, error: null }),
-    signInWithPassword: async (_c: { email: string; password: string }) => { const s = this.makeSession(); this.setSession(s, 'SIGNED_IN'); return { data: { session: s, user: s.user }, error: null }; },
-    signUp: async (_c: unknown) => { const s = this.makeSession(); this.setSession(s, 'SIGNED_IN'); return { data: { session: s, user: s.user }, error: null }; },
+    signInWithPassword: async (_c: { email: string; password: string }) => {
+      // Logging in = Kevin (male start look) again.
+      Object.assign(this.meta, { display_name: 'Kevin', gender: 'male' }); Object.assign(this.m.profile(ME) ?? {}, { gender: 'male', username: 'kv.savage', display_name: 'Kevin' }); const s = this.makeSession(); this.setSession(s, 'SIGNED_IN'); return { data: { session: s, user: s.user }, error: null }; },
+    signUp: async (c: { options?: { data?: Row } }) => {
+      // Demo registration: you become the demo user with the chosen name + character set (Man/Vrouw).
+      const d = c?.options?.data ?? {}; Object.assign(this.meta, d);
+      const p = this.m.profile(ME); if (p) Object.assign(p, { gender: d.gender === 'female' ? 'female' : 'male', ...(d.display_name ? { display_name: d.display_name } : {}), ...(d.username ? { username: d.username } : {}) });
+      const s = this.makeSession(); this.setSession(s, 'SIGNED_IN'); return { data: { session: s, user: s.user }, error: null }; },
     signOut: async () => { this.setSession(null, 'SIGNED_OUT'); return { error: null }; },
     resetPasswordForEmail: async () => ({ data: {}, error: null }),
     updateUser: async (u: { data?: Row }) => { if (u?.data) Object.assign(this.meta, u.data); const s = this.makeSession(); this.session = s; return { data: { user: s.user }, error: null }; },

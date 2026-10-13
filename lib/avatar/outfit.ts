@@ -46,7 +46,13 @@ export type Outfit = {
   hairStyle: HairStyle;
   /** Primary colour override per layer (hair and skin included). */
   colors: Partial<Record<Layer, string>>;
+  /** Character set chosen at registration (absent = 'male'): picks the male or female pre-rendered art. */
+  gender?: Gender;
 };
+
+export type Gender = 'male' | 'female';
+export const GENDERS: Gender[] = ['male', 'female'];
+export const isGender = (v: unknown): v is Gender => v === 'male' || v === 'female';
 
 export const CATEGORIES: WardrobeCategory[] = ['top', 'bottom', 'dress', 'shoes', 'socks', 'bag', 'outerwear', 'hat', 'accessory', 'glasses'];
 
@@ -67,6 +73,28 @@ export const DEFAULT_OUTFIT: Outfit = {
   hairStyle: 'curly',
   colors: {},
 };
+
+/** Female start look (reference art): black cap, black tee, grey jeans, white sneakers, blonde wavy hair. */
+export const DEFAULT_FEMALE_OUTFIT: Outfit = {
+  top: 'top-nike-black-tee',
+  bottom: 'bottom-basisbes-grey-jeans',
+  dress: null,
+  shoes: 'shoes-nike-white',
+  socks: null,
+  bag: null,
+  outerwear: null,
+  hat: 'hat-nike-cap',
+  accessory: null,
+  glasses: null,
+  hairStyle: 'wavy',
+  colors: { hair: '#D2A85E' },
+  gender: 'female',
+};
+
+/** Start outfit for a character set (male = hoodie DEFAULT_OUTFIT, female = cap + black tee). */
+export function defaultOutfitFor(gender: Gender | null | undefined): Outfit {
+  return gender === 'female' ? { ...DEFAULT_FEMALE_OUTFIT, colors: { ...DEFAULT_FEMALE_OUTFIT.colors } } : { ...DEFAULT_OUTFIT, colors: {} };
+}
 
 export function isFree(item: Pick<WardrobeItem, 'priceCents'>): boolean {
   return item.priceCents == null || item.priceCents <= 0;
@@ -104,7 +132,7 @@ export function recolor(outfit: Outfit, layer: Layer, color: string): Outfit {
 }
 
 export function sameOutfit(a: Outfit, b: Outfit): boolean {
-  if (CATEGORIES.some(c => a[c] !== b[c]) || a.hairStyle !== b.hairStyle) return false;
+  if (CATEGORIES.some(c => a[c] !== b[c]) || a.hairStyle !== b.hairStyle || (a.gender ?? 'male') !== (b.gender ?? 'male')) return false;
   const keys = new Set([...Object.keys(a.colors), ...Object.keys(b.colors)]) as Set<Layer>;
   for (const k of keys) if (a.colors[k] !== b.colors[k]) return false;
   return true;
@@ -147,6 +175,7 @@ export function parseOutfit(value: unknown, items: readonly Pick<WardrobeItem, '
     else if (typeof v === 'string' && byId.get(v)?.category === c) out[c] = v;
   }
   if (typeof src.hairStyle === 'string' && (HAIR_STYLES as string[]).includes(src.hairStyle)) out.hairStyle = src.hairStyle as HairStyle;
+  if (src.gender === 'female') out.gender = 'female';
   const colors = src.colors && typeof src.colors === 'object' ? src.colors as Record<string, unknown> : {};
   for (const l of LAYERS) { const v = colors[l]; if (typeof v === 'string' && HEX_RE.test(v)) out.colors[l] = v; }
   return out;

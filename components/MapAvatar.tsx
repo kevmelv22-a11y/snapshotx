@@ -2,6 +2,8 @@ import React from 'react';
 import Svg, {Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Rect, Stop} from 'react-native-svg';
 import type {AvatarAppearance} from '../lib/avatar';
 import {CLASSIC_HAIR, CLASSIC_SKIN} from '../lib/avatar/appearance';
+import {friendArtFor} from '../lib/avatar/friendArt';
+import {FriendArtCircle} from './avatar/ArtImage';
 
 type Props = {id: string; size?: number; selected?: boolean; appearance?: AvatarAppearance};
 const SKIN: readonly string[] = CLASSIC_SKIN;
@@ -18,6 +20,7 @@ function hashId(id: string, seed: number) {
 
 /** Original shaded Snapshot X character, shared by the map, profile and wardrobe. */
 export function MapAvatar({id, size = 54, selected = false, appearance}: Props) {
+  if (!appearance && friendArtFor(id)) return <FriendArtCircle id={id} size={size} selected={selected}/>;
   const hash = hashId(id, 7);
   const skin = appearance ? SKIN[appearance.skin] : SKIN[hash % SKIN.length];
   const hair = appearance ? HAIR[appearance.hair] : HAIR[(hash >>> 4) % HAIR.length];

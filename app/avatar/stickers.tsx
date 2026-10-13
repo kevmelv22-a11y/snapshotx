@@ -5,7 +5,8 @@ import { Stack } from 'expo-router';
 import { AvatarStickerArt } from '../../components/avatar/PosedAvatar';
 import { useSession } from '../../hooks/useSession';
 import { useOwnOutfit } from '../../hooks/useWardrobeSync';
-import { DEFAULT_OUTFIT, type Outfit } from '../../lib/avatar/outfit';
+import { defaultOutfitFor, type Outfit } from '../../lib/avatar/outfit';
+import { useWardrobe } from '../../stores/wardrobe';
 import { AVATAR_STICKERS } from '../../lib/avatar/poses';
 import { C } from '../../lib/theme';
 
@@ -15,7 +16,7 @@ export function AvatarStickerGallery({ outfit }: { outfit: Outfit | null }) {
     <Text style={s.intro}>Je stickers dragen altijd je huidige outfit. Gebruik ze in de snap-editor onder Stickers of in een chat via ☺.</Text>
     {!outfit && <Text style={s.hint}>Je hebt nog geen outfit opgeslagen; dit is de standaardlook.</Text>}
     <View style={s.grid}>
-      {AVATAR_STICKERS.map(st => <View key={st.id} style={s.cell}><AvatarStickerArt outfit={outfit ?? DEFAULT_OUTFIT} sticker={st} size={150}/></View>)}
+      {AVATAR_STICKERS.map(st => <View key={st.id} style={s.cell}><AvatarStickerArt outfit={outfit ?? defaultOutfitFor(useWardrobe.getState().gender)} sticker={st} size={150}/></View>)}
     </View>
   </ScrollView>;
 }

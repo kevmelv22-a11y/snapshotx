@@ -16,7 +16,7 @@ import { PosedAvatar } from './PosedAvatar';
 import { Avatar3DView } from '../avatar3d/Avatar3DView';
 import { Avatar3DImage } from '../avatar3d/Avatar3D';
 import { ArtImage, poseArtFor } from './ArtImage';
-import { LOOK_ART } from '../../lib/avatar/avatarArt';
+import { lookCardArt } from '../../lib/avatar/avatarArt';
 
 const YELLOW = '#FFE11A';
 type Props = { outfit: Outfit; pose?: PoseId; selectedLook?: string | null; onPickLook: (id: string, outfit: Outfit) => void; onMore: () => void; onClose: () => void; onTab: (t: 'mode' | 'kast' | 'avatar') => void; topInset?: number; bottomInset?: number };
@@ -46,13 +46,13 @@ export function ModeScreen({ outfit, pose = 'stand', selectedLook, onPickLook, o
     </View>
     <View style={[s.sheet, { width: W, alignSelf: 'center' }]}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 12 }}>
-        <View style={s.headRow}><Text style={s.title}>Probeer een nieuwe look</Text><Pressable onPress={onMore} accessibilityRole="link"><Text style={s.more}>Bekijk alles  ›</Text></Pressable></View>
+        <View style={s.headRow}><Text style={s.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Probeer een nieuwe look</Text><Pressable onPress={onMore} accessibilityRole="link"><Text style={s.more}>Bekijk alles  ›</Text></Pressable></View>
         <View style={s.grid}>
           {TRY_LOOKS.map(look => {
             const o = applyLook(outfit ?? DEFAULT_OUTFIT, look.items);
             const on = selectedLook === look.id;
             return <Pressable key={look.id} onPress={() => onPickLook(look.id, o)} style={[s.card, { width: cardW, height: cardW * 1.08 }, on && s.cardOn]} accessibilityRole="button" accessibilityLabel={`Look ${look.name}: ${look.tagline}`}>
-              {LOOK_ART[look.id] ? <View style={{ padding: 6 }}><ArtImage art={LOOK_ART[look.id]} width={cardW - 16} height={cardW * 1.08 - 16} testID={`mode-look-art:${look.id}`}/></View> : <Avatar3DImage outfit={o} framing="card" width={cardW - 4} height={cardW * 1.08 - 4} testID={`mode-look-3d:${look.id}`}
+              {lookCardArt(look.id, outfit?.gender) ? <View style={{ padding: 6 }}><ArtImage art={lookCardArt(look.id, outfit?.gender)!} width={cardW - 16} height={cardW * 1.08 - 16} testID={`mode-look-art:${look.id}`}/></View> : <Avatar3DImage outfit={o} framing="card" width={cardW - 4} height={cardW * 1.08 - 4} testID={`mode-look-3d:${look.id}`}
                 fallback={<FigureArt outfit={{ ...o, hairStyle: o.hairStyle }} width={cardW} height={cardW * 1.08} crop={[40, 108, 120, 250]}/>}/>}
             </Pressable>;
           })}
@@ -76,7 +76,7 @@ const s = StyleSheet.create({
   brand: { position: 'absolute', right: 22, fontSize: 22, fontWeight: '900', color: '#111' },
   sheet: { flex: 1, marginTop: -18, backgroundColor: '#1C1C1E', borderTopLeftRadius: 22, borderTopRightRadius: 22 },
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  title: { color: '#FFF', fontSize: 23, fontWeight: '900' },
+  title: { color: '#FFF', fontSize: 23, fontWeight: '900', flexShrink: 1, marginRight: 8 },
   more: { color: '#AEAEB2', fontSize: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   card: { backgroundColor: '#2C2C2F', borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: 'transparent' },

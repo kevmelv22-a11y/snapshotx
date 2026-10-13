@@ -4,15 +4,19 @@
  */
 import React from 'react';
 import { Image, View } from 'react-native';
-import { bustArtFor as bust0, lookArtFor as look0, poseArtFor as pose0, type ArtKey } from '../../lib/avatar/avatarArt';
+import { lookCardArt, bustArtFor as bust0, lookArtFor as look0, poseArtFor as pose0, type ArtKey } from '../../lib/avatar/avatarArt';
 import { MODE_HERO_ITEMS, TRY_LOOKS } from '../../lib/avatar/modeLooks';
 import type { Outfit } from '../../lib/avatar/outfit';
 import type { PoseId } from '../../lib/avatar/poses';
+import { DEFAULT_FEMALE_OUTFIT, DEFAULT_OUTFIT } from '../../lib/avatar/outfit';
+import { friendArtFor, type FriendArtKey } from '../../lib/avatar/friendArt';
 
-const DATA = { hero: MODE_HERO_ITEMS, looks: TRY_LOOKS };
+// The default outfit (DEFAULT_OUTFIT) counts as the default character too, so new users get the art.
+const DATA = { hero: MODE_HERO_ITEMS, looks: TRY_LOOKS, alt: [DEFAULT_OUTFIT], female: DEFAULT_FEMALE_OUTFIT };
 export const lookArtFor = (o: Outfit) => look0(o, DATA);
 export const poseArtFor = (o: Outfit, p: PoseId | 'think') => pose0(o, p, DATA);
 export const bustArtFor = (o: Outfit) => bust0(o, DATA);
+export { lookCardArt };
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 export const ART: Record<ArtKey, { src: number; w: number; h: number }> = {
@@ -32,10 +36,40 @@ export const ART: Record<ArtKey, { src: number; w: number; h: number }> = {
   'pose-thinking': { src: require('../../assets/avatar-art/pose-thinking.png'), w: 259, h: 690 },
   'pose-thumbsup': { src: require('../../assets/avatar-art/pose-thumbsup.png'), w: 285, h: 696 },
   'pose-wave': { src: require('../../assets/avatar-art/pose-wave.png'), w: 324, h: 691 },
-  'pose-wink': { src: require('../../assets/avatar-art/pose-wink.png'), w: 244, h: 690 }
-,
+  'pose-wink': { src: require('../../assets/avatar-art/pose-wink.png'), w: 244, h: 690 },
+  // Female set (src/girl/*.jpg → rembg cut → pngquant; see src/girl/cut.py, deswoosh.py)
+  'girl/bust': { src: require('../../assets/avatar-art/girl/bust.png'), w: 501, h: 692 },
+  'girl/look-black-bomber': { src: require('../../assets/avatar-art/girl/look-black-bomber.png'), w: 253, h: 693 },
+  'girl/look-cream-hoodie': { src: require('../../assets/avatar-art/girl/look-cream-hoodie.png'), w: 256, h: 694 },
+  'girl/look-denim-jacket': { src: require('../../assets/avatar-art/girl/look-denim-jacket.png'), w: 258, h: 688 },
+  'girl/look-green-jacket': { src: require('../../assets/avatar-art/girl/look-green-jacket.png'), w: 255, h: 694 },
+  'girl/look-ripped-jeans': { src: require('../../assets/avatar-art/girl/look-ripped-jeans.png'), w: 262, h: 693 },
+  'girl/look-tan-jacket': { src: require('../../assets/avatar-art/girl/look-tan-jacket.png'), w: 256, h: 692 },
+  'girl/pose-cheer': { src: require('../../assets/avatar-art/girl/pose-cheer.png'), w: 385, h: 689 },
+  'girl/pose-laugh': { src: require('../../assets/avatar-art/girl/pose-laugh.png'), w: 248, h: 695 },
+  'girl/pose-peace': { src: require('../../assets/avatar-art/girl/pose-peace.png'), w: 284, h: 699 },
+  'girl/pose-shrug': { src: require('../../assets/avatar-art/girl/pose-shrug.png'), w: 407, h: 695 },
+  'girl/pose-surprised': { src: require('../../assets/avatar-art/girl/pose-surprised.png'), w: 247, h: 698 },
+  'girl/pose-thinking': { src: require('../../assets/avatar-art/girl/pose-thinking.png'), w: 242, h: 693 },
+  'girl/pose-thumbsup': { src: require('../../assets/avatar-art/girl/pose-thumbsup.png'), w: 274, h: 698 },
+  'girl/pose-wave': { src: require('../../assets/avatar-art/girl/pose-wave.png'), w: 316, h: 696 },
+  'girl/pose-wink': { src: require('../../assets/avatar-art/girl/pose-wink.png'), w: 253, h: 696 },
+};
+export const FRIEND_ART: Record<FriendArtKey, number> = {
+  'friend-blonde': require('../../assets/avatar-art/friend-blonde.png'), 'friend-brown': require('../../assets/avatar-art/friend-brown.png'),
+  'friend-cap': require('../../assets/avatar-art/friend-cap.png'), 'friend-black': require('../../assets/avatar-art/friend-black.png'),
 };
 /* eslint-enable @typescript-eslint/no-require-imports */
+
+/** Round demo-friend portrait (see lib/avatar/friendArt), or null when this user has none. */
+export function FriendArtCircle({ id, size, selected = false }: { id: string; size: number; selected?: boolean }) {
+  const key = friendArtFor(id);
+  if (!key) return null;
+  const ring = Math.max(2, Math.round(size * 0.04));
+  return <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden', borderWidth: ring, borderColor: selected ? '#FFE436' : '#D9D9DE', backgroundColor: '#D9D9DE' }} testID={`friend-art:${key}`}>
+    <Image source={FRIEND_ART[key]} style={{ width: '100%', height: '100%' }} resizeMode="cover" accessibilityIgnoresInvertColors/>
+  </View>;
+}
 
 /**
  * Draws an art image inside width × height.

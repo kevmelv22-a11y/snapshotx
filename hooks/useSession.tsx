@@ -4,6 +4,11 @@ import {AppState} from 'react-native';
 import * as Device from 'expo-device';
 import {supabase} from '../lib/supabase';
 import {getInstallationId} from '../lib/deviceIdentity';
+import {useWardrobe} from '../stores/wardrobe';
+import {isGender} from '../lib/avatar/outfit';
+
+/** Registration stored the avatar character set (Man/Vrouw) in the user metadata: apply it to the avatar store. */
+const applyGender=(s:Session|null)=>{const g=s?.user.user_metadata?.gender;if(isGender(g))useWardrobe.getState().setGender(g)};
 import {useConfirmDialog} from '../components/ConfirmDialog';
 import {noticeRequest} from '../lib/confirm-flow';
 import {accessNotice,accessNoticeFor,type AccessNoticeKind} from '../lib/access-notice';
@@ -20,7 +25,7 @@ export function SessionProvider({children}:{children:React.ReactNode}) {
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,current)=>{
       if(!current){if(active){setSession(null);setReady(true)}return;}
       if(event!=='SIGNED_IN'&&event!=='INITIAL_SESSION'&&event!=='TOKEN_REFRESHED'){
-        if(active){setSession(current);setReady(true)}return;
+        if(active){applyGender(current);setSession(current);setReady(true)}return;
       }
       if(active)setReady(false);
       // Do network work only after the auth callback releases Supabase's auth lock.
@@ -38,7 +43,7 @@ export function SessionProvider({children}:{children:React.ReactNode}) {
           await supabase.auth.signOut();
           return;
         }
-        setSession(current);setReady(true);
+        applyGender(current);setSession(current);setReady(true);
       }).catch(async()=>{
         if(!active)return;
         setSession(null);setReady(true);

@@ -6,8 +6,9 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {OwnAvatar} from '../../components/avatar/OwnAvatar';
 import {PosedAvatar,BUST_VIEWBOX} from '../../components/avatar/PosedAvatar';
 import {MapAvatar} from '../../components/MapAvatar';
+import {ArtImage,bustArtFor} from '../../components/avatar/ArtImage';
 import {ProfileHome,YellowAvatarCircle,type ProfileFriend} from '../../components/profile/ProfileHome';
-import {useOwnOutfit,useWardrobeSync} from '../../hooks/useWardrobeSync';
+import {useOwnOutfit,useStartOutfit,useWardrobeSync} from '../../hooks/useWardrobeSync';
 import {useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {useSession} from '../../hooks/useSession';
 import {useStaffRoles} from '../../hooks/useStaffRoles';
@@ -36,9 +37,11 @@ export default function Profile(){
   if(!active)return;const names=new Map((n.data||[]).map(x=>[x.id,x.display_name])),seen=(v.data||[]).map(x=>x.story_id as string),t=Date.now();
   setFriends(ids.map(id=>({id,name:names.get(id)||'Vriend',ring:storyRingState((st.data||[]).filter(x=>x.owner_id===id).map(x=>({id:x.id,expiresAt:Date.parse(x.expires_at)})),seen,t)})));
  })();return()=>{active=false}},[uid]));
- const hero=<YellowAvatarCircle size={230}>{outfit?<PosedAvatar outfit={outfit} pose={pose==='stand'?'stand':pose} width={230} height={230} viewBox={BUST_VIEWBOX}/>:<View style={{flex:1,justifyContent:'center'}}><OwnAvatar userId={uid} size={180} appearance={appearance}/></View>}</YellowAvatarCircle>;
+ const start=useStartOutfit(uid),bust=bustArtFor(start);
+ // Default character: always the pre-rendered bust art (reference look), even before an outfit was saved.
+ const hero=<YellowAvatarCircle size={230}>{bust?<ArtImage art={bust} width={230} height={230} fit="top" zoom={bust==="girl/bust"?0.66:0.8} offsetY={0.07} testID="profile-bust-art"/>:outfit?<PosedAvatar outfit={outfit} pose={pose==='stand'?'stand':pose} width={230} height={230} viewBox={BUST_VIEWBOX}/>:<View style={{flex:1,justifyContent:'center'}}><OwnAvatar userId={uid} size={180} appearance={appearance}/></View>}</YellowAvatarCircle>;
  const tile=(icon:keyof typeof Ionicons.glyphMap,label:string,to:Parameters<typeof router.push>[0])=><Pressable key={label} style={s.tile} onPress={()=>router.push(to)}><Ionicons name={icon} color="#FFF" size={22}/><Text style={s.tileText}>{label}</Text><Ionicons name="chevron-forward" color="#C7C7CC" size={20}/></Pressable>;
- return <ProfileHome username={username||'Mijn profiel'} score={score} hero={hero} ownOutfit={outfit} storyCount={stories} sharingLocation={sharing} topInset={insets.top}
+ return <ProfileHome username={username||'Mijn profiel'} score={score} hero={hero} ownOutfit={start} storyCount={stories} sharingLocation={sharing} topInset={insets.top}
   friends={friends.map(f=>{const o=outfits.get(f.id);return {...f,outfit:o&&o!=='pending'?o:null,fallback:<MapAvatar id={f.id} size={70}/>}})}
   onMenu={()=>router.back()} onSettings={()=>router.push('/settings')} onAvatar={()=>router.push('/avatar/mode')} onStory={()=>router.push('/(tabs)/stories')} onFriends={()=>router.push('/(tabs)/friends')} onMap={()=>router.push('/map')} onTimers={()=>setNotice('Afteltimers komen binnenkort.')}
   footer={<View style={{marginTop:6}}>

@@ -3,11 +3,10 @@ import {Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'rea
 import {Ionicons} from '@expo/vector-icons';
 import {router} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {MapExplorer} from '../components/MapAvatar';
 import {SizedFigure} from '../components/avatar/OwnAvatar';
 import {avatarOptions,defaultAvatar,readAvatarAppearance,type AvatarAppearance} from '../lib/avatar';
 import {APPEARANCE_FIELDS,isAppearanceField,mergeAppearance,outfitMatchesAppearance,type AppearanceField} from '../lib/avatar/appearance';
-import type {Outfit} from '../lib/avatar/outfit';
+import {defaultOutfitFor,type Outfit} from '../lib/avatar/outfit';
 import {supabase} from '../lib/supabase';
 import {useSession} from '../hooks/useSession';
 import {useOwnOutfit} from '../hooks/useWardrobeSync';
@@ -26,7 +25,9 @@ const touch=(touched:AppearanceField[],fields:readonly AppearanceField[])=>[...n
 /** Preview figure: the saved Avatar-kast outfit with the touched classic appearance fields on top, else the classic art. */
 function Figure({uid,outfit,appearance,touched,size,own=false}:{uid:string|undefined;outfit:Outfit|null;appearance:AvatarAppearance;touched:readonly AppearanceField[];size:number;own?:boolean}){
   if(outfit)return <SizedFigure outfit={mergeAppearance(outfit,appearance,touched)} width={size}/>;
-  return <MapExplorer id={uid||'me'} appearance={appearance} size={size} own={own}/>;
+  void uid;void own;const start=defaultOutfitFor(useWardrobe.getState().gender);
+  // No saved outfit = default character: show its pre-rendered art (hair/skin picks are not drawn on it).
+  return <SizedFigure outfit={touched.length?mergeAppearance(start,appearance,touched):start} width={size}/>;
 }
 
 const icons:Record<Category,React.ComponentProps<typeof Ionicons>['name']>={skin:'happy-outline',hair:'color-palette-outline',hairstyle:'cut-outline',top:'shirt-outline',bottoms:'options-outline',shoes:'walk-outline',accessory:'sparkles-outline'};

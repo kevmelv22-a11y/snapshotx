@@ -41,7 +41,7 @@ export function ProfileHome(p: Props) {
     <View style={s.card2}>
       <Pressable onPress={p.onFriends} style={s.cardHead}><Text style={s.cardTitle}>Vrienden</Text><Text style={s.link}>Bekijk alle  ›</Text></Pressable>
       {p.friends.length ? <View style={s.friendRow}>{p.friends.slice(0, 4).map(f => <Pressable key={f.id} onPress={() => p.onFriend?.(f.id)} accessibilityLabel={`Avatar van ${f.name}`} style={s.friendCell}>
-        <AvatarStoryRing outfit={f.outfit} state={f.ring ?? 'none'} size={78} fallback={f.fallback}/>
+        <AvatarStoryRing outfit={f.outfit} state={f.ring ?? 'none'} size={72} fallback={f.fallback}/>
       </Pressable>)}</View> : <Text style={s.cardSub}>Nog geen vrienden. Voeg iemand toe!</Text>}
     </View>
 
@@ -50,7 +50,7 @@ export function ProfileHome(p: Props) {
       <Pressable onPress={p.onMap} style={s.map} accessibilityRole="button" accessibilityLabel="Kaart openen">
         <MiniMap/>
         <View style={s.pin}><View style={s.pinHead}>{p.ownOutfit ? <WardrobePortrait outfit={p.ownOutfit} size={44} selected/> : null}</View><View style={s.pinTip}/></View>
-        <View style={s.locBox}><Text style={s.locTitle}>Avatar Locatie</Text><Text style={s.locSub}>{p.sharingLocation ? 'Wordt gedeeld met vrienden' : 'Alleen voor jou (spookmodus)'}</Text></View>
+        <View style={s.locBox}><Text style={s.locTitle}>Avatar-locatie</Text><Text style={s.locSub}>{p.sharingLocation ? 'Wordt gedeeld met je vrienden' : 'Alleen voor jou (spookmodus)'}</Text></View>
         <View style={s.locBtn}><Ionicons name="navigate" size={20} color="#1E6B3A"/></View>
       </Pressable>
     </View>

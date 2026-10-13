@@ -2,7 +2,8 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { C } from '../../lib/theme';
-import { DEFAULT_OUTFIT, type Outfit } from '../../lib/avatar/outfit';
+import { defaultOutfitFor, type Outfit } from '../../lib/avatar/outfit';
+import { useWardrobe } from '../../stores/wardrobe';
 import { AVATAR_STICKERS, type AvatarSticker } from '../../lib/avatar/poses';
 import { AvatarStickerArt } from './PosedAvatar';
 
@@ -14,7 +15,7 @@ export function AvatarStickerSheet({ visible, outfit, onPick, onClose }: { visib
       {!outfit && <Text style={s.hint}>Stel je avatar in de Avatarkast in om stickers met jouw look te sturen.</Text>}
       <View style={s.grid}>
         {AVATAR_STICKERS.map(st => <Pressable key={st.id} onPress={() => { onPick(st); onClose(); }} style={s.cell} accessibilityLabel={`Stuur avatarsticker ${st.caption}`}>
-          <AvatarStickerArt outfit={outfit ?? DEFAULT_OUTFIT} sticker={st} size={76}/>
+          <AvatarStickerArt outfit={outfit ?? defaultOutfitFor(useWardrobe.getState().gender)} sticker={st} size={76}/>
         </Pressable>)}
       </View>
     </View>
@@ -23,7 +24,7 @@ export function AvatarStickerSheet({ visible, outfit, onPick, onClose }: { visib
 
 /** Bubble content for a `[avatar-sticker:id]` message, drawn with the sender's outfit. */
 export function ChatAvatarSticker({ sticker, outfit }: { sticker: AvatarSticker; outfit: Outfit | null | undefined }) {
-  return <AvatarStickerArt outfit={outfit ?? DEFAULT_OUTFIT} sticker={sticker} size={130}/>;
+  return <AvatarStickerArt outfit={outfit ?? defaultOutfitFor(useWardrobe.getState().gender)} sticker={sticker} size={130}/>;
 }
 
 const s = StyleSheet.create({

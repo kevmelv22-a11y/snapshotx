@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import {
-  DEFAULT_OUTFIT, parseOutfit, pushHistory, reconcile, redoHistory, sanitizeOutfit, startHistory, undoHistory, unownedItems,
-  type Outfit, type OutfitHistory,
+  DEFAULT_OUTFIT, defaultOutfitFor, isGender, parseOutfit, pushHistory, reconcile, redoHistory, sanitizeOutfit, startHistory, undoHistory, unownedItems,
+  type Gender, type Outfit, type OutfitHistory,
 } from '../lib/avatar/outfit';
 import type { AvatarAppearance } from '../lib/avatar';
 import { mergeAppearance, type AppearanceField } from '../lib/avatar/appearance';
@@ -24,6 +24,10 @@ type WardrobeState = {
   /** Account the local copy belongs to (a different login on this device starts fresh). */
   ownerId: string | null;
   history: OutfitHistory;
+  /** Character set chosen at registration (profile/user metadata 'gender'); picks the male/female art + start look. */
+  gender: Gender;
+  /** Sets the character set. Without a saved outfit the start look of that set is used; a saved outfit keeps its clothes. */
+  setGender: (gender: Gender) => void;
   begin: () => void;
   apply: (next: Outfit) => void;
   restore: (history: OutfitHistory) => void;
@@ -50,8 +54,14 @@ export const useWardrobe = create<WardrobeState>()(persist((set, get) => ({
   unlocked: [],
   ownerId: null,
   history: startHistory(DEFAULT_OUTFIT),
+  gender: 'male',
+  setGender: gender => set(state => {
+    if (state.gender === gender && (state.saved.gender ?? 'male') === gender) return {};
+    const saved = state.savedAt ? { ...state.saved, gender } : defaultOutfitFor(gender);
+    return { gender, saved, history: startHistory(saved) };
+  }),
   begin: () => set(state => ({ history: startHistory(state.saved) })),
-  apply: next => set(state => ({ history: pushHistory(state.history, next) })),
+  apply: next => set(state => ({ history: pushHistory(state.history, { ...next, gender: state.gender }) })),
   restore: history => set({ history }),
   undo: () => set(state => ({ history: undoHistory(state.history) })),
   redo: () => set(state => ({ history: redoHistory(state.history) })),
@@ -74,7 +84,7 @@ export const useWardrobe = create<WardrobeState>()(persist((set, get) => ({
     if (!userId || syncing.has(userId)) return;
     syncing.add(userId);
     try {
-      if (get().ownerId && get().ownerId !== userId) set({ saved: DEFAULT_OUTFIT, savedAt: null, unlocked: [], ownerId: userId, history: startHistory(DEFAULT_OUTFIT) });
+      if (get().ownerId && get().ownerId !== userId) { const start = defaultOutfitFor(get().gender); set({ saved: start, savedAt: null, unlocked: [], ownerId: userId, history: startHistory(start) }); }
       const remote = await fetchRemoteOutfit(userId);
       if (remote === undefined) return;
       const state = get();
@@ -103,7 +113,7 @@ export const useWardrobe = create<WardrobeState>()(persist((set, get) => ({
   name: 'snapshotx.wardrobe.v1',
   version: 2,
   storage: createJSONStorage(() => AsyncStorage),
-  partialize: state => ({ saved: state.saved, savedAt: state.savedAt, unlocked: state.unlocked, ownerId: state.ownerId }),
+  partialize: state => ({ saved: state.saved, savedAt: state.savedAt, unlocked: state.unlocked, ownerId: state.ownerId, gender: state.gender }),
   // v1 had no savedAt/ownerId: an existing v1 save counts as an (old) explicit save.
   migrate: (persisted, version) => {
     const p = (persisted && typeof persisted === 'object' ? persisted : {}) as Record<string, unknown>;
@@ -111,10 +121,11 @@ export const useWardrobe = create<WardrobeState>()(persist((set, get) => ({
     return p;
   },
   merge: (persisted, current) => {
-    const p = (persisted && typeof persisted === 'object' ? persisted : {}) as Partial<Pick<WardrobeState, 'saved' | 'unlocked' | 'savedAt' | 'ownerId'>>;
+    const p = (persisted && typeof persisted === 'object' ? persisted : {}) as Partial<Pick<WardrobeState, 'saved' | 'unlocked' | 'savedAt' | 'ownerId' | 'gender'>>;
     const unlocked = Array.isArray(p.unlocked) ? p.unlocked.filter((id): id is string => typeof id === 'string') : [];
-    const saved = parseOutfit(p.saved, WARDROBE_ITEMS);
-    return { ...current, saved, history: startHistory(saved), savedAt: typeof p.savedAt === 'string' ? p.savedAt : null, unlocked, ownerId: typeof p.ownerId === 'string' ? p.ownerId : null };
+    const gender: Gender = isGender(p.gender) ? p.gender : 'male';
+    const saved = p.saved ? parseOutfit(p.saved, WARDROBE_ITEMS) : defaultOutfitFor(gender);
+    return { ...current, gender, saved, history: startHistory(saved), savedAt: typeof p.savedAt === 'string' ? p.savedAt : null, unlocked, ownerId: typeof p.ownerId === 'string' ? p.ownerId : null };
   },
 }));
 
