@@ -12,7 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { FigureArt, HeadPreviewArt, ItemPreviewArt } from '../../components/avatar/AvatarArt';
 import { CategoryIcon } from '../../components/avatar/WardrobeIcons';
-import { REACTIONS, WardrobeAvatar, type Reaction } from '../../components/avatar/WardrobeAvatar';
+import { REACTIONS, type Reaction } from '../../components/avatar/WardrobeAvatar';
+import { ArtImage, nearestLookArt } from '../../components/avatar/ArtImage';
 import { useSession } from '../../hooks/useSession';
 import { useWardrobeSync } from '../../hooks/useWardrobeSync';
 import {
@@ -81,7 +82,10 @@ export default function WardrobeScreen() {
   const activeLayer: Layer | null = tab === 'avatar' ? 'hair' : tab === 'mode' || category === 'featured' || category === 'all' ? lastLayer : category;
   const activeItem = activeLayer && activeLayer !== 'hair' ? (outfit[activeLayer] ? ITEMS_BY_ID.get(outfit[activeLayer]!) : undefined) : undefined;
   // The Avatar tab has its own hair/skin rows, so the side strip only serves clothing layers.
-  const swatches = tab !== 'avatar' && activeItem ? swatchesFor(activeLayer) : [];
+  // Clothing colour swatches are hidden: the preview is pre-rendered art that cannot be recoloured, so a swatch
+  // would change nothing visible (and the art cards would lie about the colour). Hair/skin stay in the Avatar tab.
+  const swatches: string[] = [];
+  void swatchesFor;
   const activeColor = activeLayer === 'hair' ? (outfit.colors.hair ?? DEFAULT_HAIR) : activeItem ? (outfit.colors[activeItem.category] ?? activeItem.colors[0]) : null;
 
   const data = useMemo(() => itemsForTab(WARDROBE_ITEMS, category, { onlyFree, sort }), [category, onlyFree, sort]);
@@ -167,7 +171,11 @@ export default function WardrobeScreen() {
 
     {/* avatar */}
     <View style={[s.avatarWrap, { top: stageH - 26 - avatarW * 2 * 0.885, left: (winW - avatarW) / 2, transform: [{ scale: avatarScale }] }]} pointerEvents="none">
-      {ready && <WardrobeAvatar outfit={outfit} width={avatarW} reaction={reaction}/>}
+      {/* ChatGPT-style art only: the exact look image, else the closest look (lib/avatar/avatarArt nearestLookArt). */}
+      {ready && <View style={{ width: avatarW, height: avatarW * 2 * 0.885 + 10, justifyContent: 'flex-end' }} testID={`kast-preview-art:${nearestLookArt(outfit)}`}>
+        <ArtImage art={nearestLookArt(outfit)} width={avatarW} height={avatarW * 2 * 0.885}/>
+        <View style={s.artShadow}/>
+      </View>}
     </View>
 
     {/* top bar */}
@@ -378,7 +386,7 @@ const LookCard = React.memo(function LookCard({ look, selected, unlocked, onPres
     <View style={s.lookCard}>
       <View style={{ width: LOOK_W - 5, height: LOOK_IMG }}>
         <CardGlow width={LOOK_W - 5} height={LOOK_IMG}/>
-        <FigureArt outfit={LOOK_OUTFITS.get(look.id)!} width={LOOK_W - 5} height={LOOK_IMG} crop={[28, 8, 144, 352]}/>
+        <ArtImage art={nearestLookArt({ ...LOOK_OUTFITS.get(look.id)!, gender: useWardrobe.getState().gender })} width={LOOK_W - 5} height={LOOK_IMG - 6}/>
         {toBuy.length > 0 && <View style={s.euro}><Text style={s.euroText}>€</Text></View>}
       </View>
       <View style={s.lookText}>
@@ -508,6 +516,7 @@ function SaveCheckSheet({ items, bottomInset, onBuyAndSave, onSaveWithout, onCan
 }
 
 const s = StyleSheet.create({
+  artShadow: { alignSelf: 'center', width: '70%', height: 10, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.45)', marginTop: -6, zIndex: -1 },
   root: { flex: 1, backgroundColor: '#000', overflow: 'hidden' },
   avatarWrap: { position: 'absolute' },
   topBar: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

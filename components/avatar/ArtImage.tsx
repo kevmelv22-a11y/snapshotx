@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { Image, View } from 'react-native';
-import { lookCardArt, bustArtFor as bust0, lookArtFor as look0, poseArtFor as pose0, type ArtKey } from '../../lib/avatar/avatarArt';
+import { lookCardArt, nearestLookArt as near0, bustArtFor as bust0, lookArtFor as look0, poseArtFor as pose0, type ArtKey } from '../../lib/avatar/avatarArt';
 import { MODE_HERO_ITEMS, TRY_LOOKS } from '../../lib/avatar/modeLooks';
 import type { Outfit } from '../../lib/avatar/outfit';
 import type { PoseId } from '../../lib/avatar/poses';
@@ -17,6 +17,9 @@ export const lookArtFor = (o: Outfit) => look0(o, DATA);
 export const poseArtFor = (o: Outfit, p: PoseId | 'think') => pose0(o, p, DATA);
 export const bustArtFor = (o: Outfit) => bust0(o, DATA);
 export { lookCardArt };
+import { ITEMS_BY_ID } from '../../lib/avatar/wardrobeItems';
+/** Closest art image for any outfit (never the 3D/2D figure). */
+export const nearestLookArt = (o: Outfit) => near0(o, DATA, id => ITEMS_BY_ID.get(id)?.colors[0] ?? null);
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 export const ART: Record<ArtKey, { src: number; w: number; h: number }> = {

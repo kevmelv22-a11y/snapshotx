@@ -84,3 +84,43 @@ export function bustArtFor(outfit: Outfit, d: LookData): 'bust' | 'girl/bust' | 
 export const STICKER_ART: Record<string, PoseArtKey> = {
   hoi: 'pose-wave', top: 'pose-thumbsup', haha: 'pose-laugh', yes: 'pose-cheer', peace: 'pose-peace', 'geen-idee': 'pose-shrug', knipoog: 'pose-wink', wauw: 'pose-surprised',
 };
+
+/** Hex colour → [r,g,b] (0–255); null when unparsable. */
+function rgb(hex: string | null | undefined): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex ?? '');
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+const dist = (a: [number, number, number], b: [number, number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+/**
+ * Art for ANY outfit (Kast preview): the exact look/start-look image when it matches, otherwise the closest
+ * art-backed look — never null, so the editor never falls back to the 3D/2D figure. Closeness: same item ids per
+ * layer (outerwear/top/bottom/shoes), then colour distance of the visible upper layer (outerwear, else top) and
+ * of the bottom. `colorOf(id)` returns an item's primary colour. Clothing recolours are ignored (art can't recolour).
+ */
+export function nearestLookArt(outfit: Outfit, d: LookData, colorOf: (id: string) => string | null): ArtKey {
+  const exact = lookArtFor({ ...outfit, colors: {} }, d);
+  if (exact) return exact;
+  const female = isFemale(outfit);
+  const start = female ? d.female ?? d.hero : d.hero;
+  const cands: { key: ArtKey; items: Partial<Record<WardrobeCategory, string | null>> }[] = [
+    { key: forGender(outfit, 'look-default-hoodie')!, items: start },
+    ...d.looks.filter(l => LOOK_ART[l.id]).map(l => ({ key: forGender(outfit, LOOK_ART[l.id])!, items: l.items })),
+  ];
+  const upper = (o: Partial<Record<WardrobeCategory, string | null>>) => o.outerwear ?? o.top ?? o.dress ?? null;
+  const col = (id: string | null | undefined) => (id ? rgb(colorOf(id)) : null);
+  let best = cands[0], bestScore = Infinity;
+  for (const c of cands) {
+    let score = 0;
+    for (const k of ['outerwear', 'top', 'bottom', 'shoes'] as const) if ((outfit[k] ?? null) !== (c.items[k] ?? null)) score += k === 'shoes' ? 40 : 80;
+    const [ua, ub] = [col(upper(outfit)), col(upper(c.items))];
+    score += ua && ub ? dist(ua, ub) : 150;
+    const [ba, bb] = [col(outfit.bottom ?? outfit.dress), col(c.items.bottom)];
+    score += (ba && bb ? dist(ba, bb) : 150) * 0.6;
+    if (!!outfit.outerwear !== !!c.items.outerwear) score += 60;
+    if (score < bestScore) { bestScore = score; best = c; }
+  }
+  return best.key;
+}
