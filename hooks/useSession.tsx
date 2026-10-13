@@ -1,16 +1,22 @@
 import React, {createContext,useContext,useEffect,useState} from 'react';
 import type {Session} from '@supabase/supabase-js';
-import {Alert,AppState} from 'react-native';
+import {AppState} from 'react-native';
 import * as Device from 'expo-device';
 import {supabase} from '../lib/supabase';
 import {getInstallationId} from '../lib/deviceIdentity';
+import {useConfirmDialog} from '../components/ConfirmDialog';
+import {noticeRequest} from '../lib/confirm-flow';
+import {accessNotice,accessNoticeFor,type AccessNoticeKind} from '../lib/access-notice';
 
 const SessionContext=createContext<{session:Session|null;ready:boolean}>({session:null,ready:false});
 export function SessionProvider({children}:{children:React.ReactNode}) {
   const [session,setSession]=useState<Session|null>(null);
   const [ready,setReady]=useState(false);
+  // Cross-platform notice (Alert.alert shows nothing on web). Rendered below, outside the navigator.
+  const {ask:askNotice,dialog:noticeDialog}=useConfirmDialog();
   useEffect(()=>{
     let active=true;
+    const showNotice=(kind:AccessNoticeKind|null)=>{if(!kind)return;const n=accessNotice(kind);askNotice(noticeRequest(n.title,n.message),()=>null);};
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,current)=>{
       if(!current){if(active){setSession(null);setReady(true)}return;}
       if(event!=='SIGNED_IN'&&event!=='INITIAL_SESSION'&&event!=='TOKEN_REFRESHED'){
@@ -28,7 +34,7 @@ export function SessionProvider({children}:{children:React.ReactNode}) {
         if(!active)return;
         if(error||allowed!==true){
           setSession(null);setReady(true);
-          if(event==='SIGNED_IN')Alert.alert(error?'Toegang controleren mislukt':'Account geblokkeerd',error?'Probeer het later opnieuw.':'Je account, IP of apparaat heeft geen toegang tot SNAPLION.');
+          showNotice(accessNoticeFor(event,!!error,allowed));
           await supabase.auth.signOut();
           return;
         }
@@ -36,13 +42,13 @@ export function SessionProvider({children}:{children:React.ReactNode}) {
       }).catch(async()=>{
         if(!active)return;
         setSession(null);setReady(true);
-        if(event==='SIGNED_IN')Alert.alert('Toegang controleren mislukt','Probeer het later opnieuw.');
+        showNotice(accessNoticeFor(event,true,null));
         await supabase.auth.signOut();
       });
     });
     const sub=AppState.addEventListener('change',state=>{if(state==='active')supabase.auth.startAutoRefresh();else supabase.auth.stopAutoRefresh();});
     return ()=>{active=false;subscription.unsubscribe();sub.remove();};
-  },[]);
-  return <SessionContext.Provider value={{session,ready}}>{children}</SessionContext.Provider>;
+  },[askNotice]);
+  return <SessionContext.Provider value={{session,ready}}>{children}{noticeDialog}</SessionContext.Provider>;
 }
 export const useSession=()=>useContext(SessionContext);

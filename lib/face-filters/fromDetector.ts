@@ -7,10 +7,15 @@ export type DetectedFace = {
   landmarks?: Partial<Record<LandmarkName, Pt>>;
   rollAngle?: number;
   yawAngle?: number;
+  leftEyeOpenProbability?: number;
+  rightEyeOpenProbability?: number;
+  smilingProbability?: number;
 };
 
 const CONTOURS: ContourName[] = ['FACE', 'LEFT_EYE', 'RIGHT_EYE', 'UPPER_LIP_TOP', 'UPPER_LIP_BOTTOM', 'LOWER_LIP_TOP', 'LOWER_LIP_BOTTOM', 'NOSE_BRIDGE', 'NOSE_BOTTOM', 'LEFT_EYEBROW_TOP', 'RIGHT_EYEBROW_TOP'];
 const LANDMARKS: LandmarkName[] = ['LEFT_EYE', 'RIGHT_EYE', 'NOSE_BASE', 'MOUTH_LEFT', 'MOUTH_RIGHT', 'MOUTH_BOTTOM'];
+/** ML Kit reports -1 / undefined when a classification is unavailable. */
+const prob = (v?: number) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1 ? v : undefined);
 const ok = (p?: Pt): p is Pt => !!p && Number.isFinite(p.x) && Number.isFinite(p.y);
 
 /** Copies a detector face into plain data (native hybrid objects must not be kept in React state). */
@@ -26,7 +31,8 @@ export function faceFromDetector(face: DetectedFace): FaceGeometry {
     if (ok(p)) landmarks[name] = { x: p.x, y: p.y };
   }
   const b = face.bounds;
-  return { bounds: { x: b.x, y: b.y, width: b.width, height: b.height }, contours, landmarks, rollAngle: face.rollAngle, yawAngle: face.yawAngle };
+  return { bounds: { x: b.x, y: b.y, width: b.width, height: b.height }, contours, landmarks, rollAngle: face.rollAngle, yawAngle: face.yawAngle,
+    leftEyeOpenProbability: prob(face.leftEyeOpenProbability), rightEyeOpenProbability: prob(face.rightEyeOpenProbability), smilingProbability: prob(face.smilingProbability) };
 }
 
 /** The face with the largest area (the person taking the selfie / main subject). */

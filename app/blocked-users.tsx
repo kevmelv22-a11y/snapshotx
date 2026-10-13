@@ -1,5 +1,5 @@
 import React, {useCallback, useState} from 'react';
-import {Alert, FlatList, Pressable, StyleSheet, Text, View} from 'react-native';
+import {FlatList, Pressable, StyleSheet, Text, View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {router, useFocusEffect} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import {Avatar} from '../components/UI';
 import {useSession} from '../hooks/useSession';
 import {supabase} from '../lib/supabase';
 import {C} from '../lib/theme';
+import {useConfirmDialog} from '../components/ConfirmDialog';
 
 type BlockedUser = {id: string; display_name: string; username: string | null};
 
@@ -19,6 +20,7 @@ export default function BlockedUsers() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const confirm = useConfirmDialog();
 
   const load = useCallback(async () => {
     if (!uid) return;
@@ -54,10 +56,8 @@ export default function BlockedUsers() {
   }, [load]));
 
   function confirmUnblock(user: BlockedUser) {
-    Alert.alert('Gebruiker deblokkeren?', `Je kunt ${user.display_name} daarna weer zien en benaderen.`, [
-      {text: 'Annuleren', style: 'cancel'},
-      {text: 'Deblokkeren', onPress: () => void unblock(user.id)},
-    ]);
+    confirm.ask({title: 'Gebruiker deblokkeren?', message: `Je kunt ${user.display_name} daarna weer zien en benaderen.`, confirmLabel: 'Deblokkeren'},
+      async () => { await unblock(user.id); return null; });
   }
 
   async function unblock(id: string) {
@@ -94,6 +94,7 @@ export default function BlockedUsers() {
           <Text style={s.actionText}>Deblokkeren</Text>
         </Pressable>
       </View>}/>
+    {confirm.dialog}
   </GalaxyScreen>;
 }
 

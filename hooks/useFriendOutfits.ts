@@ -12,7 +12,7 @@ import { useSession } from './useSession';
 export const FRIEND_OUTFIT_POLL_MS = 60_000;
 
 /**
- * App-wide cache of friends' saved Bitmoji-kast outfits (RPC sx_friend_avatar_outfits), shared by all screens so
+ * App-wide cache of friends' saved avatarkast outfits (RPC sx_friend_avatar_outfits), shared by all screens so
  * the chats list, the map and the friends tab batch into one RPC call.
  * - Fresh for 60 s (TTL); screens additionally refresh on focus, on return to the foreground and every 60 s.
  * - Persisted per signed-in user in AsyncStorage (`snapshotx.friendOutfits.v1:<userId>`), so after an app start
