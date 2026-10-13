@@ -4,7 +4,7 @@
  * Paid items use a MOCK purchase that only unlocks the item: no payment is ever made.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, FlatList, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -14,6 +14,7 @@ import { FigureArt, HeadPreviewArt, ItemPreviewArt } from '../../components/avat
 import { CategoryIcon } from '../../components/avatar/WardrobeIcons';
 import { REACTIONS, type Reaction } from '../../components/avatar/WardrobeAvatar';
 import { ArtImage, nearestLookArt } from '../../components/avatar/ArtImage';
+import { ITEM_ART } from '../../components/avatar/itemArt';
 import { useSession } from '../../hooks/useSession';
 import { useWardrobeSync } from '../../hooks/useWardrobeSync';
 import {
@@ -313,7 +314,7 @@ const ItemCard = React.memo(function ItemCard({ item, width, height, selected, c
     <View style={s.card}>
       <View style={{ width: inner, height: imgH }}>
         <CardGlow width={inner} height={imgH}/>
-        <ItemPreviewArt item={item} color={color} width={inner} height={imgH}/>
+        <ItemThumb item={item} color={color} width={inner} height={imgH}/>
         {!owned && <View style={s.euro}><Text style={s.euroText}>€</Text></View>}
       </View>
       <BrandLabel brand={item.brand}/>
@@ -374,6 +375,17 @@ function ModeHeader({ outfit, unlocked, filter, onFilter, onLook }: { outfit: Ou
         </Pressable>;
       })}
     </View>
+  </View>;
+}
+
+/** Item tile image: the ChatGPT-style thumbnail (components/avatar/itemArt) when there is one, else the old render.
+ *  The art can't be recoloured, so a recolour of an art-backed item still shows the original colour. */
+function ItemThumb({ item, color, width, height }: { item: WardrobeItem; color?: string; width: number; height: number }) {
+  const src = ITEM_ART[item.id];
+  if (!src) return <ItemPreviewArt item={item} color={color} width={width} height={height}/>;
+  const side = Math.min(width, height);
+  return <View style={{ width, height, alignItems: 'center', justifyContent: 'center' }} testID={`item-art:${item.id}`}>
+    <Image source={src} style={{ width: side, height: side }} resizeMode="contain" accessibilityIgnoresInvertColors/>
   </View>;
 }
 
@@ -499,7 +511,7 @@ function SaveCheckSheet({ items, bottomInset, onBuyAndSave, onSaveWithout, onCan
       <Text style={s.buySub}>Deze items heb je nog niet gekocht. Zonder kopen worden ze niet in je outfit opgeslagen.</Text>
       <View style={s.checkList}>
         {items.map(i => <View key={i.id} style={s.checkItem}>
-          <View style={s.checkThumb}><ItemPreviewArt item={i} width={40} height={40}/></View>
+          <View style={s.checkThumb}><ItemThumb item={i} width={40} height={40}/></View>
           <Text style={s.checkName} numberOfLines={1}>{i.name}</Text>
           <Text style={s.buyPrice}>{priceText(i.priceCents ?? 0)}</Text>
         </View>)}
