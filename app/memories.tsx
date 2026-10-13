@@ -21,7 +21,7 @@ export default function MemoriesScreen() {
   const [targets, setTargets] = useState<ResendTarget[]>([]);
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const tz = new Date().getTimezoneOffset();
 
   const load = useCallback(async () => {

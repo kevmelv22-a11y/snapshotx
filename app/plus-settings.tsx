@@ -4,13 +4,14 @@ import {Stack,router} from 'expo-router';
 import {C} from '../lib/theme';
 import {entitlementLabel} from '../lib/plus';
 import {AppIconPicker,Locked} from '../components/plus/PlusParts';
+import {useNow} from '../hooks/useNow';
 import {usePlusStore,useIsPlus} from '../stores/plus';
 
 /** X+ perks overview. Changing the real home-screen icon needs a native alternate-icons config plugin (dev build); here the choice is stored only. */
 export default function PlusSettings(){
-  const plus=useIsPlus();const st=usePlusStore();
+  const plus=useIsPlus();const now=useNow();const st=usePlusStore();
   return <ScrollView contentContainerStyle={s.c}><Stack.Screen options={{title:'X+-instellingen'}}/>
-    <Text style={s.status}>{entitlementLabel(st.entitlements[0],Date.now())}</Text>
+    <Text style={s.status}>{entitlementLabel(st.entitlements[0],now)}</Text>
     {!plus&&<Locked onUpgrade={()=>router.push('/plus')}/>}
     <Text style={s.h}>App-icoon</Text><AppIconPicker value={st.appIcon} plus={plus} onChange={st.setAppIcon}/>
     <Text style={s.note}>Het icoon op je beginscherm verandert pas in de volgende app-versie.</Text>

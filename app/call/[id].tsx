@@ -11,10 +11,12 @@ export default function CallScreen(){
   const {name='Vriend',state:initial}=useLocalSearchParams<{id:string;name?:string;state?:CallState}>();
   const insets=useSafeAreaInsets();
   const [state,dispatch]=useReducer((s:CallState,e:CallEvent)=>nextCallState(s,e),(initial as CallState)||'ringing');
-  const [startedAt,setStartedAt]=useState<number|null>(initial==='active'?Date.now()-83000:null),[now,setNow]=useState(Date.now());
+  const [startedAt,setStartedAt]=useState<number|null>(()=>initial==='active'?Date.now()-83000:null),[now,setNow]=useState(()=>Date.now());
+  // Start the call timer when the call becomes active (in the event, not in an effect).
+  const send=(e:CallEvent)=>{if(startedAt===null&&nextCallState(state,e)==='active')setStartedAt(Date.now());dispatch(e)};
   const [muted,setMuted]=useState(false),[camOff,setCamOff]=useState(false),[front,setFront]=useState(true);
-  useEffect(()=>{if(initial)return;const a=setTimeout(()=>dispatch('answer'),2500),b=setTimeout(()=>dispatch('connected'),3500);return()=>{clearTimeout(a);clearTimeout(b)}},[initial]);
-  useEffect(()=>{if(state==='active'&&startedAt===null)setStartedAt(Date.now());if(state==='ended'&&!initial){const t=setTimeout(()=>router.canGoBack()&&router.back(),1200);return()=>clearTimeout(t)}},[state,startedAt,initial]);
+  useEffect(()=>{if(initial)return;const a=setTimeout(()=>send('answer'),2500),b=setTimeout(()=>{setStartedAt(t=>t??Date.now());dispatch('connected')},3500);return()=>{clearTimeout(a);clearTimeout(b)}},[initial]);
+  useEffect(()=>{if(state==='ended'&&!initial){const t=setTimeout(()=>router.canGoBack()&&router.back(),1200);return()=>clearTimeout(t)}},[state,initial]);
   useEffect(()=>{const t=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(t)},[]);
   const active=state==='active';
   return <View style={s.root} testID="call-screen">
@@ -35,7 +37,7 @@ export default function CallScreen(){
       <Ctl icon={muted?'🔇':'🎙'} label={muted?'Dempen uit':'Dempen'} on={muted} onPress={()=>setMuted(v=>!v)}/>
       <Ctl icon={camOff?'🚫':'📹'} label={camOff?'Camera aan':'Camera uit'} on={camOff} onPress={()=>setCamOff(v=>!v)}/>
       <Ctl icon="🔄" label="Omdraaien" onPress={()=>setFront(v=>!v)}/>
-      <Pressable onPress={()=>dispatch('hangup')} accessibilityLabel="Ophangen" style={[s.ctl,s.hang]}><Text style={s.ctlIcon}>📞</Text></Pressable>
+      <Pressable onPress={()=>send('hangup')} accessibilityLabel="Ophangen" style={[s.ctl,s.hang]}><Text style={s.ctlIcon}>📞</Text></Pressable>
     </View>
   </View>;
 }

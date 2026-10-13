@@ -24,15 +24,17 @@ type ImgProps = { outfit: Outfit; pose?: Pose3DId; framing: Framing; width: numb
 export const Avatar3DImage = React.memo(function Avatar3DImage({ outfit, pose = 'stand', framing, width, height, fallback, style, testID }: ImgProps) {
   const rig = useAvatarRig(outfit);
   const size = useMemo(() => [Math.round(width), Math.round(height)] as [number, number], [width, height]);
-  const [uri, setUri] = useState<string | null>(() => avatar3DSupported() ? cachedSnapshot(rig, pose, framing, size) : null);
+  // Cache hits are derived during render; only a fresh render is stored in state (keyed so stale results are ignored).
+  const key = useMemo(() => JSON.stringify([rig, pose, framing, size]), [rig, pose, framing, size]);
+  const hit = avatar3DSupported() ? cachedSnapshot(rig, pose, framing, size) : null;
+  const [rendered, setRendered] = useState<{ key: string; uri: string | null } | null>(null);
   useEffect(() => {
-    if (!avatar3DSupported()) return;
+    if (!avatar3DSupported() || cachedSnapshot(rig, pose, framing, size)) return;
     let live = true;
-    const hit = cachedSnapshot(rig, pose, framing, size);
-    if (hit) { setUri(hit); return; }
-    renderSnapshot(rig, pose, framing, size).then(u => { if (live) setUri(u); }).catch(() => { if (live) setUri(null); });
+    renderSnapshot(rig, pose, framing, size).then(u => { if (live) setRendered({ key, uri: u }); }).catch(() => { if (live) setRendered({ key, uri: null }); });
     return () => { live = false; };
-  }, [rig, pose, framing, size]);
+  }, [rig, pose, framing, size, key]);
+  const uri = hit ?? (rendered?.key === key ? rendered.uri : null);
   if (!uri) return <View style={{ width, height }} testID={testID ? `${testID}:loading` : undefined}>{fallback}</View>;
   return <Image source={{ uri }} style={[{ width, height }, style]} testID={testID} accessibilityIgnoresInvertColors/>;
 });

@@ -17,7 +17,8 @@ type Props = { outfit: Outfit; pose?: Pose3DId; framing?: Framing; width: number
 
 export function Avatar3DView({ outfit, pose = 'stand', framing = 'hero', width, height, testID }: Props) {
   const rig = useAvatarRig(outfit);
-  const latest = useRef({ rig, pose, framing }); latest.current = { rig, pose, framing };
+  const latest = useRef({ rig, pose, framing });
+  useEffect(() => { latest.current = { rig, pose, framing }; }, [rig, pose, framing]);
   const raf = useRef(0);
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
   const onContextCreate = async (gl: ExpoWebGLRenderingContext) => {

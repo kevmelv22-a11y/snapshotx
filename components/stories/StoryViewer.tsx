@@ -24,14 +24,17 @@ export function StoryViewer(p:Props){
  const paused=clock.runningSince==null;
  const apply=(r:L.NavResult)=>{if('close' in r){p.onClose();return}setCursor(r.cursor);setClock(L.startClock(clockNow()));setNotice('')};
  useEffect(()=>{if(story)p.onViewed?.(story)},[story?.id]);// eslint-disable-line react-hooks/exhaustive-deps
- useEffect(()=>{if(paused)return;const t=setInterval(()=>setTick(x=>x+1),50);return()=>clearInterval(t)},[paused]);
+ // Latest values for the 50 ms ticker (read only inside the interval callback).
+ const adv=useRef({clock,cursor,sizes,apply});useEffect(()=>{adv.current={clock,cursor,sizes,apply}});
+ useEffect(()=>{if(paused)return;const t=setInterval(()=>{const v=adv.current;if(L.progress(v.clock,clockNow())>=1)v.apply(L.next(v.cursor,v.sizes));else setTick(x=>x+1)},50);return()=>clearInterval(t)},[paused]);// eslint-disable-line react-hooks/exhaustive-deps
  const prog=L.progress(clock,clockNow());
- useEffect(()=>{if(prog>=1&&!paused)apply(L.next(cursor,sizes))},[tick]);// eslint-disable-line react-hooks/exhaustive-deps
  const hold=(on:boolean)=>setClock(c=>on?L.pauseClock(c,clockNow()):L.resumeClock(c,clockNow()));
  useEffect(()=>{if(viewersOpen&&story&&mine&&p.loadViewers)p.loadViewers(story).then(setViewers)},[viewersOpen,story?.id]);// eslint-disable-line react-hooks/exhaustive-deps
  const openPanel=(which:'reply'|'viewers')=>{hold(true);if(which==='reply')setReplyOpen(true);else setViewersOpen(true)};
  const closePanels=()=>{setReplyOpen(false);setViewersOpen(false);hold(false)};
- const ref=useRef({cursor,sizes,mine});ref.current={cursor,sizes,mine};
+ const ref=useRef({cursor,sizes,mine});useEffect(()=>{ref.current={cursor,sizes,mine}});
+ // react-hooks/refs false positive: ref.current is only read inside the gesture-release handler, never during render.
+ // eslint-disable-next-line react-hooks/refs
  const pan=useMemo(()=>PanResponder.create({onMoveShouldSetPanResponder:(_,g)=>Math.abs(g.dx)>12||Math.abs(g.dy)>12,onPanResponderRelease:(_,g)=>{const sw=L.classifySwipe(g.dx,g.dy);const {cursor:c,sizes:z,mine:m}=ref.current;if(sw==='nextGroup')apply(L.switchGroup(c,z,1));else if(sw==='prevGroup')apply(L.switchGroup(c,z,-1));else if(sw==='close')p.onClose();else if(sw==='reply')openPanel(m?'viewers':'reply')}}),[]);// eslint-disable-line react-hooks/exhaustive-deps
  if(!group||!story)return <View style={s.root}><Text style={s.text}>Geen verhalen</Text></View>;
  async function send(){if(!story||!p.onReply)return;const body=L.storyReplyBody(reply,story.caption);if(!body)return;const err=await p.onReply(story,body);setNotice(err??'Antwoord verstuurd naar de chat');if(!err){setReply('');setReplyOpen(false);hold(false)}}

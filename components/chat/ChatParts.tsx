@@ -1,4 +1,4 @@
-import React,{useEffect,useRef} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import {Animated,Modal,Pressable,StyleSheet,Text,View} from 'react-native';
 import {useAudioPlayer,useAudioPlayerStatus} from 'expo-audio';
 import {C} from '../../lib/theme';
@@ -16,7 +16,7 @@ export function StreakWarning({streak}:{streak:StreakState}){
 
 /** "Aria is aan het typen…" with three pulsing dots. */
 export function TypingIndicator({text}:{text:string|null}){
-  const a=useRef(new Animated.Value(0)).current;
+  const [a]=useState(()=>new Animated.Value(0));
   useEffect(()=>{if(!text)return;const loop=Animated.loop(Animated.timing(a,{toValue:3,duration:1200,useNativeDriver:false}));loop.start();return()=>loop.stop()},[a,text]);
   if(!text)return null;
   return <View testID="typing" style={s.typing}><View style={s.dots}>{[0,1,2].map(i=><Animated.View key={i} style={[s.dot,{opacity:a.interpolate({inputRange:[0,i,i+.5,i+1,3],outputRange:[.3,.3,1,.3,.3],extrapolate:'clamp'})}]}/>)}</View><Text style={s.typingText}>{text}</Text></View>;

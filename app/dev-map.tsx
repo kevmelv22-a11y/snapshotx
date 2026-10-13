@@ -16,7 +16,10 @@ const FRIENDS = [
   {id: 'sem', name: 'Sem', x: 0.78, y: 0.7, ago: 60 * 30},
 ];
 export default function DevMap() {
-  if (!__DEV__) return null;
+  return __DEV__ ? <DevMapScreen/> : null;
+}
+
+function DevMapScreen() {
   const {scene = 'map'} = useLocalSearchParams<{scene?: string}>();
   const init: MapPrivacy = scene === 'ghost' ? enableGhost({...DEFAULT_PRIVACY, audience: 'all'}, '3h', NOW - 45 * MIN)
     : scene === 'selected' ? {...DEFAULT_PRIVACY, audience: 'selected', allowedIds: ['aria', 'noor']} : {...DEFAULT_PRIVACY, audience: 'all'};

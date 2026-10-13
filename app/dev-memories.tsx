@@ -17,7 +17,10 @@ const MOCK: Memory[] = [
 ];
 const thumb = (m: Memory, style: any) => { const i = +m.id % 8; return <View style={[style, {backgroundColor: COLORS[i], alignItems: 'center', justifyContent: 'center'}]}><Text style={{fontSize: 34}}>{EMOJI[i]}</Text><Text style={{color: '#fff', fontSize: 10, fontWeight: '700'}}>{new Date(m.created_at).toLocaleDateString('nl-NL')}</Text></View>; };
 export default function DevMemories() {
-  if (!__DEV__) return null;
+  return __DEV__ ? <DevMemoriesScreen/> : null;
+}
+
+function DevMemoriesScreen() {
   const {scene = 'grid'} = useLocalSearchParams<{scene?: string}>();
   const [items, setItems] = useState(MOCK);
   const [tab, setTab] = useState<'all' | 'private'>(scene === 'grid' || scene === 'detail' || scene === 'resend' ? 'all' : 'private');

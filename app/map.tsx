@@ -49,7 +49,7 @@ export default function MapScreen() {
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [privacyFriends, setPrivacyFriends] = useState<PrivacyFriend[]>([]);
   const [hasOwnRow, setHasOwnRow] = useState(false);
-  const [clock, setClock] = useState(Date.now());
+  const [clock, setClock] = useState(() => Date.now());
   const sharingRef = useRef(false);
   const pendingWrite = useRef<Promise<void>>(Promise.resolve());
   const lastPublished = useRef(0);
@@ -307,7 +307,7 @@ export default function MapScreen() {
         <Pressable style={styles.action} onPress={() => router.push('/discover')} accessibilityLabel="Trending verhalen bekijken"><Ionicons name="flame-outline" size={17} color="#fff"/><Text style={styles.actionText}>Trending</Text></Pressable>
         <Pressable style={[styles.action, footsteps && styles.active]} onPress={() => setFootsteps(value => !value)} accessibilityLabel="Voetstappen tijdens deze sessie tonen"><Ionicons name="footsteps-outline" size={17} color="#fff"/><Text style={styles.actionText}>Voetstappen</Text></Pressable>
       </View>
-      {selected ? <Pressable style={[styles.friendBanner, !selected.homeConfirmed && styles.friendNeutral]} onPress={() => setSelectedId(null)} accessibilityLabel={`Locatie van ${selected.name} sluiten`}><FriendAvatar id={selected.id} outfit={friendOutfits.get(selected.id)} size={35} name={selected.name}/><Text style={[styles.friendText, !selected.homeConfirmed && styles.friendNeutralText]}>{selected.homeConfirmed ? `🏠 ${selected.username || selected.name} 💙 is thuis` : `${selected.name} · ${selected.updatedAt ? `laatst gezien ${lastSeenText(selected.updatedAt, Date.now()).toLocaleLowerCase()}` : 'deelt locatie met jou'}`}</Text><Ionicons name="close" size={18} color={selected.homeConfirmed ? '#251C21' : '#fff'}/></Pressable> :
+      {selected ? <Pressable style={[styles.friendBanner, !selected.homeConfirmed && styles.friendNeutral]} onPress={() => setSelectedId(null)} accessibilityLabel={`Locatie van ${selected.name} sluiten`}><FriendAvatar id={selected.id} outfit={friendOutfits.get(selected.id)} size={35} name={selected.name}/><Text style={[styles.friendText, !selected.homeConfirmed && styles.friendNeutralText]}>{selected.homeConfirmed ? `🏠 ${selected.username || selected.name} 💙 is thuis` : `${selected.name} · ${selected.updatedAt ? `laatst gezien ${lastSeenText(selected.updatedAt, clock).toLocaleLowerCase()}` : 'deelt locatie met jou'}`}</Text><Ionicons name="close" size={18} color={selected.homeConfirmed ? '#251C21' : '#fff'}/></Pressable> :
         <View style={styles.hint}><Ionicons name="sparkles" size={17} color="#FFE436"/><Text style={styles.hintText}>{pins.length ? `${pins.length} vriend${pins.length === 1 ? '' : 'en'} op de kaart` : 'Nog geen vrienden die locatie delen'}</Text></View>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.people}>
         <Pressable style={styles.dockControl} onPress={() => setSearchOpen(true)} accessibilityLabel="Vrienden op kaart zoeken"><Ionicons name="search" size={27} color="#fff"/></Pressable>

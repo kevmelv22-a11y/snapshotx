@@ -2,6 +2,7 @@ import {create} from 'zustand';
 import {createJSONStorage,persist} from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {isPlus,type Entitlement,type PlanId} from '../lib/plus';
+import {useNow} from '../hooks/useNow';
 import {createMockProvider,type PurchaseProvider} from '../lib/plus-purchases';
 
 /** Client cache of X+ state + perk choices. Entitlements here are a UX hint only; the server (sx_entitlements) decides. */
@@ -16,4 +17,4 @@ export const usePlusStore=create<PlusState>()(persist((set)=>({
   buy:async plan=>{const r=await purchaseProvider.purchase(plan);if(!r.ok)return r.message;set({entitlements:[r.entitlement]});return null},
   restore:async()=>{const e=await purchaseProvider.restore();if(!isPlus(e,Date.now()))return 'Geen eerdere aankopen gevonden';set({entitlements:e});return 'Aankopen hersteld'},
 }),{name:'sx-plus',storage:createJSONStorage(()=>AsyncStorage),partialize:s=>({entitlements:s.entitlements,appIcon:s.appIcon,wallpapers:s.wallpapers,bffPinId:s.bffPinId})}));
-export function useIsPlus(){return isPlus(usePlusStore(s=>s.entitlements),Date.now())}
+export function useIsPlus(){const e=usePlusStore(s=>s.entitlements);const now=useNow();return isPlus(e,now)}
