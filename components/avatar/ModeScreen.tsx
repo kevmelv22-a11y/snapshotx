@@ -16,7 +16,7 @@ import { PosedAvatar } from './PosedAvatar';
 import { Avatar3DView } from '../avatar3d/Avatar3DView';
 import { Avatar3DImage } from '../avatar3d/Avatar3D';
 import { ArtImage, poseArtFor } from './ArtImage';
-import { lookCardArt } from '../../lib/avatar/avatarArt';
+import { OutfitArt, outfitArtId } from './OutfitArt';
 
 const YELLOW = '#FFE11A';
 type Props = { outfit: Outfit; pose?: PoseId; selectedLook?: string | null; onPickLook: (id: string, outfit: Outfit) => void; onMore: () => void; onClose: () => void; onTab: (t: 'mode' | 'kast' | 'avatar') => void; topInset?: number; bottomInset?: number };
@@ -36,8 +36,9 @@ export function ModeScreen({ outfit, pose = 'stand', selectedLook, onPickLook, o
       <View style={{ position: 'absolute', left: (width - heroH * 0.62) / 2, top: 6 }}>
         {/* Default: pre-rendered art (default character; hair/skin personalisation not shown). The reference
             "thinking" pose stands in for the default pose. Without art: 3D (web) with 2D fallback. */}
-        {(() => { const art = poseArtFor(outfit, pose === 'stand' ? 'think' : pose); return art
+        {(() => { const standing: boolean = pose === 'stand'; const art = poseArtFor(outfit, pose === 'stand' ? 'think' : pose); return art
           ? <ArtImage art={art} width={heroH * 0.62} height={heroH - 26} testID={`mode-hero-art:${art}`}/>
+          : standing ? <OutfitArt outfit={outfit} width={heroH * 0.62} height={heroH - 26} testID={`mode-hero-art:${outfitArtId(outfit)}`}/>
           : <Avatar3DView outfit={outfit} pose={pose === 'stand' ? 'think' : pose} framing="hero" width={heroH * 0.62} height={heroH - 8} testID="mode-hero-3d"
           fallback={<View style={{ paddingLeft: heroH * 0.05 }}><PosedAvatar outfit={outfit} pose={pose} width={heroH * 0.52} height={heroH * 0.99}/></View>}/>; })()}
       </View>
@@ -52,8 +53,7 @@ export function ModeScreen({ outfit, pose = 'stand', selectedLook, onPickLook, o
             const o = applyLook(outfit ?? DEFAULT_OUTFIT, look.items);
             const on = selectedLook === look.id;
             return <Pressable key={look.id} onPress={() => onPickLook(look.id, o)} style={[s.card, { width: cardW, height: cardW * 1.08 }, on && s.cardOn]} accessibilityRole="button" accessibilityLabel={`Look ${look.name}: ${look.tagline}`}>
-              {lookCardArt(look.id, outfit?.gender) ? <View style={{ padding: 6 }}><ArtImage art={lookCardArt(look.id, outfit?.gender)!} width={cardW - 16} height={cardW * 1.08 - 16} testID={`mode-look-art:${look.id}`}/></View> : <Avatar3DImage outfit={o} framing="card" width={cardW - 4} height={cardW * 1.08 - 4} testID={`mode-look-3d:${look.id}`}
-                fallback={<FigureArt outfit={{ ...o, hairStyle: o.hairStyle }} width={cardW} height={cardW * 1.08} crop={[40, 108, 120, 250]}/>}/>}
+              <View style={{ padding: 6 }}><OutfitArt outfit={o} width={cardW - 16} height={cardW * 1.08 - 16} testID={`mode-look-art:${look.id}:${outfitArtId(o)}`}/></View>
             </Pressable>;
           })}
         </View>

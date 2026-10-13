@@ -271,10 +271,12 @@ export class DemoClient {
     getUser: async () => ({ data: { user: (this.session?.user as Row) ?? null }, error: null }),
     signInWithPassword: async (_c: { email: string; password: string }) => {
       // Logging in = Kevin (male start look) again.
-      Object.assign(this.meta, { display_name: 'Kevin', gender: 'male' }); Object.assign(this.m.profile(ME) ?? {}, { gender: 'male', username: 'kv.savage', display_name: 'Kevin' }); const s = this.makeSession(); this.setSession(s, 'SIGNED_IN'); return { data: { session: s, user: s.user }, error: null }; },
+      Object.assign(this.meta, { display_name: 'Kevin', gender: 'male' }); delete this.meta.demo_account; delete this.meta.username; Object.assign(this.m.profile(ME) ?? {}, { gender: 'male', username: 'kv.savage', display_name: 'Kevin' }); const s = this.makeSession(); this.setSession(s, 'SIGNED_IN'); return { data: { session: s, user: s.user }, error: null }; },
     signUp: async (c: { options?: { data?: Row } }) => {
       // Demo registration: you become the demo user with the chosen name + character set (Man/Vrouw).
       const d = c?.options?.data ?? {}; Object.assign(this.meta, d);
+      // Own wardrobe per demo registration (all demo accounts share the mock user id; see stores/wardrobe wardrobeKeyFor).
+      this.meta.demo_account = String(d.username ?? d.display_name ?? newId()).toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40) || newId();
       const p = this.m.profile(ME); if (p) Object.assign(p, { gender: d.gender === 'female' ? 'female' : 'male', ...(d.display_name ? { display_name: d.display_name } : {}), ...(d.username ? { username: d.username } : {}) });
       const s = this.makeSession(); this.setSession(s, 'SIGNED_IN'); return { data: { session: s, user: s.user }, error: null }; },
     signOut: async () => { this.setSession(null, 'SIGNED_OUT'); return { error: null }; },

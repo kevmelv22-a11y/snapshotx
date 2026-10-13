@@ -8,7 +8,8 @@ import {useWardrobe} from '../stores/wardrobe';
 import {isGender} from '../lib/avatar/outfit';
 
 /** Registration stored the avatar character set (Man/Vrouw) in the user metadata: apply it to the avatar store. */
-const applyGender=(s:Session|null)=>{const g=s?.user.user_metadata?.gender;if(isGender(g))useWardrobe.getState().setGender(g)};
+/** Also switches the wardrobe to this account (per-user looks; a new account starts from its gender default). */
+const applyGender=(s:Session|null)=>{if(!s)return;const g=s.user.user_metadata?.gender;const run=()=>useWardrobe.getState().switchUser(s.user,isGender(g)?g:null);if(useWardrobe.persist.hasHydrated())run();else{const off=useWardrobe.persist.onFinishHydration(()=>{off();run()})}};
 import {useConfirmDialog} from '../components/ConfirmDialog';
 import {noticeRequest} from '../lib/confirm-flow';
 import {accessNotice,accessNoticeFor,type AccessNoticeKind} from '../lib/access-notice';

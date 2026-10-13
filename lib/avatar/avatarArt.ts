@@ -107,6 +107,7 @@ export function nearestLookArt(outfit: Outfit, d: LookData, colorOf: (id: string
   const start = female ? d.female ?? d.hero : d.hero;
   const cands: { key: ArtKey; items: Partial<Record<WardrobeCategory, string | null>> }[] = [
     { key: forGender(outfit, 'look-default-hoodie')!, items: start },
+    ...(female ? [] : (d.alt ?? []).map(items => ({ key: forGender(outfit, 'look-default-hoodie')!, items }))),
     ...d.looks.filter(l => LOOK_ART[l.id]).map(l => ({ key: forGender(outfit, LOOK_ART[l.id])!, items: l.items })),
   ];
   const upper = (o: Partial<Record<WardrobeCategory, string | null>>) => o.outerwear ?? o.top ?? o.dress ?? null;
@@ -114,7 +115,9 @@ export function nearestLookArt(outfit: Outfit, d: LookData, colorOf: (id: string
   let best = cands[0], bestScore = Infinity;
   for (const c of cands) {
     let score = 0;
-    for (const k of ['outerwear', 'top', 'bottom', 'shoes'] as const) if ((outfit[k] ?? null) !== (c.items[k] ?? null)) score += k === 'shoes' ? 40 : 80;
+    // A top under outerwear is hidden, so it barely counts; the visible outerwear dominates.
+    const w = { outerwear: 120, top: outfit.outerwear ? 10 : 80, bottom: 80, shoes: 40 };
+    for (const k of ['outerwear', 'top', 'bottom', 'shoes'] as const) if ((outfit[k] ?? null) !== (c.items[k] ?? null)) score += w[k];
     const [ua, ub] = [col(upper(outfit)), col(upper(c.items))];
     score += ua && ub ? dist(ua, ub) : 150;
     const [ba, bb] = [col(outfit.bottom ?? outfit.dress), col(c.items.bottom)];

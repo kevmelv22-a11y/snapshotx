@@ -13,7 +13,7 @@ import Svg, { Defs, Ellipse, RadialGradient, Rect, Stop } from 'react-native-svg
 import { FigureArt, HeadPreviewArt, ItemPreviewArt } from '../../components/avatar/AvatarArt';
 import { CategoryIcon } from '../../components/avatar/WardrobeIcons';
 import { REACTIONS, type Reaction } from '../../components/avatar/WardrobeAvatar';
-import { ArtImage, nearestLookArt } from '../../components/avatar/ArtImage';
+import { OutfitArt, outfitArtId } from '../../components/avatar/OutfitArt';
 import { ITEM_ART } from '../../components/avatar/itemArt';
 import { useSession } from '../../hooks/useSession';
 import { useWardrobeSync } from '../../hooks/useWardrobeSync';
@@ -173,8 +173,8 @@ export default function WardrobeScreen() {
     {/* avatar */}
     <View style={[s.avatarWrap, { top: stageH - 26 - avatarW * 2 * 0.885, left: (winW - avatarW) / 2, transform: [{ scale: avatarScale }] }]} pointerEvents="none">
       {/* ChatGPT-style art only: the exact look image, else the closest look (lib/avatar/avatarArt nearestLookArt). */}
-      {ready && <View style={{ width: avatarW, height: avatarW * 2 * 0.885 + 10, justifyContent: 'flex-end' }} testID={`kast-preview-art:${nearestLookArt(outfit)}`}>
-        <ArtImage art={nearestLookArt(outfit)} width={avatarW} height={avatarW * 2 * 0.885}/>
+      {ready && <View style={{ width: avatarW, height: avatarW * 2 * 0.885 + 10, justifyContent: 'flex-end' }} testID={`kast-preview-art:${outfitArtId(outfit)}`}>
+        <OutfitArt outfit={outfit} width={avatarW} height={avatarW * 2 * 0.885}/>
         <View style={s.artShadow}/>
       </View>}
     </View>
@@ -398,7 +398,7 @@ const LookCard = React.memo(function LookCard({ look, selected, unlocked, onPres
     <View style={s.lookCard}>
       <View style={{ width: LOOK_W - 5, height: LOOK_IMG }}>
         <CardGlow width={LOOK_W - 5} height={LOOK_IMG}/>
-        <ArtImage art={nearestLookArt({ ...LOOK_OUTFITS.get(look.id)!, gender: useWardrobe.getState().gender })} width={LOOK_W - 5} height={LOOK_IMG - 6}/>
+        <OutfitArt outfit={{ ...LOOK_OUTFITS.get(look.id)!, gender: useWardrobe.getState().gender }} width={LOOK_W - 5} height={LOOK_IMG - 6}/>
         {toBuy.length > 0 && <View style={s.euro}><Text style={s.euroText}>€</Text></View>}
       </View>
       <View style={s.lookText}>

@@ -48,6 +48,8 @@ export type Outfit = {
   colors: Partial<Record<Layer, string>>;
   /** Character set chosen at registration (absent = 'male'): picks the male or female pre-rendered art. */
   gender?: Gender;
+  /** Most recently picked item (Kast tap): its worn image is shown while that item is still on (lib/avatar/worn). */
+  worn?: string;
 };
 
 export type Gender = 'male' | 'female';
@@ -116,7 +118,7 @@ export function formatPriceCents(cents: number): string {
 export function wearItem(outfit: Outfit, item: Pick<WardrobeItem, 'id' | 'category'>): Outfit {
   const colors = { ...outfit.colors };
   delete colors[item.category];
-  const next: Outfit = { ...outfit, colors, [item.category]: item.id };
+  const next: Outfit = { ...outfit, colors, [item.category]: item.id, worn: item.id };
   if (item.category === 'top' || item.category === 'bottom') next.dress = null;
   return next;
 }
@@ -124,7 +126,9 @@ export function wearItem(outfit: Outfit, item: Pick<WardrobeItem, 'id' | 'catego
 export function removeLayer(outfit: Outfit, layer: WardrobeCategory): Outfit {
   const colors = { ...outfit.colors };
   delete colors[layer];
-  return { ...outfit, colors, [layer]: null };
+  const next: Outfit = { ...outfit, colors, [layer]: null };
+  if (next.worn && next.worn === outfit[layer]) delete next.worn;
+  return next;
 }
 
 export function recolor(outfit: Outfit, layer: Layer, color: string): Outfit {
@@ -132,7 +136,7 @@ export function recolor(outfit: Outfit, layer: Layer, color: string): Outfit {
 }
 
 export function sameOutfit(a: Outfit, b: Outfit): boolean {
-  if (CATEGORIES.some(c => a[c] !== b[c]) || a.hairStyle !== b.hairStyle || (a.gender ?? 'male') !== (b.gender ?? 'male')) return false;
+  if (CATEGORIES.some(c => a[c] !== b[c]) || a.hairStyle !== b.hairStyle || (a.gender ?? 'male') !== (b.gender ?? 'male') || a.worn !== b.worn) return false;
   const keys = new Set([...Object.keys(a.colors), ...Object.keys(b.colors)]) as Set<Layer>;
   for (const k of keys) if (a.colors[k] !== b.colors[k]) return false;
   return true;
@@ -176,6 +180,7 @@ export function parseOutfit(value: unknown, items: readonly Pick<WardrobeItem, '
   }
   if (typeof src.hairStyle === 'string' && (HAIR_STYLES as string[]).includes(src.hairStyle)) out.hairStyle = src.hairStyle as HairStyle;
   if (src.gender === 'female') out.gender = 'female';
+  if (typeof src.worn === 'string' && CATEGORIES.some(c => out[c] === src.worn)) out.worn = src.worn;
   const colors = src.colors && typeof src.colors === 'object' ? src.colors as Record<string, unknown> : {};
   for (const l of LAYERS) { const v = colors[l]; if (typeof v === 'string' && HEX_RE.test(v)) out.colors[l] = v; }
   return out;
@@ -198,6 +203,7 @@ export function sanitizeOutfit(outfit: Outfit, items: readonly WardrobeItem[], u
     if (item && isOwned(item, unlocked)) continue;
     const fb = fallback[c];
     const fbItem = fb ? byId.get(fb) : undefined;
+    if (out.worn === id) delete out.worn;
     out[c] = fbItem && isOwned(fbItem, unlocked) ? fb : null;
     delete out.colors[c];
   }
@@ -210,6 +216,7 @@ export function applyLook(outfit: Outfit, look: Partial<Record<WardrobeCategory,
   if (outfit.colors.hair) colors.hair = outfit.colors.hair;
   if (outfit.colors.skin) colors.skin = outfit.colors.skin;
   const next: Outfit = { ...outfit, colors };
+  delete next.worn; // a look is shown as a whole (look art), not as the last single item
   for (const c of CATEGORIES) next[c] = look[c] ?? null;
   return next;
 }
