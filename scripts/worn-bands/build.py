@@ -15,13 +15,19 @@ OPEN={'male':{'outer-bf-grunge-rose':WT,'outer-blueberry-black-vest':WT,'outer-o
       'female':{k:BT for k in ['outer-basisbes-denim-jacket','outer-bf-fur-coat','outer-bf-grunge-rose','outer-blueberry-black-vest','outer-carhartt-black','outer-carhartt-camo','outer-dressx-green','outer-overtime-varsity','outer-ploeg-olive-jacket','outer-ploeg-tan-jacket','outer-strideon-black-jacket']}}
 meta={}
 def u8(x): return x.clip(0,255).astype(np.uint8)
+def despill(img):
+    # green-screen fringe: within ~4px of the silhouette edge clamp G to max(R,B) and fade strongly green edge pixels
+    solid=cv2.erode((img[...,3]>200).astype(np.uint8),np.ones((9,9),np.uint8)); ring=(img[...,3]>0)&(solid==0)
+    R,G,Bc=img[...,0],img[...,1],img[...,2]; mx=np.maximum(R,Bc); gk=G-mx
+    img[...,1]=np.where(ring&(gk>0),mx,G); img[...,3]=np.where(ring&(gk>18),img[...,3]*np.clip(1-(gk-18)/30,0,1),img[...,3])
+    return img
 for g in ['male','female']:
     RW,RH=reg[g]['ref']; PX,PT,PB=70,60,70; CW,CH=RW+2*PX,RH+PT+PB
     B=BANDS[g]; meta[g]={'canvas':[CW,CH],'pieces':{}}; os.makedirs(OUT+g,exist_ok=True)
     yy=((np.arange(CH)-PT)/RH)[:,None]*np.ones((1,CW)); Y=lambda v:int(PT+v*RH)
     def warp_item(i,dx=0,dy=0):
         a=np.array(Image.open(W+f'{g}/{i}.png').convert('RGBA')); A=np.array(reg[g]['items'][i]['A'],np.float64); A[:,2]+=[PX+dx,PT+dy]
-        return cv2.warpAffine(a,A,(CW,CH),flags=cv2.INTER_LINEAR,borderValue=0).astype(np.float32), A
+        return despill(cv2.warpAffine(a,A,(CW,CH),flags=cv2.INTER_LINEAR,borderValue=0).astype(np.float32)), A
     REFC,_=warp_item(REF[g]) if REF[g] in reg[g]['items'] else (None,None)
     ra=REFC[...,3]>128; rb=np.where(ra.any(1))[0].max()
     fy=np.where(ra[Y(B['f']):])[0]; fx=np.where(ra[Y(B['f']):])[1]; ref_feet_cx=fx.mean()
@@ -52,9 +58,19 @@ for g in ['male','female']:
         long_=i in LONG; M={}; RGB={}
         HD=0.05 if g=='female' else D
         if 'head' in ps: M['head']=1-np.clip((yy-hb)/(2*HD),0,1)
+        if cat=='hat' and g=='female':
+            xs=np.where(img[Y(hb),:,3]>128)[0]; hcx=(xs.min()+xs.max())/2; hhw=(xs.max()-xs.min())/2
+            side=(np.abs(np.arange(CW)-hcx)>0.55*hhw)[None,:]   # long hair hangs beside the face/neck/hand
+            hair=((hsv[...,2]>95)&(img[...,3]>40)&side&(yy>=hb-0.02)&(yy<0.36)).astype(np.uint8)   # hat images wear the dark start tee: bright = hair
+            hair=cv2.morphologyEx(hair,cv2.MORPH_OPEN,np.ones((3,3),np.uint8))
+            n,lab,st,_=cv2.connectedComponentsWithStats(hair,8)
+            hair=np.isin(lab,[k for k in range(1,n) if st[k,4]>150 and st[k,1]<=Y(hb)+2]).astype(np.uint8)
+            hair=cv2.GaussianBlur(cv2.morphologyEx(hair,cv2.MORPH_CLOSE,np.ones((5,5),np.uint8)).astype(np.float32),(7,7),0)
+            M['head']=np.maximum(M['head'],hair*dn(0.33,0.015))
         if 'torso' in ps:
             sk=skin_mask(img).astype(np.float32)
             t=(yy>=hb-2*D)*np.maximum(dn(bb),sk*(yy<B['hand']))     # its own hands come with the torso
+            t0=t.copy()   # before the grey-jeans drop (that also eats faded denim; the jacket cutout keeps it)
             if cat!='dress':
                 # never show the base trousers below a short top: drop grey-jeans pixels connected to the band bottom
                 grey=((hsv[...,1]<55)&(hsv[...,2]>75)&(hsv[...,2]<205)&(img[...,3]>40)&(yy>=bb-0.06)&(yy<bb+3*D)).astype(np.uint8)
@@ -65,8 +81,13 @@ for g in ['male','female']:
             if cat=='outerwear':
                 sm=np.load(cache+f'{g}-{i}.npy'); a0=np.array(reg[g]['items'][i]['A'],np.float64); a0[:,2]+=[PX,PT]
                 up=cv2.warpAffine(np.maximum(sm[0],sm[2]),a0,(CW,CH)); up=cv2.GaussianBlur(cv2.dilate((up>128).astype(np.float32),np.ones((7,7),np.uint8)),(5,5),0)
-                t=np.maximum(t,(yy>=hb-2*D)*up*(yy<bb+0.08))
+                t=np.maximum(t,(yy>=hb-2*D)*up*(yy<bb+0.08)); t0=np.maximum(t0*(yy<bb-0.01),t)
             M['torso']=t
+            if cat in('top','dress'):
+                # 'under': the chest of a top for use beneath an open jacket (no arms/hands/hair that would poke out around the jacket)
+                row=Y(hb+0.1); xs=np.where(img[row,:,3]>128)[0]; cx=(xs.min()+xs.max())/2; w=xs.max()-xs.min()
+                col=np.clip((0.3*w-np.abs(np.arange(CW)-cx))/6,0,1)[None,:]
+                M['under']=t*col*(1-sk)*(yy>=hb+0.01)
             if cat=='outerwear':
                 # Open jackets (curated): the inner shirt = pixels matching the inner-tee reference, connected to the chest centre.
                 inner=np.zeros((CH,CW),np.float32); ref_id=OPEN[g].get(i)
@@ -79,7 +100,7 @@ for g in ['male','female']:
                     n,lab=cv2.connectedComponents(sim); cand=lab[row-15:row+15,cx-6:cx+7]; ids=set(np.unique(cand[cand>0]))
                     inner=np.isin(lab,list(ids)).astype(np.uint8)
                     inner=cv2.GaussianBlur(cv2.morphologyEx(inner,cv2.MORPH_CLOSE,np.ones((9,9),np.uint8)).astype(np.float32),(5,5),0)
-                M['jacket']=t*(1-inner)
+                M['jacket']=t0*(1-inner*(1-sk))   # the jacket image's own hands stay (never cut out as 'inner shirt')
                 meta.setdefault('_open',{})[f'{g}/{i}']=round(float(inner.sum())/RH/RW,4)
         if 'legs' in ps:
             L=(yy>=bb-2*D)*dn(B['s']); RGB['legs']=img.copy()
@@ -118,7 +139,7 @@ for g in ['male','female']:
             n,cl,st,_=cv2.connectedComponentsWithStats(keep,8)
             big=st[1:,4].max() if n>1 else 0
             keep=np.isin(cl,[k for k in range(1,n) if st[k,4]>=0.08*big]).astype(np.uint8)
-            M['feet']=(yy>=fb-2*D)*cv2.GaussianBlur(keep.astype(np.float32),(3,3),0)
+            M['feet']=np.clip((yy-(fb-2*D))/0.02,0,1)*cv2.GaussianBlur(keep.astype(np.float32),(3,3),0)   # soft top edge: no hard boot-shaft/cuff line over the trousers
         meta[g]['pieces'][i]={'cat':cat,'long':bool(long_ or cat=='dress')}
         for nme,m in M.items():
             src=RGB.get(nme,img); o=src.copy(); o[...,3]=src[...,3]*m
