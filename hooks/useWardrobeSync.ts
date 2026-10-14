@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import type { Outfit } from '../lib/avatar/outfit';
+import { useEffect, useMemo, useState } from 'react';
+import { defaultOutfitFor, type Outfit } from '../lib/avatar/outfit';
 import { hasSavedOutfit, useWardrobe } from '../stores/wardrobe';
 
 const lastRun = new Map<string, number>();
@@ -41,4 +41,11 @@ export function useOwnOutfit(userId: string | null | undefined): Outfit | null {
   const saved = useWardrobe(state => state.saved);
   const has = useWardrobe(state => hasSavedOutfit(state, userId));
   return has ? saved : null;
+}
+
+/** The own avatar to draw: the saved outfit, else the start look of the chosen character set (male hoodie / female cap). */
+export function useStartOutfit(userId: string | null | undefined): Outfit {
+  const own = useOwnOutfit(userId);
+  const gender = useWardrobe(state => state.gender);
+  return useMemo(() => own ?? defaultOutfitFor(gender), [own, gender]);
 }

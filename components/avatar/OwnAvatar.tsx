@@ -5,10 +5,12 @@
 import React, { useId } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, G, RadialGradient, Stop } from 'react-native-svg';
-import { useOwnOutfit } from '../../hooks/useWardrobeSync';
+import { useStartOutfit } from '../../hooks/useWardrobeSync';
 import type { AvatarAppearance } from '../../lib/avatar';
 import type { Outfit } from '../../lib/avatar/outfit';
-import { MapAvatar, MapExplorer } from '../MapAvatar';
+import { Avatar3DImage } from '../avatar3d/Avatar3D';
+import { ArtImage, lookArtFor } from './ArtImage';
+import { AvatarBust } from './AvatarBust';
 import { ArmParts, BodyParts, FigureArt, HairBehindParts, HeadParts, LookDefs, MIRROR, OverlayParts, lookFromOutfit } from './AvatarArt';
 
 /** Full-figure crop used for map markers (fits the 82 × 119 MapExplorer footprint; leaves room for long hair). */
@@ -17,8 +19,14 @@ export const FIGURE_CROP: [number, number, number, number] = [30, 10, 140, 350];
 // Bust crop in avatar coordinates (head centre ≈ 100,70; shoulders ≈ y 120).
 const CX = 100, CY = 86, R = 68;
 
-/** Round bust portrait of a wardrobe outfit (static, no animation). */
+/** Round bust portrait of a wardrobe outfit: head+shoulders crop of the same art the doll shows (AvatarBust). */
 export const WardrobePortrait = React.memo(function WardrobePortrait({ outfit, size, selected = false, label = 'Mijn avatar' }: { outfit: Outfit; size: number; selected?: boolean; label?: string }) {
+  const ring = Math.max(2, Math.round(size * 0.045));
+  return <AvatarBust outfit={outfit} size={size} ring={ring} ringColor={selected ? '#FFE436' : '#E6A2EE'} label={label}/>;
+});
+
+/** Classic 2D portrait (fallback). */
+export const WardrobePortrait2D = React.memo(function WardrobePortrait2D({ outfit, size, selected = false, label = 'Mijn avatar' }: { outfit: Outfit; size: number; selected?: boolean; label?: string }) {
   const p = `op${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const look = lookFromOutfit(outfit);
   const ctx = { p, look };
@@ -46,8 +54,10 @@ type OwnProps = { userId: string | null | undefined; size: number; appearance?: 
 
 /** Round own avatar (profile, map buttons, headers). */
 export function OwnAvatar({ userId, size, appearance, selected, fallback }: OwnProps) {
-  const outfit = useOwnOutfit(userId);
-  return outfit ? <WardrobePortrait outfit={outfit} size={size} selected={selected}/> : fallback ?? <MapAvatar id={userId || 'me'} size={size} selected={selected} appearance={appearance}/>;
+  const outfit = useStartOutfit(userId);
+  // No saved outfit yet = the default character (pre-rendered bust art), never the old classic avatar.
+  void appearance; void fallback;
+  return <WardrobePortrait outfit={outfit} size={size} selected={selected}/>;
 }
 
 /**
@@ -57,11 +67,16 @@ export function OwnAvatar({ userId, size, appearance, selected, fallback }: OwnP
  */
 export function SizedFigure({ outfit, width }: { outfit: Outfit; width: number }) {
   const height = width * 119 / 82;
-  return <View style={{ width, height, pointerEvents: 'none' }}><FigureArt outfit={outfit} width={width} height={height} crop={FIGURE_CROP}/></View>;
+  const art = lookArtFor(outfit);
+  if (art) return <View style={{ width, height, pointerEvents: 'none' }}><ArtImage art={art} width={width} height={height}/></View>;
+  return <View style={{ width, height, pointerEvents: 'none' }}>
+    <Avatar3DImage outfit={outfit} framing="full" width={width} height={height} fallback={<FigureArt outfit={outfit} width={width} height={height} crop={FIGURE_CROP}/>}/>
+  </View>;
 }
 
 /** Full-body own avatar (map marker). Same footprint as MapExplorer (82 × 119 at size 82). */
 export function OwnAvatarFigure({ userId, size = 82, appearance }: { userId: string | null | undefined; size?: number; appearance?: AvatarAppearance }) {
-  const outfit = useOwnOutfit(userId);
-  return outfit ? <SizedFigure outfit={outfit} width={size}/> : <MapExplorer id={userId || 'me'} own appearance={appearance} size={size}/>;
+  const outfit = useStartOutfit(userId);
+  void appearance;
+  return <SizedFigure outfit={outfit} width={size}/>;
 }

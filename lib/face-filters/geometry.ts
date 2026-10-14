@@ -241,11 +241,16 @@ export function affineFromTriangles(src: [Pt, Pt, Pt], dst: [Pt, Pt, Pt]): [numb
   return [X.a, Y.a, X.c, Y.c, X.e, Y.e];
 }
 
-/** Places sticker artwork (designed around `anchors` = left eye, right eye, mouth) onto the face. */
+/** Places sticker artwork (designed around `anchors` = left eye, right eye, mouth) onto the face (eye-anchored, no stretch). */
 export function stickerMatrix(face: FaceGeometry, anchors: [Pt, Pt, Pt]) {
+  // Similarity transform from the eyes only: the third anchor keeps the artwork's own
+  // eye-to-mouth proportion instead of following the lips, so nothing stretches when the mouth opens.
   const f = faceFrame(face);
-  const mouthOnAxis = add(f.eyeMid, mul(f.uy, f.eyeToMouth));
-  return affineFromTriangles(anchors, [f.eyeL, f.eyeR, mouthOnAxis]);
+  const [a0, a1, a2] = anchors;
+  const ad = Math.hypot(a1.x - a0.x, a1.y - a0.y);
+  const amid = { x: (a0.x + a1.x) / 2, y: (a0.y + a1.y) / 2 };
+  const ratio = Math.hypot(a2.x - amid.x, a2.y - amid.y) / Math.max(1e-6, ad);
+  return affineFromTriangles(anchors, [f.eyeL, f.eyeR, add(f.eyeMid, mul(f.uy, f.eyeDist * ratio))]);
 }
 
 /** Synthetic, neutral placeholder face for previews (lens tiles); geometry in the given box. */

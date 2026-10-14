@@ -1,13 +1,14 @@
 /** Lens browser logic (pure; only type imports so it runs under `node --test`). */
 import type { PhotoFilter, PhotoFilterId } from './photo-filters';
 
-export type LensTab = 'recent' | 'favorites' | 'forYou' | 'aesthetic' | 'looks';
+export type LensTab = 'recent' | 'favorites' | 'forYou' | 'aesthetic' | 'looks' | 'world';
 export const LENS_TABS: { id: LensTab; label: string; icon: string }[] = [
   { id: 'recent', label: 'Recent', icon: 'time-outline' },
   { id: 'favorites', label: 'Favorieten', icon: 'heart-outline' },
   { id: 'forYou', label: 'Voor jou', icon: 'sparkles' },
   { id: 'aesthetic', label: 'Esthetiek', icon: 'color-palette-outline' },
   { id: 'looks', label: 'Uiterlijk', icon: 'happy-outline' },
+  { id: 'world', label: 'Wereld', icon: 'earth-outline' },
 ];
 export const RECENT_LIMIT = 12;
 export const FAVORITES_KEY = 'sx:filter:favorites';
@@ -82,6 +83,7 @@ export function lensesForTab(tab: LensTab, lenses: readonly PhotoFilter[], state
     case 'favorites': return byId(state.favorites);
     case 'aesthetic': return lenses.filter((l) => l.kind === 'tint' || l.kind === 'frame');
     case 'looks': return lenses.filter((l) => l.kind === 'face');
+    case 'world': return lenses.filter((l) => l.kind === 'world');
     case 'forYou':
     default: return [...lenses].sort((a, b) => demoViewCount(b.id) - demoViewCount(a.id));
   }

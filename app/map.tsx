@@ -14,8 +14,10 @@ import {Media} from '../components/Media';
 import {useSession} from '../hooks/useSession';
 import {supabase} from '../lib/supabase';
 import {readAvatarAppearance} from '../lib/avatar';
+import {MapPrivacySheet, type PrivacyFriend} from '../components/map/MapPrivacySheet';
+import {DEFAULT_PRIVACY, ghostStatusText, isGhost, isSharing, lastSeenText, privacyFromRow, privacyToRow, type MapPrivacy} from '../lib/map-privacy';
 
-type LocationRow = {user_id: string; latitude: number; longitude: number; sharing: boolean; home_confirmed?: boolean; updated_at: string};
+type LocationRow = {user_id: string; latitude: number; longitude: number; sharing: boolean; home_confirmed?: boolean; updated_at: string; share_audience?: string; ghost_until?: string | null; ghost_forever?: boolean};
 type MemoryRow = {id: string; storage_path: string; media_type: 'photo' | 'video'; created_at: string};
 
 export default function MapScreen() {
@@ -42,27 +44,46 @@ export default function MapScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [privacy, setPrivacy] = useState<MapPrivacy>(DEFAULT_PRIVACY);
+  const [privacyAvailable, setPrivacyAvailable] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [privacyFriends, setPrivacyFriends] = useState<PrivacyFriend[]>([]);
+  const [hasOwnRow, setHasOwnRow] = useState(false);
+  const [clock, setClock] = useState(() => Date.now());
   const sharingRef = useRef(false);
   const pendingWrite = useRef<Promise<void>>(Promise.resolve());
   const lastPublished = useRef(0);
 
   const load = useCallback(async () => {
     if (!uid) return;
-    const {data, error} = await supabase.from('sx_locations').select('user_id,latitude,longitude,sharing,home_confirmed,updated_at');
+    // New privacy columns (migration 20261013170000) may not exist yet: fall back to the legacy select.
+    let {data, error} = await supabase.from('sx_locations').select('user_id,latitude,longitude,sharing,home_confirmed,updated_at,share_audience,ghost_until,ghost_forever');
+    const hasPrivacy = !error;
+    if (error) ({data, error} = await supabase.from('sx_locations').select('user_id,latitude,longitude,sharing,home_confirmed,updated_at'));
+    setPrivacyAvailable(hasPrivacy);
     if (error) { setNotice(error.message); return; }
     const rows = (data || []) as LocationRow[];
     setHomeAvailable(rows.some(row => Object.prototype.hasOwnProperty.call(row, 'home_confirmed')));
     const mine = rows.find(row => row.user_id === uid);
-    setSharing(!!mine?.sharing);
-    setHomeConfirmed(!!mine?.sharing && !!mine.home_confirmed);
-    sharingRef.current = !!mine?.sharing;
+    setHasOwnRow(!!mine);
+    let allowed: string[] = [];
+    if (hasPrivacy && mine?.share_audience === 'selected') {
+      const res = await supabase.from('sx_location_allowed').select('friend_id').eq('owner_id', uid);
+      if (!res.error) allowed = (res.data || []).map(row => row.friend_id as string);
+    }
+    const nextPrivacy = privacyFromRow(mine, allowed);
+    setPrivacy(nextPrivacy);
+    const live = hasPrivacy ? isSharing(nextPrivacy, Date.now()) : !!mine?.sharing;
+    setSharing(live);
+    setHomeConfirmed(live && !!mine?.home_confirmed);
+    sharingRef.current = live;
     const visible = rows.filter(row => row.user_id !== uid && row.sharing && new Date(row.updated_at).getTime() > Date.now() - 86400000);
     if (!visible.length) { setPins([]); return; }
     const {data:profiles, error:profileError} = await supabase.from('profiles').select('id,display_name,username').in('id', visible.map(row => row.user_id));
     if (profileError) { setNotice(profileError.message); return; }
     setPins(visible.map(row => {
       const profile = profiles?.find(person => person.id === row.user_id);
-      return {id: row.user_id, name: profile?.display_name || profile?.username || 'Vriend', username: profile?.username || undefined, homeConfirmed: !!row.home_confirmed, latitude: row.latitude, longitude: row.longitude};
+      return {id: row.user_id, name: profile?.display_name || profile?.username || 'Vriend', username: profile?.username || undefined, homeConfirmed: !!row.home_confirmed, latitude: row.latitude, longitude: row.longitude, updatedAt: row.updated_at};
     }));
   }, [uid]);
 
@@ -150,7 +171,7 @@ export default function MapScreen() {
         if (error) { sharingRef.current = true; throw error; }
         setSharing(false);
         setHomeConfirmed(false);
-        setNotice('Ghost mode aan. Vrienden kunnen je locatie niet meer opvragen.');
+        setNotice('Spookmodus aan. Vrienden kunnen je locatie niet meer opvragen.');
       } else {
         const permission = await Location.requestForegroundPermissionsAsync();
         if (!permission.granted) throw new Error('Locatietoegang is nodig voordat je kunt delen.');
@@ -168,6 +189,74 @@ export default function MapScreen() {
       }
     } catch (error) { setNotice((error as Error).message); }
     finally { setBusy(false); }
+  }
+
+  // Ghost timer countdown + re-evaluate sharing when a timed ghost mode runs out.
+  useEffect(() => {
+    if (!privacyAvailable) return;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setClock(now);
+      const live = isSharing(privacy, now);
+      if (live !== sharingRef.current) { sharingRef.current = live; setSharing(live); if (live) lastPublished.current = 0; }
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [privacy, privacyAvailable]);
+
+  async function openPrivacy() {
+    if (!uid) return;
+    if (!privacyAvailable) { void toggleSharing(); return; }
+    setClock(Date.now());
+    setPrivacyOpen(true);
+    const f = await supabase.from('sx_friends').select('friend_id').eq('user_id', uid);
+    if (f.error) { setNotice(f.error.message); return; }
+    const ids = (f.data || []).map(row => row.friend_id as string);
+    if (!ids.length) { setPrivacyFriends([]); return; }
+    const p = await supabase.from('profiles').select('id,display_name,username').in('id', ids);
+    if (p.error) { setNotice(p.error.message); return; }
+    setPrivacyFriends((p.data || []).map(row => ({id: row.id, name: row.display_name || row.username || 'Vriend'})));
+  }
+
+  async function savePrivacy(next: MapPrivacy) {
+    if (!uid || busy) return;
+    setBusy(true);
+    const previous = privacy;
+    setPrivacy(next);
+    try {
+      const now = Date.now();
+      const live = isSharing(next, now);
+      sharingRef.current = live;
+      await pendingWrite.current;
+      const row = {...privacyToRow(next), ...(live ? {} : {home_confirmed: false})};
+      if (hasOwnRow) {
+        const {error} = await supabase.from('sx_locations').update(row).eq('user_id', uid);
+        if (error) throw error;
+      } else {
+        // First row needs coordinates.
+        let pos = own;
+        if (!pos) {
+          const permission = await Location.requestForegroundPermissionsAsync();
+          if (!permission.granted) throw new Error('Locatietoegang is nodig voordat je kunt delen.');
+          const p = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced});
+          pos = {id: uid, name: 'Ik nu', latitude: p.coords.latitude, longitude: p.coords.longitude};
+          setOwn(pos);
+        }
+        const {error} = await supabase.from('sx_locations').upsert({user_id: uid, latitude: pos.latitude, longitude: pos.longitude, updated_at: new Date().toISOString(), ...row});
+        if (error) throw error;
+        setHasOwnRow(true);
+      }
+      const added = next.allowedIds.filter(id => !previous.allowedIds.includes(id));
+      const removed = previous.allowedIds.filter(id => !next.allowedIds.includes(id));
+      if (added.length) { const {error} = await supabase.from('sx_location_allowed').insert(added.map(friend_id => ({owner_id: uid, friend_id}))); if (error) throw error; }
+      if (removed.length) { const {error} = await supabase.from('sx_location_allowed').delete().eq('owner_id', uid).in('friend_id', removed); if (error) throw error; }
+      setSharing(live);
+      if (!live) setHomeConfirmed(false);
+      if (live) lastPublished.current = 0;
+    } catch (error) {
+      setPrivacy(previous);
+      sharingRef.current = isSharing(previous, Date.now());
+      setNotice(`Instelling kon niet worden opgeslagen: ${(error as Error).message}`);
+    } finally { setBusy(false); }
   }
 
   async function toggleHome() {
@@ -206,7 +295,7 @@ export default function MapScreen() {
       </View>
       {searchOpen && <View style={styles.search}><Ionicons name="search" size={20} color="#D9D0E4"/><TextInput autoFocus style={styles.input} value={query} onChangeText={setQuery} placeholder="Zoek vrienden op de kaart" placeholderTextColor="#C5BFCF" accessibilityLabel="Zoek vrienden op de kaart"/><Pressable onPress={() => {setQuery(''); setSearchOpen(false);}} accessibilityLabel="Zoeken sluiten"><Ionicons name="close" size={20} color="#fff"/></Pressable></View>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-        <Pressable style={[styles.chip, sharing && styles.active]} disabled={busy} onPress={() => void toggleSharing()} accessibilityLabel={sharing ? 'Ghost mode aanzetten' : 'Locatie delen met vrienden'}><Ionicons name={sharing ? 'location' : 'eye-off'} size={16} color="#fff"/><Text style={styles.chipText}>{sharing ? 'Locatie delen aan' : 'Ghost mode aan'}</Text></Pressable>
+        <Pressable style={[styles.chip, sharing && styles.active]} disabled={busy} onPress={() => void openPrivacy()} accessibilityLabel="Locatie-instellingen en spookmodus"><Ionicons name={sharing ? 'location' : 'eye-off'} size={16} color="#fff"/><Text style={styles.chipText}>{privacyAvailable ? (isGhost(privacy, clock) ? ghostStatusText(privacy, clock) : sharing ? 'Locatie delen aan' : 'Locatie verborgen') : sharing ? 'Locatie delen aan' : 'Spookmodus aan'}</Text></Pressable>
         {sharing && homeAvailable && <Pressable style={[styles.chip, homeConfirmed && styles.homeActive]} disabled={busy} onPress={() => void toggleHome()} accessibilityLabel={homeConfirmed ? 'Thuisstatus uitzetten' : 'Zelf melden dat ik thuis ben'}><Ionicons name="home-outline" size={16} color="#fff"/><Text style={styles.chipText}>{homeConfirmed ? 'Ik ben thuis' : 'Thuisstatus'}</Text></Pressable>}
         <Pressable style={styles.chip} onPress={() => router.push('/(tabs)/friends')}><Ionicons name="people" size={16} color="#fff"/><Text style={styles.chipText}>Vrienden · {pins.length}</Text></Pressable>
       </ScrollView>
@@ -214,11 +303,11 @@ export default function MapScreen() {
     </View>
     <View style={styles.footer} pointerEvents="box-none">
       <View style={styles.actions}>
-        <Pressable style={styles.action} onPress={() => void openMemories()} accessibilityLabel="Herinneringen bekijken"><Ionicons name="albums-outline" size={17} color="#fff"/><Text style={styles.actionText}>Herinneringen</Text></Pressable>
+        <Pressable style={styles.action} onPress={() => router.push('/memories')} accessibilityLabel="Herinneringen bekijken"><Ionicons name="albums-outline" size={17} color="#fff"/><Text style={styles.actionText}>Herinneringen</Text></Pressable>
         <Pressable style={styles.action} onPress={() => router.push('/discover')} accessibilityLabel="Trending verhalen bekijken"><Ionicons name="flame-outline" size={17} color="#fff"/><Text style={styles.actionText}>Trending</Text></Pressable>
         <Pressable style={[styles.action, footsteps && styles.active]} onPress={() => setFootsteps(value => !value)} accessibilityLabel="Voetstappen tijdens deze sessie tonen"><Ionicons name="footsteps-outline" size={17} color="#fff"/><Text style={styles.actionText}>Voetstappen</Text></Pressable>
       </View>
-      {selected ? <Pressable style={[styles.friendBanner, !selected.homeConfirmed && styles.friendNeutral]} onPress={() => setSelectedId(null)} accessibilityLabel={`Locatie van ${selected.name} sluiten`}><FriendAvatar id={selected.id} outfit={friendOutfits.get(selected.id)} size={35} name={selected.name}/><Text style={[styles.friendText, !selected.homeConfirmed && styles.friendNeutralText]}>{selected.homeConfirmed ? `🏠 ${selected.username || selected.name} 💙 is thuis` : `${selected.name} deelt locatie met jou`}</Text><Ionicons name="close" size={18} color={selected.homeConfirmed ? '#251C21' : '#fff'}/></Pressable> :
+      {selected ? <Pressable style={[styles.friendBanner, !selected.homeConfirmed && styles.friendNeutral]} onPress={() => setSelectedId(null)} accessibilityLabel={`Locatie van ${selected.name} sluiten`}><FriendAvatar id={selected.id} outfit={friendOutfits.get(selected.id)} size={35} name={selected.name}/><Text style={[styles.friendText, !selected.homeConfirmed && styles.friendNeutralText]}>{selected.homeConfirmed ? `🏠 ${selected.username || selected.name} 💙 is thuis` : `${selected.name} · ${selected.updatedAt ? `laatst gezien ${lastSeenText(selected.updatedAt, clock).toLocaleLowerCase()}` : 'deelt locatie met jou'}`}</Text><Ionicons name="close" size={18} color={selected.homeConfirmed ? '#251C21' : '#fff'}/></Pressable> :
         <View style={styles.hint}><Ionicons name="sparkles" size={17} color="#FFE436"/><Text style={styles.hintText}>{pins.length ? `${pins.length} vriend${pins.length === 1 ? '' : 'en'} op de kaart` : 'Nog geen vrienden die locatie delen'}</Text></View>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.people}>
         <Pressable style={styles.dockControl} onPress={() => setSearchOpen(true)} accessibilityLabel="Vrienden op kaart zoeken"><Ionicons name="search" size={27} color="#fff"/></Pressable>
@@ -228,6 +317,9 @@ export default function MapScreen() {
         <Pressable style={styles.dockControl} onPress={() => setFocusNetherlands(value => value + 1)} accessibilityLabel="Heel Nederland bekijken"><Ionicons name="map-outline" size={26} color="#fff"/></Pressable>
       </ScrollView>
     </View>
+    <Modal visible={privacyOpen} transparent animationType="slide" onRequestClose={() => setPrivacyOpen(false)}>
+      <View style={styles.modalShade}><MapPrivacySheet privacy={privacy} friends={privacyFriends} now={clock} busy={busy} onChange={next => void savePrivacy(next)} onClose={() => setPrivacyOpen(false)} renderAvatar={f => <FriendAvatar id={f.id} outfit={friendOutfits.get(f.id)} size={34} name={f.name}/>}/></View>
+    </Modal>
     <Modal visible={memoriesOpen} transparent animationType="slide" onRequestClose={() => setMemoriesOpen(false)}>
       <View style={styles.modalShade}>
         <View style={[styles.modalCard, {paddingBottom: Math.max(insets.bottom, 18)}]}>

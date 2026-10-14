@@ -12,7 +12,7 @@ import { useSession } from './useSession';
 export const FRIEND_OUTFIT_POLL_MS = 60_000;
 
 /**
- * App-wide cache of friends' saved Bitmoji-kast outfits (RPC sx_friend_avatar_outfits), shared by all screens so
+ * App-wide cache of friends' saved avatarkast outfits (RPC sx_friend_avatar_outfits), shared by all screens so
  * the chats list, the map and the friends tab batch into one RPC call.
  * - Fresh for 60 s (TTL); screens additionally refresh on focus, on return to the foreground and every 60 s.
  * - Persisted per signed-in user in AsyncStorage (`snapshotx.friendOutfits.v1:<userId>`), so after an app start
@@ -62,7 +62,7 @@ function collect(key: string, _version: number): ReadonlyMap<string, FriendOutfi
 export function useFriendOutfits(ids: readonly (string | null | undefined)[], opts: { live?: boolean } = {}): ReadonlyMap<string, FriendOutfitValue> {
   const key = [...new Set(ids.filter((id): id is string => !!id))].sort().join(',');
   const keyRef = useRef(key);
-  keyRef.current = key;
+  useEffect(() => { keyRef.current = key; }, [key]);
   const live = !!opts.live;
   // Live screens revalidate ids as soon as they appear (screen opened / list loaded), throttled to once per 5 s;
   // other users of the hook only fetch unknown ids or ids older than the 60 s TTL.
@@ -72,16 +72,21 @@ export function useFriendOutfits(ids: readonly (string | null | undefined)[], op
     else friendOutfitCache.request(key.split(','));
   }, [key, live]);
 
-  const loop = useMemo(() => live ? createRefreshLoop(() => { if (keyRef.current) friendOutfitCache.refresh(keyRef.current.split(',')); }, { intervalMs: FRIEND_OUTFIT_POLL_MS, foreground: AppState.currentState !== 'background' }) : null, [live]);
+  // The poll loop lives in effects only (refs are never read during render).
+  const loopRef = useRef<ReturnType<typeof createRefreshLoop> | null>(null);
+  const focusedRef = useRef(false);
   useEffect(() => {
-    if (!loop) return;
+    if (!live) return;
+    const loop = createRefreshLoop(() => { if (keyRef.current) friendOutfitCache.refresh(keyRef.current.split(',')); }, { intervalMs: FRIEND_OUTFIT_POLL_MS, foreground: AppState.currentState !== 'background' });
+    loopRef.current = loop;
+    if (focusedRef.current) loop.setFocused(true);
     const sub = AppState.addEventListener('change', state => loop.setForeground(state === 'active'));
-    return () => { sub.remove(); loop.stop(); };
-  }, [loop]);
+    return () => { sub.remove(); loop.stop(); loopRef.current = null; };
+  }, [live]);
   useFocusEffect(useCallback(() => {
-    loop?.setFocused(true);
-    return () => loop?.setFocused(false);
-  }, [loop]));
+    focusedRef.current = true; loopRef.current?.setFocused(true);
+    return () => { focusedRef.current = false; loopRef.current?.setFocused(false); };
+  }, []));
 
   const version = useSyncExternalStore(friendOutfitCache.subscribe, friendOutfitCache.version, friendOutfitCache.version);
   return useMemo(() => collect(key, version), [key, version]);

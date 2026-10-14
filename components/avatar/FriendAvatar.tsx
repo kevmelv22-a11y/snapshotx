@@ -9,6 +9,8 @@ import { View } from 'react-native';
 import type { Outfit } from '../../lib/avatar/outfit';
 import { MapAvatar, MapExplorer } from '../MapAvatar';
 import { SizedFigure, WardrobePortrait } from './OwnAvatar';
+import { FriendArtCircle } from './ArtImage';
+import { friendArtFor } from '../../lib/avatar/friendArt';
 
 type OutfitProp = Outfit | 'pending' | null | undefined;
 type Props = { id: string; outfit: OutfitProp; size: number; selected?: boolean; name?: string; /** Replaces the classic MapAvatar fallback. */ fallback?: React.ReactNode };
@@ -29,7 +31,11 @@ function useTestId(id: string, outfit: OutfitProp): string {
 export function FriendAvatar({ id, outfit, size, selected, name, fallback }: Props) {
   const testID = useTestId(id, outfit);
   let content: React.ReactNode;
-  if (outfit === 'pending') {
+  if (outfit && outfit !== 'pending') {
+    content = <WardrobePortrait outfit={outfit} size={size} selected={selected} label={name ? `Avatar van ${name}` : 'Avatar van vriend'}/>;
+  } else if (friendArtFor(id)) {
+    content = <FriendArtCircle id={id} size={size} selected={selected}/>;
+  } else if (outfit === 'pending') {
     content = <View accessibilityLabel={name ? `Avatar van ${name} wordt geladen` : 'Avatar wordt geladen'} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#2C2536', borderWidth: Math.max(2, Math.round(size / 20)), borderColor: selected ? '#FFE436' : '#4A4058' }}/>;
   } else if (outfit) {
     content = <WardrobePortrait outfit={outfit} size={size} selected={selected} label={name ? `Avatar van ${name}` : 'Avatar van vriend'}/>;
@@ -43,6 +49,7 @@ export function FriendAvatar({ id, outfit, size, selected, name, fallback }: Pro
 export function FriendAvatarFigure({ id, outfit, size = 82 }: { id: string; outfit: OutfitProp; size?: number }) {
   const testID = useTestId(id, outfit);
   const height = size * 119 / 82;
+  if (friendArtFor(id)) return <View testID={testID} style={{ width: size, height, alignItems: 'center', justifyContent: 'flex-end' }}><FriendArtCircle id={id} size={size * 0.8}/></View>;
   if (outfit === 'pending') {
     // Neutral silhouette-sized pill: keeps the marker's footprint/anchor stable until the outfit is known.
     return <View testID={testID} accessibilityLabel="Avatar wordt geladen" style={{ width: size, height, alignItems: 'center', justifyContent: 'flex-end' }}>

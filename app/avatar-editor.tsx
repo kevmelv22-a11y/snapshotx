@@ -1,17 +1,17 @@
 import React, {useState} from 'react';
-import {Alert,Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
+import {Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {router} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {MapExplorer} from '../components/MapAvatar';
 import {SizedFigure} from '../components/avatar/OwnAvatar';
 import {avatarOptions,defaultAvatar,readAvatarAppearance,type AvatarAppearance} from '../lib/avatar';
 import {APPEARANCE_FIELDS,isAppearanceField,mergeAppearance,outfitMatchesAppearance,type AppearanceField} from '../lib/avatar/appearance';
-import type {Outfit} from '../lib/avatar/outfit';
+import {defaultOutfitFor,type Outfit} from '../lib/avatar/outfit';
 import {supabase} from '../lib/supabase';
 import {useSession} from '../hooks/useSession';
 import {useOwnOutfit} from '../hooks/useWardrobeSync';
 import {useWardrobe} from '../stores/wardrobe';
+import {useConfirmDialog} from '../components/ConfirmDialog';
 
 type Category=keyof AvatarAppearance;
 type Mode='mode'|'kast'|'avatar';
@@ -25,7 +25,9 @@ const touch=(touched:AppearanceField[],fields:readonly AppearanceField[])=>[...n
 /** Preview figure: the saved Avatar-kast outfit with the touched classic appearance fields on top, else the classic art. */
 function Figure({uid,outfit,appearance,touched,size,own=false}:{uid:string|undefined;outfit:Outfit|null;appearance:AvatarAppearance;touched:readonly AppearanceField[];size:number;own?:boolean}){
   if(outfit)return <SizedFigure outfit={mergeAppearance(outfit,appearance,touched)} width={size}/>;
-  return <MapExplorer id={uid||'me'} appearance={appearance} size={size} own={own}/>;
+  void uid;void own;const start=defaultOutfitFor(useWardrobe.getState().gender);
+  // No saved outfit = default character: show its pre-rendered art (hair/skin picks are not drawn on it).
+  return <SizedFigure outfit={touched.length?mergeAppearance(start,appearance,touched):start} width={size}/>;
 }
 
 const icons:Record<Category,React.ComponentProps<typeof Ionicons>['name']>={skin:'happy-outline',hair:'color-palette-outline',hairstyle:'cut-outline',top:'shirt-outline',bottoms:'options-outline',shoes:'walk-outline',accessory:'sparkles-outline'};
@@ -52,6 +54,7 @@ export default function AvatarEditor(){
   const [onlySelected,setOnlySelected]=useState(false);
   const [busy,setBusy]=useState(false);
   const [notice,setNotice]=useState('');
+  const confirm=useConfirmDialog();
 
   function change(next:AvatarAppearance,fields:readonly AppearanceField[]=[]){
     const nextTouched=touch(touched,fields);
@@ -76,10 +79,7 @@ export default function AvatarEditor(){
   function discard(){
     const original=readAvatarAppearance(session?.user.user_metadata?.snaplion_avatar);
     if(JSON.stringify(original)===JSON.stringify(draft)&&!touched.length){router.back();return}
-    Alert.alert('Wijzigingen weggooien?','Je avatar is nog niet opgeslagen.',[
-      {text:'Verder bewerken',style:'cancel'},
-      {text:'Weggooien',style:'destructive',onPress:()=>router.back()},
-    ]);
+    confirm.ask({title:'Wijzigingen weggooien?',message:'Je avatar is nog niet opgeslagen.',cancelLabel:'Verder bewerken',confirmLabel:'Weggooien',destructive:true},()=>{router.back();return null;});
   }
   function saveLook(){
     const next=[draft,...looks.filter(look=>JSON.stringify(look)!==JSON.stringify(draft))].slice(0,12);
@@ -147,6 +147,7 @@ export default function AvatarEditor(){
       </>}
       {!!notice&&<Pressable onPress={()=>setNotice('')} style={s.notice}><Text style={s.noticeText}>{notice} ×</Text></Pressable>}
     </View>
+    {confirm.dialog}
   </View>;
 }
 
