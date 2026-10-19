@@ -13,6 +13,7 @@ import {useOwnOutfit} from '../hooks/useWardrobeSync';
 import {useWardrobe} from '../stores/wardrobe';
 import {useConfirmDialog} from '../components/ConfirmDialog';
 
+import {friendlyError} from '../lib/db-errors';
 type Category=keyof AvatarAppearance;
 type Mode='mode'|'kast'|'avatar';
 const modeCategories:Category[]=['top','bottoms','shoes','accessory'];
@@ -70,7 +71,7 @@ export default function AvatarEditor(){
     setBusy(true);
     const {error}=await supabase.auth.updateUser({data:{snaplion_avatar:draft,snaplion_wardrobe:wardrobe}});
     setBusy(false);
-    if(error)setNotice(`Opslaan mislukt: ${error.message}`);
+    if(error)setNotice(friendlyError(error,'Opslaan'));
     else {
       // Keep the own avatar consistent: touched skin/hair/hairstyle go into the saved kast outfit (latest edit wins).
       if(close&&touched.length)useWardrobe.getState().applyAppearance(uid,draft,touched);

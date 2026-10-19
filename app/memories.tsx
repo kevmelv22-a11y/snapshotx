@@ -8,6 +8,7 @@ import {supabase} from '../lib/supabase';
 import {dayKey, registerPinAttempt, sectionTitle, togglePrivate, validatePin, type Memory, type PinLock} from '../lib/memories';
 import {checkVaultPin, loadMemories, resendMemory, setMemoryPrivate, setVaultPin, vaultHasPin} from '../lib/memories-store';
 
+import {friendlyError} from '../lib/db-errors';
 export default function MemoriesScreen() {
   const {session} = useSession();
   const uid = session?.user.id;
@@ -26,7 +27,7 @@ export default function MemoriesScreen() {
 
   const load = useCallback(async () => {
     if (!uid) return;
-    try { setItems(await loadMemories(uid)); setHasPin(await vaultHasPin(uid)); } catch (e) { setNotice((e as Error).message); }
+    try { setItems(await loadMemories(uid)); setHasPin(await vaultHasPin(uid)); } catch (e) { setNotice(friendlyError(e)); }
   }, [uid]);
   useFocusEffect(useCallback(() => { void load(); return () => setUnlocked(false); }, [load]));
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
@@ -45,16 +46,16 @@ export default function MemoriesScreen() {
       const ok = await checkVaultPin(uid, pin);
       setLock(l => registerPinAttempt(l, ok, Date.now()));
       if (ok) setUnlocked(true);
-    } catch (e) { setPinError((e as Error).message); }
+    } catch (e) { setPinError(friendlyError(e)); }
   }
   async function resend(ids: string[]) {
     if (!uid || !open) return; setBusy(true);
-    try { await resendMemory(open, uid, ids); setOpen(null); setNotice(`Verstuurd naar ${ids.length} vriend${ids.length === 1 ? '' : 'en'}.`); } catch (e) { setNotice((e as Error).message); } finally { setBusy(false); }
+    try { await resendMemory(open, uid, ids); setOpen(null); setNotice(`Verstuurd naar ${ids.length} vriend${ids.length === 1 ? '' : 'en'}.`); } catch (e) { setNotice(friendlyError(e)); } finally { setBusy(false); }
   }
   async function togglePriv() {
     if (!open) return; setBusy(true);
     if (!open.private && !hasPin) { setNotice('Stel eerst een pincode in via Alleen voor mij.'); setBusy(false); return; }
-    try { await setMemoryPrivate(open.id, !open.private); setItems(list => togglePrivate(list, open.id, !open.private)); setOpen(null); } catch (e) { setNotice((e as Error).message); } finally { setBusy(false); }
+    try { await setMemoryPrivate(open.id, !open.private); setItems(list => togglePrivate(list, open.id, !open.private)); setOpen(null); } catch (e) { setNotice(friendlyError(e)); } finally { setBusy(false); }
   }
   const thumb = (m: Memory, style: any) => <Media path={m.storage_path} type={m.media_type} style={style}/>;
   return <>

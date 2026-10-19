@@ -17,6 +17,7 @@ import {readAvatarAppearance} from '../lib/avatar';
 import {MapPrivacySheet, type PrivacyFriend} from '../components/map/MapPrivacySheet';
 import {DEFAULT_PRIVACY, ghostStatusText, isGhost, isSharing, lastSeenText, privacyFromRow, privacyToRow, type MapPrivacy} from '../lib/map-privacy';
 
+import {friendlyError} from '../lib/db-errors';
 type LocationRow = {user_id: string; latitude: number; longitude: number; sharing: boolean; home_confirmed?: boolean; updated_at: string; share_audience?: string; ghost_until?: string | null; ghost_forever?: boolean};
 type MemoryRow = {id: string; storage_path: string; media_type: 'photo' | 'video'; created_at: string};
 
@@ -61,7 +62,7 @@ export default function MapScreen() {
     const hasPrivacy = !error;
     if (error) ({data, error} = await supabase.from('sx_locations').select('user_id,latitude,longitude,sharing,home_confirmed,updated_at'));
     setPrivacyAvailable(hasPrivacy);
-    if (error) { setNotice(error.message); return; }
+    if (error) { setPins([]); setNotice(friendlyError(error, 'Kaart van vrienden')); return; }
     const rows = (data || []) as LocationRow[];
     setHomeAvailable(rows.some(row => Object.prototype.hasOwnProperty.call(row, 'home_confirmed')));
     const mine = rows.find(row => row.user_id === uid);
@@ -80,7 +81,7 @@ export default function MapScreen() {
     const visible = rows.filter(row => row.user_id !== uid && row.sharing && new Date(row.updated_at).getTime() > Date.now() - 86400000);
     if (!visible.length) { setPins([]); return; }
     const {data:profiles, error:profileError} = await supabase.from('profiles').select('id,display_name,username').in('id', visible.map(row => row.user_id));
-    if (profileError) { setNotice(profileError.message); return; }
+    if (profileError) { setNotice(friendlyError(profileError, 'Namen op de kaart')); return; }
     setPins(visible.map(row => {
       const profile = profiles?.find(person => person.id === row.user_id);
       return {id: row.user_id, name: profile?.display_name || profile?.username || 'Vriend', username: profile?.username || undefined, homeConfirmed: !!row.home_confirmed, latitude: row.latitude, longitude: row.longitude, updatedAt: row.updated_at};
@@ -139,10 +140,10 @@ export default function MapScreen() {
             if (!sharingRef.current) return;
             const {error} = await supabase.from('sx_locations').upsert({user_id: uid, latitude, longitude, sharing: true, updated_at: new Date().toISOString()});
             if (error) throw error;
-          }).catch(error => { setNotice((error as Error).message); });
+          }).catch(error => { setNotice(friendlyError(error)); });
         }, () => setNotice('Je locatie kon even niet worden bepaald. We proberen het automatisch opnieuw.'));
         if (cancelled) watcher.remove(); else subscription = watcher;
-      } catch (error) { if (!cancelled) setNotice((error as Error).message); }
+      } catch (error) { if (!cancelled) setNotice(friendlyError(error)); }
     })();
     return () => { cancelled = true; subscription?.remove(); };
   }, [focused, homeAvailable, uid]);
@@ -156,7 +157,7 @@ export default function MapScreen() {
       setOwn({id: uid, name: 'Ik nu', latitude: position.coords.latitude, longitude: position.coords.longitude});
       setFocusOwn(value => value + 1);
       if (!sharing) setNotice('Alleen jij ziet deze locatie. Deel je locatie om zichtbaar te worden voor vrienden.');
-    } catch (error) { setNotice((error as Error).message); }
+    } catch (error) { setNotice(friendlyError(error)); }
   }
 
   async function toggleSharing() {
@@ -187,7 +188,7 @@ export default function MapScreen() {
         void load();
         setNotice('Je locatie wordt gedeeld met vrienden zolang je de kaart gebruikt, maximaal 24 uur na je laatste update.');
       }
-    } catch (error) { setNotice((error as Error).message); }
+    } catch (error) { setNotice(friendlyError(error)); }
     finally { setBusy(false); }
   }
 
@@ -209,11 +210,11 @@ export default function MapScreen() {
     setClock(Date.now());
     setPrivacyOpen(true);
     const f = await supabase.from('sx_friends').select('friend_id').eq('user_id', uid);
-    if (f.error) { setNotice(f.error.message); return; }
+    if (f.error) { setNotice(friendlyError(f.error, 'Je vrienden')); return; }
     const ids = (f.data || []).map(row => row.friend_id as string);
     if (!ids.length) { setPrivacyFriends([]); return; }
     const p = await supabase.from('profiles').select('id,display_name,username').in('id', ids);
-    if (p.error) { setNotice(p.error.message); return; }
+    if (p.error) { setNotice(friendlyError(p.error, 'Je vrienden')); return; }
     setPrivacyFriends((p.data || []).map(row => ({id: row.id, name: row.display_name || row.username || 'Vriend'})));
   }
 
@@ -255,7 +256,7 @@ export default function MapScreen() {
     } catch (error) {
       setPrivacy(previous);
       sharingRef.current = isSharing(previous, Date.now());
-      setNotice(`Instelling kon niet worden opgeslagen: ${(error as Error).message}`);
+      setNotice(friendlyError(error, 'Instelling opslaan'));
     } finally { setBusy(false); }
   }
 
@@ -264,7 +265,7 @@ export default function MapScreen() {
     setBusy(true);
     const next = !homeConfirmed;
     const {error} = await supabase.from('sx_locations').update({home_confirmed: next}).eq('user_id', uid);
-    if (error) setNotice(`Thuisstatus kon niet worden opgeslagen: ${error.message}`);
+    if (error) setNotice(friendlyError(error, 'Thuisstatus opslaan'));
     else {setHomeConfirmed(next); setNotice(next ? 'Vrienden die je locatie mogen zien, zien nu jouw zelfgekozen thuisstatus.' : 'Thuisstatus uitgezet.');}
     setBusy(false);
   }
@@ -274,7 +275,7 @@ export default function MapScreen() {
     setMemoriesOpen(true);
     setMemoriesError('');
     const {data, error} = await supabase.from('memories').select('id,storage_path,media_type,created_at').eq('owner_id', uid).is('deleted_at', null).order('created_at', {ascending: false}).limit(30);
-    if (error) setMemoriesError(error.message);
+    if (error) setMemoriesError(friendlyError(error, 'Herinneringen'));
     else setMemories((data || []) as MemoryRow[]);
   }
 

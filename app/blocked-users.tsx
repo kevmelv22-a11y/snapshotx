@@ -10,6 +10,7 @@ import {supabase} from '../lib/supabase';
 import {C} from '../lib/theme';
 import {useConfirmDialog} from '../components/ConfirmDialog';
 
+import {friendlyError} from '../lib/db-errors';
 type BlockedUser = {id: string; display_name: string; username: string | null};
 
 export default function BlockedUsers() {
@@ -27,7 +28,7 @@ export default function BlockedUsers() {
     setLoading(true);
     const blocks = await supabase.from('sx_blocks').select('blocked_id').eq('blocker_id', uid);
     if (blocks.error) {
-      setError(blocks.error.message);
+      setError(friendlyError(blocks.error));
       setLoading(false);
       return;
     }
@@ -40,7 +41,7 @@ export default function BlockedUsers() {
     }
     const profiles = await supabase.from('profiles').select('id,display_name,username').in('id', ids);
     if (profiles.error) {
-      setError(profiles.error.message);
+      setError(friendlyError(profiles.error));
       setLoading(false);
       return;
     }
@@ -65,7 +66,7 @@ export default function BlockedUsers() {
     setBusyId(id);
     const {data, error: deleteError} = await supabase.from('sx_blocks')
       .delete().eq('blocker_id', uid).eq('blocked_id', id).select('blocked_id');
-    if (deleteError) setError(deleteError.message);
+    if (deleteError) setError(friendlyError(deleteError));
     else if (!data?.length) setError('Deblokkeren is niet gelukt. Probeer het opnieuw.');
     else await load();
     setBusyId(null);

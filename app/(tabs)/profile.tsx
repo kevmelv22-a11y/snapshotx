@@ -10,6 +10,8 @@ import {useStartOutfit,useWardrobeSync} from '../../hooks/useWardrobeSync';
 import {useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {useSession} from '../../hooks/useSession';
 import {useStaffRoles} from '../../hooks/useStaffRoles';
+import {useOwnProfile} from '../../hooks/useOwnProfile';
+import {friendlyError} from '../../lib/db-errors';
 import {storyRingState} from '../../lib/avatar/poses';
 import {supabase} from '../../lib/supabase';
 import {C} from '../../lib/theme';
@@ -18,13 +20,18 @@ import {C} from '../../lib/theme';
 export default function Profile(){
  const {session}=useSession(),uid=session?.user.id,{isStaff}=useStaffRoles(),insets=useSafeAreaInsets();
  useWardrobeSync(uid);
- const [username,setUsername]=useState(''),[score,setScore]=useState(0),[stories,setStories]=useState(0),[sharing,setSharing]=useState(false),[notice,setNotice]=useState('');
+ const {profile:own}=useOwnProfile();
+ const [stories,setStories]=useState(0),[sharing,setSharing]=useState(false),[notice,setNotice]=useState('');
  const [friends,setFriends]=useState<{id:string;name:string;ring:ProfileFriend['ring']}[]>([]);
  const outfits=useFriendOutfits(friends.map(f=>f.id));
  useFocusEffect(useCallback(()=>{if(!uid)return;let active=true;void (async()=>{
   const now=new Date().toISOString();
-  const [p,f,s,l]=await Promise.all([supabase.from('profiles').select('display_name,username,activity_score').eq('id',uid).single(),supabase.from('sx_friends').select('friend_id').eq('user_id',uid).limit(4),supabase.from('sx_stories').select('id',{count:'exact',head:true}).eq('owner_id',uid).gt('expires_at',now),supabase.from('sx_locations').select('sharing').eq('user_id',uid).maybeSingle()]);
-  if(!active)return;if(p.error)setNotice(p.error.message);else if(p.data){setUsername(p.data.username||p.data.display_name);setScore(p.data.activity_score)}setStories(s.count||0);setSharing(!!l.data?.sharing);
+  // Own profile comes from useOwnProfile (maybeSingle + create/fallback). The rest loads independently so one
+  // unavailable table (no GRANT on live) only hides its own part instead of breaking the screen.
+  const [f,s,l]=await Promise.all([supabase.from('sx_friends').select('friend_id').eq('user_id',uid).limit(4),supabase.from('sx_stories').select('id',{count:'exact',head:true}).eq('owner_id',uid).gt('expires_at',now),supabase.from('sx_locations').select('sharing').eq('user_id',uid).maybeSingle()]);
+  if(!active)return;setStories(s.count||0);setSharing(!!l.data?.sharing);
+  const problems=[f.error&&friendlyError(f.error,'Vrienden'),s.error&&friendlyError(s.error,'Stories'),l.error&&friendlyError(l.error,'Locatie')].filter(Boolean) as string[];
+  setNotice([...new Set(problems)].join('\n'));
   const ids=(f.data||[]).map(x=>x.friend_id as string);if(!ids.length){setFriends([]);return}
   const [n,st]=await Promise.all([supabase.from('profiles').select('id,display_name').in('id',ids),supabase.from('sx_stories').select('id,owner_id,expires_at').in('owner_id',ids).gt('expires_at',now)]);
   const storyIds=(st.data||[]).map(x=>x.id as string);const v=storyIds.length?await supabase.from('sx_story_views').select('story_id').eq('viewer_id',uid).in('story_id',storyIds):{data:[]};
@@ -35,7 +42,7 @@ export default function Profile(){
  // Same art as the doll (OutfitArt), cropped to head+shoulders: updates with every Kast / look change.
  const hero=<YellowAvatarCircle size={230}><AvatarBust outfit={start} size={230} testID="profile-bust-art"/></YellowAvatarCircle>;
  const tile=(icon:keyof typeof Ionicons.glyphMap,label:string,to:Parameters<typeof router.push>[0])=><Pressable key={label} style={s.tile} onPress={()=>router.push(to)}><Ionicons name={icon} color="#FFF" size={22}/><Text style={s.tileText}>{label}</Text><Ionicons name="chevron-forward" color="#C7C7CC" size={20}/></Pressable>;
- return <ProfileHome username={username||'Mijn profiel'} score={score} hero={hero} ownOutfit={start} storyCount={stories} sharingLocation={sharing} topInset={insets.top}
+ return <ProfileHome username={own?(own.hasUsername||own.source==='metadata'?own.handle:own.displayName):'Mijn profiel'} score={own?.activityScore??0} hero={hero} ownOutfit={start} storyCount={stories} sharingLocation={sharing} topInset={insets.top}
   friends={friends.map(f=>{const o=outfits.get(f.id);return {...f,outfit:o&&o!=='pending'?o:null,fallback:<MapAvatar id={f.id} size={70}/>}})}
   onMenu={()=>router.back()} onSettings={()=>router.push('/settings')} onAvatar={()=>router.push('/avatar/mode')} onStory={()=>router.push('/(tabs)/stories')} onFriends={()=>router.push('/(tabs)/friends')} onMap={()=>router.push('/map')} onTimers={()=>setNotice('Afteltimers komen binnenkort.')}
   footer={<View style={{marginTop:6}}>
@@ -43,7 +50,7 @@ export default function Profile(){
    {tile('happy-outline','Avatarstickers','/avatar/stickers')}
    {tile('color-palette-outline','Klassieke avatar-editor','/avatar-editor')}
    {isStaff&&tile('shield-checkmark-outline','Staff- en moderatiepaneel','/staff')}
-   {!!notice&&<Text style={s.notice}>{notice}</Text>}
+   {!!(notice||own?.notice)&&<Text style={s.notice}>{[own?.notice,notice].filter(Boolean).join('\n')}</Text>}
   </View>}/>;
 }
 const s=StyleSheet.create({tile:{flexDirection:'row',alignItems:'center',gap:12,backgroundColor:'#14301F',borderRadius:14,borderWidth:1,borderColor:'#24452F',padding:14,marginBottom:8},tileText:{flex:1,color:'#FFF',fontSize:16,fontWeight:'700'},notice:{color:C.yellow,textAlign:'center',marginTop:8}});

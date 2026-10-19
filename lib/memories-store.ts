@@ -38,7 +38,8 @@ export async function setVaultPin(uid: string, pin: string) {
   if (error) throw error;
 }
 export async function checkVaultPin(uid: string, pin: string): Promise<boolean> {
-  const {data, error} = await supabase.from('sx_memory_vault').select('pin_hash,pin_salt').eq('user_id', uid).single();
+  const {data, error} = await supabase.from('sx_memory_vault').select('pin_hash,pin_salt').eq('user_id', uid).maybeSingle();
   if (error) throw error;
+  if (!data) return false; // no PIN set (yet): nothing can match
   return (await hashPin(pin, data.pin_salt, digest)) === data.pin_hash;
 }

@@ -6,7 +6,7 @@
  */
 import { StaffMock, seedStaffMock, MOCK_IDS, type Row } from './staff-mock';
 
-type Err = { message: string; code?: string };
+type Err = { message: string; code?: string; details?: string };
 type Res = { data: unknown; error: Err | null; count?: number | null };
 const H = 3600e3, D = 86400e3;
 const ME = MOCK_IDS.owner;
@@ -113,6 +113,8 @@ class DemoQuery implements PromiseLike<Res> {
   abortSignal() { return this; }
   throwOnError() { return this; }
   private run(): Res {
+    // Fault injection (see DemoClient.faults): reproduce live's missing GRANTs exactly as PostgREST reports them.
+    if (this.c.faults.denied.has(this.name)) return { data: null, error: { message: `permission denied for table ${this.name}`, code: '42501' } };
     const t = this.c.m.table(this.name), now = this.c.m.iso();
     let out: Row[] = [];
     if (this.op === 'insert' || this.op === 'upsert') {
@@ -147,7 +149,8 @@ class DemoQuery implements PromiseLike<Res> {
     if (this.one) {
       if (data.length === 1 || (this.one === 'maybe' && data.length === 0)) return { data: data[0] ?? null, error: null };
       if (this.one === 'maybe') return { data: data[0], error: null };
-      return { data: null, error: { message: 'JSON object requested, multiple (or no) rows returned', code: 'PGRST116' } };
+      // Same text supabase-js/PostgREST returns for .single() on 0 rows (the live "Cannot coerce" error).
+      return { data: null, error: { message: 'Cannot coerce the result to a single JSON object', code: 'PGRST116', details: `The result contains ${data.length} rows` } };
     }
     return { data, error: null, count };
   }
@@ -159,8 +162,26 @@ class DemoQuery implements PromiseLike<Res> {
 
 const REPLIES = ['Haha 😄', 'Klinkt goed!', 'Echt? 😮', 'Top 👍', 'Zie je straks!', 'Haha ja precies', '🔥🔥'];
 
+/**
+ * Demo-only fault injection to reproduce the live backend state without touching it:
+ * `?demo_faults=live` (or localStorage 'sx-demo-faults') = no GRANT on sx_locations/sx_stories/sx_friends,
+ * no profiles row for the signed-in user and no sx_ensure_profile RPC (migration 20261019120000 not applied).
+ * Also accepts a comma list: table names (denied), 'no-profile', 'no-ensure'.
+ */
+function readFaults(): { denied: Set<string>; noProfile: boolean; noEnsure: boolean } {
+  let raw = '';
+  try {
+    const q = new URLSearchParams(String(globalThis.location?.search ?? '')).get('demo_faults');
+    if (q !== null) globalThis.localStorage?.setItem('sx-demo-faults', q);
+    raw = q ?? globalThis.localStorage?.getItem('sx-demo-faults') ?? '';
+  } catch {}
+  const parts = raw.split(',').map(x => x.trim()).filter(Boolean).flatMap(x => (x === 'live' ? ['sx_locations', 'sx_stories', 'sx_friends', 'no-profile', 'no-ensure'] : [x]));
+  return { denied: new Set(parts.filter(x => /^(sx_[a-z_]+|memories|profiles)$/.test(x))), noProfile: parts.includes('no-profile'), noEnsure: parts.includes('no-ensure') };
+}
+
 export class DemoClient {
   m = new StaffMock(seedDemo, ME);
+  faults = readFaults();
   private listeners = new Set<Listener>();
   private authCbs = new Set<(e: string, s: unknown) => void>();
   private uploads: Record<string, string> = {};
@@ -172,6 +193,7 @@ export class DemoClient {
       if (meta) { Object.assign(this.meta, meta); Object.assign(this.m.profile(ME) ?? {}, { gender: meta.gender === 'female' ? 'female' : 'male', ...(meta.display_name ? { display_name: meta.display_name } : {}), ...(meta.username ? { username: meta.username } : {}) }); }
       if (globalThis.localStorage?.getItem('sx-demo-signed-in') === '1') this.session = this.makeSession();
     } catch {}
+    if (this.faults.noProfile) this.m.t.profiles = this.m.t.profiles.filter(p => p.id !== ME);
   }
   private makeSession(): Row {
     return { access_token: 'demo', refresh_token: 'demo', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600,
@@ -232,10 +254,21 @@ export class DemoClient {
       likes: this.m.table('sx_highlight_likes').filter(l => l.story_id === s.id).length + 12, shares: 3, views: 240,
       liked: this.m.table('sx_highlight_likes').some(l => l.story_id === s.id && l.user_id === ME) })),
     sx_friend_avatar_outfits: () => [],
+    // Mirrors public.sx_ensure_profile() (migration 20261019120000): create the own row from the sign-up metadata.
+    sx_ensure_profile: () => {
+      let p = this.m.profile(ME);
+      if (!p) {
+        const hex = ME.replace(/-/g, '').slice(0, 8), wanted = String(this.meta.username ?? '').toLowerCase();
+        const username = /^[a-z0-9_]{3,24}$/.test(wanted) && !this.m.table('profiles').some(x => x.username === wanted) ? wanted : `user_${hex}`;
+        p = { id: ME, username, display_name: String(this.meta.display_name ?? username), created_at: this.m.iso(), is_verified: false, gender: this.meta.gender === 'female' ? 'female' : 'male', avatar_path: null, activity_score: 0 };
+        this.m.table('profiles').push(p);
+      }
+      return [{ id: p.id, username: p.username, display_name: p.display_name }];
+    },
   };
   async rpc(name: string, args: Row = {}): Promise<Res> {
     await new Promise(r => setTimeout(r, 30));
-    const fn = this.appRpcs[name] ?? this.m.rpcs[name];
+    const fn = name === 'sx_ensure_profile' && this.faults.noEnsure ? undefined : this.appRpcs[name] ?? this.m.rpcs[name];
     if (!fn) return { data: null, error: { message: `Could not find the function public.${name}`, code: 'PGRST202' } };
     try { return { data: JSON.parse(JSON.stringify(fn(args) ?? null)), error: null }; }
     catch (e) { return { data: null, error: { message: (e as Error).message, code: (e as { code?: string }).code } }; }

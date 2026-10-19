@@ -13,6 +13,7 @@ import {FriendAvatar} from '../../components/avatar/FriendAvatar';
 import {friendOutfitCache,useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {AI_DEMO,DEMO_CHATS,loadChatRows,type ChatRow} from '../../lib/chat-list';
 
+import {friendlyError} from '../../lib/db-errors';
 type Filter='all'|'unread'|'ai'|'nearby'|'stories';
 type DemoMessage={id:number;own:boolean;text:string};
 const violet='#B629E2';
@@ -25,11 +26,11 @@ export default function Chats(){
  const [nearbyIds,setNearbyIds]=useState<string[]>([]),[storyIds,setStoryIds]=useState<string[]>([]),[newOpen,setNewOpen]=useState(false),[moreOpen,setMoreOpen]=useState(false),[alertsOpen,setAlertsOpen]=useState(false);
  const [friends,setFriends]=useState<{id:string;display_name:string}[]>([]),[selected,setSelected]=useState<string[]>([]),[groupName,setGroupName]=useState(''),[busy,setBusy]=useState(false);
  const [demo,setDemo]=useState<ChatRow|null>(null),[demoInput,setDemoInput]=useState(''),[demoMessages,setDemoMessages]=useState<DemoMessage[]>([]),[requestCount,setRequestCount]=useState(0);
- const load=useCallback(async()=>{if(!uid)return;setLoading(true);try{setRows(await loadChatRows(uid));setError('');const r=await supabase.from('sx_friend_requests').select('id',{count:'exact',head:true}).eq('recipient_id',uid).eq('status','pending');setRequestCount(r.count||0)}catch(e){setError((e as Error).message)}finally{setLoading(false)}},[uid]);
+ const load=useCallback(async()=>{if(!uid)return;setLoading(true);try{setRows(await loadChatRows(uid));setError('');const r=await supabase.from('sx_friend_requests').select('id',{count:'exact',head:true}).eq('recipient_id',uid).eq('status','pending');setRequestCount(r.count||0)}catch(e){setError(friendlyError(e,'Chats'))}finally{setLoading(false)}},[uid]);
  useFocusEffect(useCallback(()=>{void load()},[load]));
  useEffect(()=>{if(!uid)return;const ch=supabase.channel(`sx-chat-list-${uid}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_messages'},()=>void load()).subscribe();return()=>{void supabase.removeChannel(ch)}},[uid,load]);
- useEffect(()=>{if(!uid||filter!=='nearby')return;let active=true;void supabase.from('sx_locations').select('user_id').eq('sharing',true).then(({data,error:e})=>{if(active){if(e)setError(e.message);else setNearbyIds((data||[]).map(x=>x.user_id))}});return()=>{active=false}},[uid,filter]);
- useEffect(()=>{if(!uid||filter!=='stories')return;let active=true;void supabase.from('sx_stories').select('owner_id').gt('expires_at',new Date().toISOString()).then(({data,error:e})=>{if(active){if(e)setError(e.message);else setStoryIds((data||[]).map(x=>x.owner_id))}});return()=>{active=false}},[uid,filter]);
+ useEffect(()=>{if(!uid||filter!=='nearby')return;let active=true;void supabase.from('sx_locations').select('user_id').eq('sharing',true).then(({data,error:e})=>{if(active){if(e)setError(friendlyError(e,'Vrienden in de buurt'));else setNearbyIds((data||[]).map(x=>x.user_id))}});return()=>{active=false}},[uid,filter]);
+ useEffect(()=>{if(!uid||filter!=='stories')return;let active=true;void supabase.from('sx_stories').select('owner_id').gt('expires_at',new Date().toISOString()).then(({data,error:e})=>{if(active){if(e)setError(friendlyError(e,'Stories'));else setStoryIds((data||[]).map(x=>x.owner_id))}});return()=>{active=false}},[uid,filter]);
  const unread=rows.filter(x=>x.unread).length;
  const visible=useMemo(()=>{const source=filter==='ai'?[AI_DEMO]:preview&&filter==='all'?DEMO_CHATS:rows;return source.filter(x=>{
   if(query&&!`${x.title} ${x.preview}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()))return false;
@@ -40,8 +41,8 @@ export default function Chats(){
  })},[rows,preview,query,filter,nearbyIds,storyIds]);
  // Friends' saved Avatar-kast outfits (one batched, cached RPC); rows without one keep the initial bubble.
  const friendOutfits=useFriendOutfits(useMemo(()=>[...rows.filter(x=>!x.isGroup).flatMap(x=>x.peerIds),...friends.map(x=>x.id)],[rows,friends]),{live:true});
- async function openComposer(){if(!uid)return;setError('');const result=await supabase.from('sx_friends').select('friend_id').eq('user_id',uid);if(result.error){setError(result.error.message);return}const ids=(result.data||[]).map(x=>x.friend_id);friendOutfitCache.prune(ids);if(!ids.length){router.push('/(tabs)/friends');return}const p=await supabase.from('profiles').select('id,display_name').in('id',ids);if(p.error){setError(p.error.message);return}setFriends(p.data||[]);setSelected([]);setNewOpen(true)}
- async function createChat(){if(busy||!selected.length)return;setBusy(true);try{const {data,error:e}=await supabase.rpc('sx_open_thread',{participants:selected,group_title:selected.length>1?groupName.trim()||'Nieuwe groep':null});if(e)throw e;setNewOpen(false);setGroupName('');await load();router.push({pathname:'/chat/[id]',params:{id:data}})}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+ async function openComposer(){if(!uid)return;setError('');const result=await supabase.from('sx_friends').select('friend_id').eq('user_id',uid);if(result.error){setError(friendlyError(result.error,'Je vrienden'));return}const ids=(result.data||[]).map(x=>x.friend_id);friendOutfitCache.prune(ids);if(!ids.length){router.push('/(tabs)/friends');return}const p=await supabase.from('profiles').select('id,display_name').in('id',ids);if(p.error){setError(friendlyError(p.error));return}setFriends(p.data||[]);setSelected([]);setNewOpen(true)}
+ async function createChat(){if(busy||!selected.length)return;setBusy(true);try{const {data,error:e}=await supabase.rpc('sx_open_thread',{participants:selected,group_title:selected.length>1?groupName.trim()||'Nieuwe groep':null});if(e)throw e;setNewOpen(false);setGroupName('');await load();router.push({pathname:'/chat/[id]',params:{id:data}})}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
  function openDemo(row:ChatRow){setDemo(row);setDemoMessages([{id:0,own:false,text:row.id==='local-ai'?'Hoi! Dit is een lokale voorbeeldchat, geen echte AI-service. Je berichten blijven op dit toestel.':row.preview}]);setDemoInput('')}
  function sendDemo(){const text=demoInput.trim();if(!text)return;setDemoMessages(v=>[...v,{id:Date.now(),own:true,text}]);setDemoInput('')}
  function openRow(row:ChatRow){if(row.demo)openDemo(row);else router.push({pathname:'/chat/[id]',params:{id:row.id}})}
