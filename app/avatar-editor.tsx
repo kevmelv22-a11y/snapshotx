@@ -28,7 +28,7 @@ type Draft = { outfit: Outfit; label: string };
 const GENDERS: Gender[] = ['male', 'female'];
 const genderOf = (o: Outfit): Gender => (o.gender === 'female' ? 'female' : 'male');
 const sameOutfit = (a: Outfit, b: Outfit) => genderOf(a) === genderOf(b) && CATEGORIES.every(c => (a[c] ?? null) === (b[c] ?? null)) && (a.worn ?? null) === (b.worn ?? null)
-  && (a.colors.skin ?? null) === (b.colors.skin ?? null) && (a.colors.hair ?? null) === (b.colors.hair ?? null);
+  && (a.colors.skin ?? null) === (b.colors.skin ?? null) && (a.colors.hair ?? null) === (b.colors.hair ?? null) && a.hairStyle === b.hairStyle;
 const lookOutfit = (look: CuratedLook, gender: Gender, from: Outfit): Outfit => withAppearance({ ...applyLook(defaultOutfitFor(gender), look.items), gender }, from);
 const lookItems = (look: CuratedLook) => Object.values(look.items).map(id => ITEMS_BY_ID.get(id!)!).filter(Boolean);
 

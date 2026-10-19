@@ -5,7 +5,7 @@
  * Outfit.colors.skin / .hair (same palettes as the classic editor, lib/avatar/appearance CLASSIC_SKIN / CLASSIC_HAIR).
  * Pure (type-only imports) so it runs under `node --test`.
  */
-import type { Gender, Outfit } from './outfit';
+import type { Gender, HairStyle, Outfit } from './outfit';
 
 export type SkinTone = 'light' | 'warm' | 'tan' | 'brown' | 'dark';
 export type HairColor = 'black' | 'darkbrown' | 'brown' | 'blonde' | 'auburn';
@@ -27,8 +27,15 @@ export const HAIR_COLORS: readonly { id: HairColor; label: string; hex: string }
 /** Tone / colour the art itself is drawn in (no overlay needed). */
 export const ART_SKIN: SkinTone = 'warm';
 export const ART_HAIR: Record<Gender, HairColor> = { male: 'darkbrown', female: 'blonde' };
-/** The one hairstyle each character set's art has (more styles need new base art). */
+/** The hairstyle each character set's art is drawn with (default; no style layer). */
 export const ART_HAIRSTYLE: Record<Gender, { id: 'curly' | 'wavy'; label: string }> = { male: { id: 'curly', label: 'Krullen' }, female: { id: 'wavy', label: 'Lang golvend' } };
+/** Kapsel options per character set, art style first. The others are generated head + hair layers registered on the
+ *  reference head (scripts/worn-bands/hairstyles.py → lib/avatar/wornStyleInfo), stored in Outfit.hairStyle.
+ *  Female: only the art style (its long hair is baked into every top's torso band, so other styles can't be clean yet). */
+export const HAIRSTYLES: Record<Gender, readonly { id: HairStyle; label: string }[]> = {
+  male: [ART_HAIRSTYLE.male, { id: 'short', label: 'Kort' }, { id: 'wavy', label: 'Golvend' }, { id: 'buzz', label: 'Fade' }, { id: 'afro', label: 'Afro' }],
+  female: [ART_HAIRSTYLE.female],
+};
 
 const genderOf = (o: Pick<Outfit, 'gender'>): Gender => (o.gender === 'female' ? 'female' : 'male');
 const eq = (a: string | undefined, b: string) => !!a && a.toLowerCase() === b.toLowerCase();
@@ -47,6 +54,19 @@ export function withSkinTone(o: Outfit, tone: SkinTone): Outfit {
 export function withHairColor(o: Outfit, color: HairColor): Outfit {
   return { ...o, colors: { ...o.colors, hair: HAIR_COLORS.find(t => t.id === color)!.hex } };
 }
+/** Kapsel of an outfit: its hairStyle when the character set has it, else the art style (classic / other set's values). */
+export function hairStyleOf(o: Pick<Outfit, 'gender' | 'hairStyle'>): HairStyle {
+  const g = genderOf(o);
+  return HAIRSTYLES[g].some(h => h.id === o.hairStyle) ? o.hairStyle : ART_HAIRSTYLE[g].id;
+}
+/** Style layer to draw instead of the art's own head, or null for the art style. */
+export function styleLayerOf(o: Pick<Outfit, 'gender' | 'hairStyle'>): HairStyle | null {
+  const h = hairStyleOf(o);
+  return h === ART_HAIRSTYLE[genderOf(o)].id ? null : h;
+}
+export function withHairStyle(o: Outfit, style: HairStyle): Outfit {
+  return { ...o, hairStyle: style };
+}
 /** Overlay keys to draw over each band ('s-<tone>' / 'h-<colour>'); empty when the outfit shows the art as drawn. */
 export function toneKeys(o: Outfit): string[] {
   const s = skinToneOf(o), h = hairColorOf(o), out: string[] = [];
@@ -54,13 +74,15 @@ export function toneKeys(o: Outfit): string[] {
   if (h !== ART_HAIR[genderOf(o)]) out.push(`h-${h}`);
   return out;
 }
-/** Whether the user picked a skin tone / hair colour (a palette value): then the composited (band) art is shown,
- *  also for the art's own tone, so switching tones never swaps the clothes art underneath. */
+/** Whether the user picked a skin tone / hair colour (a palette value) or a Kapsel: then the composited (band) art is
+ *  shown, also for the art's own tone, so switching tones never swaps the clothes art underneath. */
 export const hasToneChoice = (o: Outfit) =>
-  SKIN_TONES.some(t => eq(o.colors.skin, t.hex)) || HAIR_COLORS.some(t => eq(o.colors.hair, t.hex));
-/** `o` with the skin tone / hair colour the user picked on `from` (looks, start look and character switches keep them). */
+  SKIN_TONES.some(t => eq(o.colors.skin, t.hex)) || HAIR_COLORS.some(t => eq(o.colors.hair, t.hex)) || styleLayerOf(o) !== null;
+/** `o` with the skin tone / hair colour / Kapsel the user picked on `from` (looks, start look and character switches
+ *  keep them; a Kapsel only when `o`'s character set has it). */
 export function withAppearance(o: Outfit, from: Outfit): Outfit {
   const skin = SKIN_TONES.find(t => eq(from.colors.skin, t.hex))?.hex, hair = HAIR_COLORS.find(t => eq(from.colors.hair, t.hex))?.hex;
-  if (!skin && !hair) return o;
-  return { ...o, colors: { ...o.colors, ...(skin ? { skin } : {}), ...(hair ? { hair } : {}) } };
+  const style = styleLayerOf(from), keepStyle = !!style && style !== ART_HAIRSTYLE[genderOf(o)].id && HAIRSTYLES[genderOf(o)].some(h => h.id === style);
+  if (!skin && !hair && !keepStyle) return o;
+  return { ...o, ...(keepStyle ? { hairStyle: style } : {}), colors: { ...o.colors, ...(skin ? { skin } : {}), ...(hair ? { hair } : {}) } };
 }

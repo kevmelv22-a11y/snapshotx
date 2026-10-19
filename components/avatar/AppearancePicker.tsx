@@ -6,7 +6,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Outfit } from '../../lib/avatar/outfit';
-import { ART_HAIRSTYLE, HAIR_COLORS, SKIN_TONES, hairColorOf, skinToneOf, withHairColor, withSkinTone } from '../../lib/avatar/tones';
+import { HAIRSTYLES, HAIR_COLORS, SKIN_TONES, hairColorOf, hairStyleOf, skinToneOf, withHairColor, withHairStyle, withSkinTone } from '../../lib/avatar/tones';
 import { AvatarBust } from './AvatarBust';
 import { CardGlow, KAST_BLUE } from './ArtTile';
 
@@ -28,7 +28,7 @@ export function AppearanceTile({ outfit, size, label, selected, onPress, swatch,
 
 export function AppearancePicker({ outfit, onChange, tileSize = 92, titleStyle, hintStyle }: { outfit: Outfit; onChange: (next: Outfit, label: string) => void; tileSize?: number; titleStyle?: object; hintStyle?: object }) {
   const g = outfit.gender === 'female' ? 'female' : 'male';
-  const skin = skinToneOf(outfit), hair = hairColorOf(outfit), style = ART_HAIRSTYLE[g];
+  const skin = skinToneOf(outfit), hair = hairColorOf(outfit), style = hairStyleOf(outfit), styles = HAIRSTYLES[g];
   return <View testID="appearance-picker">
     <Text style={[s.title, titleStyle]}>Huidskleur</Text>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.row}>
@@ -42,9 +42,10 @@ export function AppearancePicker({ outfit, onChange, tileSize = 92, titleStyle, 
     </ScrollView>
     <Text style={[s.title, titleStyle]}>Kapsel</Text>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.row}>
-      <AppearanceTile outfit={outfit} size={tileSize} label={style.label} selected onPress={() => {}} testID={`appearance-hairstyle:${style.id}:selected`}/>
+      {styles.map(t => <AppearanceTile key={t.id} outfit={withHairStyle(outfit, t.id)} size={tileSize} label={t.label} selected={style === t.id}
+        onPress={() => onChange(withHairStyle(outfit, t.id), `kapsel ${t.label.toLowerCase()}`)} testID={`appearance-hairstyle:${t.id}${style === t.id ? ':selected' : ''}`}/>)}
     </ScrollView>
-    <Text style={[s.hint, hintStyle]}>Een pet of muts gaat over je kapsel heen. Meer kapsels komen eraan.</Text>
+    <Text style={[s.hint, hintStyle]}>{styles.length > 1 ? 'Een pet of muts gaat over je kapsel heen.' : 'Een pet of muts gaat over je kapsel heen. Meer kapsels komen eraan.'}</Text>
   </View>;
 }
 

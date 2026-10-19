@@ -153,108 +153,113 @@ def write(path,im,w,col):
 QOK=True
 try: Image.new("RGBA",(2,2)).quantize(4,method=Image.Quantize.LIBIMAGEQUANT)
 except Exception as e: print("no libimagequant",e); QOK=False
-M=json.load(open(sys.argv[sys.argv.index('--meta')+1] if '--meta' in sys.argv else 'scripts/worn-bands/meta.json'))
-meta={}
-for g in ('male','female'):
-    hs=hair_src(g); oh=orig_hair(g); meta[g]={'hairSrc':[round(v,1) for v in hs],'origHair':oh,'files':[]}
-    print(g,'hair src',np.round(hs,1),'orig',oh)
-    STORE=[]
-    for p in sorted(glob.glob(f'{SRC}/{g}/*.png')):
-        name=os.path.basename(p)[:-4]
-        if ONLY and ONLY not in name: continue
-        band=name.rsplit('-',1)[1]
-        if band in('sole','feet'): continue
-        if band=='jacket' and not M.get('_open',{}).get(f"{g}/{name.rsplit('-',1)[0]}",0)>0: continue  # jacket cutout only used for open jackets
-        im=np.array(Image.open(p).convert('RGBA')); l=lab(im); L,A,Bc=l[...,0],l[...,1],l[...,2]; al=im[...,3]
-        TOPB=band in('torso','under','jacket')
-        item=name.rsplit('-',1)[0]
-        if g=='female' and (band=='head' or TOPB):
-            sw,hw=fem_split(L,A,Bc,al,item,band)
-        if g=='female' and band=='head': thr=hue_split(L,A,Bc,al)
-        elif g=='female' and TOPB:
-            hh=np.degrees(np.arctan2(Bc,A)); conf=(al>200)&(A>17)&(L>50)&(Bc>20)&(hh<66)
-            thr=float(np.median(hh[conf]))+3.2 if conf.sum()>50 else 65.
-        else: thr=70.
-        if g=='female' and (band=='head' or TOPB): pass
-        else:
-            sw=skin_w(L,A,Bc,al,thr)
-            hw=hair_w(L,A,Bc,al,g,im,thr) if band=='head' else np.zeros_like(sw)
-        if band=='head':  # eyes = holes of the face skin with eye-white in them: iris/pupil/lashes are not hair
-            sk=(sw>0.35).astype(np.uint8); ff=sk.copy(); msk=np.zeros((sk.shape[0]+2,sk.shape[1]+2),np.uint8)
-            cv2.floodFill(ff,msk,(0,0),1); holes=(1-ff).astype(np.uint8)
-            n,lb,st,_=cv2.connectedComponentsWithStats(holes,8); white=((L>78)&(np.hypot(A,Bc)<12)).astype(np.uint8)
-            eyes=np.isin(lb,[k for k in range(1,n) if st[k,4]<1500 and (white*(lb==k)).sum()>=6])
-            hw=np.where(cv2.dilate(eyes.astype(np.uint8),np.ones((3,3),np.uint8))>0,0,hw)
-        sw=sw*(1-np.clip(hw*2,0,1))
-        if band!='head': sw=sw*np.maximum(ramp(L,40,48),ramp(A,13,16))  # khaki / tan cloth sits at the L of shaded skin; lit body skin is lighter
-        # despeckle: skin mask must be part of a reasonably large blob
-        m=(sw>0.4).astype(np.uint8); n,lb,st,_=cv2.connectedComponentsWithStats(m,8)
-        big=np.isin(lb,[k for k in range(1,n) if st[k,4]>=25]).astype(np.uint8)
-        big=cv2.dilate(big,np.ones((3,3),np.uint8)); sw=sw*big
-        # firm masks: half-weights mix the original colour back in (mottled skin, greyish hair)
-        sw=np.clip((sw-0.15)/0.45,0,1); hw=np.clip((hw-0.15)/0.45,0,1)
-        # fill skin gaps (highlights/freckle-like misses) enclosed by skin; not eyes (dark / white) nor hair
-        core=(sw>0.35).astype(np.uint8); clo=cv2.morphologyEx(core,cv2.MORPH_CLOSE,np.ones((9,9),np.uint8))
-        cand=(clo>0)&(core==0)&(L>45)&(A>8)&(Bc>12)&(hw<0.3)&(al>100)
-        sw=np.maximum(sw,cand*0.95)
-        if hw.max()>0.3:  # same for hair: specks between strands keep the old colour otherwise
-            hc=(hw>0.35).astype(np.uint8); hcl=cv2.morphologyEx(hc,cv2.MORPH_CLOSE,np.ones((7,7),np.uint8))
-            hcand=(hcl>0)&(hc==0)&(sw<0.3)&(np.hypot(A,Bc)>12)&(L>8)&(al>60)
-            hw=np.maximum(hw,hcand*0.95)
-        sw=np.maximum(sw,cv2.dilate(sw.astype(np.float32),np.ones((3,3),np.uint8))*(hw<0.3)*(al<230))  # antialiased rim pixels
-        sw=cv2.GaussianBlur(sw.astype(np.float32),(3,3),0)*(al>0)
-        STORE.append((name,band,item,im,l,sw,hw))
-    # hat heads: skin / hair only where the hatless heads of this set have it (beanie stripes, bucket hats are not
-    # skin or hair); the face + chin hand there is skin even when its lighting differs
-    CW,CH=M[g]['canvas']; HS=np.zeros((CH,CW),np.float32); HH=np.zeros((CH,CW),np.float32); HN=0
-    for name,band,item,im,l,sw,hw in STORE:
-        if band!='head' or M[g]['pieces'][item]['cat']=='hat': continue
-        r=M[g]['pieces'][item][band]; h,w=sw.shape; sl=(slice(r[1],r[1]+h),slice(r[0],r[0]+w))
-        HS[sl]+=(sw>0.4); HH[sl]+=(hw>0.4); HN+=1
-    HS/=max(HN,1); HH/=max(HN,1)
-    sk_ok=cv2.dilate((HS>0.2).astype(np.uint8),np.ones((7,7),np.uint8)); sk_core=cv2.erode((HS>0.6).astype(np.uint8),np.ones((5,5),np.uint8))
-    hr_ok=cv2.dilate((HH>0.15).astype(np.uint8),np.ones((9,9),np.uint8))
-    for k,(name,band,item,im,l,sw,hw) in enumerate(STORE):
-        if band!='head' or M[g]['pieces'][item]['cat']!='hat': continue
-        r=M[g]['pieces'][item][band]; h,w=sw.shape; sl=(slice(r[1],r[1]+h),slice(r[0],r[0]+w))
-        L,A,Bc=l[...,0],l[...,1],l[...,2]; hh=np.degrees(np.arctan2(Bc,A))
-        skinish=(A>7)&(Bc>10)&(L>30)&(hh>35)&(hh<75)&(im[...,3]>100)
-        if g=='male':  # female hat images are posed differently: colour split only (+ the hand below)
-            hw=hw*hr_ok[sl]*(sk_core[sl]==0)
-            sw=np.maximum(sw*sk_ok[sl],(sk_core[sl]>0)*skinish*(hw<0.3)*0.95)
-        if g=='female':  # the chin hand in the band's faded bottom: warmer hue than the blonde hair around it
-            low=np.zeros_like(sw,bool); low[int(h*.55):]=True
-            hand=low&(A>6)&(Bc>8)&(L>30)&(hh>35)&(hh<62.5)&(im[...,3]>8)
-            sw=np.maximum(sw,hand*0.95); hw=np.where(hand,0,hw)
-        STORE[k]=(name,band,item,im,l,sw,hw)
-    # skin vote on the shared canvas: skin of a body (not skin-coloured cloth: trench, baroque, beige tee) sits where
-    # many items show skin; head bands always count as skin
-    CW,CH=M[g]['canvas']; V=np.zeros((CH,CW),np.float32); N=np.zeros((CH,CW),np.float32)
-    for name,band,item,im,l,sw,hw in STORE:
-        if band not in('torso','under','jacket'): continue
-        r=M[g]['pieces'][item][band]; h,w=sw.shape; sl=(slice(r[1],r[1]+h),slice(r[0],r[0]+w))
-        V[sl]+=(sw>0.4); N[sl]+=(im[...,3]>128)
-    vote=V/np.maximum(N,1); allow=((vote>=0.12)&(V>=3)).astype(np.uint8)
-    allow=cv2.GaussianBlur(cv2.dilate(allow,np.ones((7,7),np.uint8)).astype(np.float32),(7,7),0)
-    if DBG: os.makedirs(DBG,exist_ok=True); Image.fromarray((np.clip(vote*3,0,1)*255).astype(np.uint8)).save(f'{DBG}/_vote-{g}.png')
-    for name,band,item,im,l,sw,hw in STORE:
-        al=im[...,3]
-        if band in('torso','under','jacket'):
-            r=M[g]['pieces'][item][band]; h,w=sw.shape; sw=sw*allow[r[1]:r[1]+h,r[0]:r[0]+w]
-        out=[]
-        for t,dst in SKIN.items():
-            r=write(f'{OUT}/{g}/{name}--s-{t}.png',im,sw,rgb(recolour(l,SKIN_SRC,dst,dst[0]/SKIN_SRC[0])))
-            if r: out.append(['s-'+t,r])
-        if hw.max()>0.3:
-            hw=cv2.GaussianBlur(hw.astype(np.float32),(3,3),0)*(al>0)
-            for t,dst in HAIR.items():
-                if t==oh: continue
-                c=float(np.clip((dst[0]+8)/(hs[0]+8),0.4,1.8))
-                r=write(f'{OUT}/{g}/{name}--h-{t}.png',im,hw,rgb(recolour(l,hs,dst,c)))
-                if r: out.append(['h-'+t,r])
-        if out: meta[g]['files'].append([name,out])
-        if DBG:
-            os.makedirs(DBG,exist_ok=True)
-            vis=im[...,:3].copy(); vis[sw>0.4]=(vis[sw>0.4]*0.4+np.array([0,255,0])*0.6).astype(np.uint8); vis[hw>0.4]=(vis[hw>0.4]*0.4+np.array([255,0,255])*0.6).astype(np.uint8)
-            Image.fromarray(vis).save(f'{DBG}/{g}-{name}.png')
-json.dump(meta,open(sys.argv[sys.argv.index('--json')+1] if '--json' in sys.argv else 'scripts/worn-bands/tones.json','w'),separators=(',',':'))
+def main():
+    global M
+    M=json.load(open(sys.argv[sys.argv.index('--meta')+1] if '--meta' in sys.argv else 'scripts/worn-bands/meta.json'))
+    meta={}
+    for g in ('male','female'):
+        hs=hair_src(g); oh=orig_hair(g); meta[g]={'hairSrc':[round(v,1) for v in hs],'origHair':oh,'files':[]}
+        print(g,'hair src',np.round(hs,1),'orig',oh)
+        STORE=[]
+        for p in sorted(glob.glob(f'{SRC}/{g}/*.png')):
+            name=os.path.basename(p)[:-4]
+            if ONLY and ONLY not in name: continue
+            band=name.rsplit('-',1)[1]
+            if band in('sole','feet'): continue
+            if band=='jacket' and not M.get('_open',{}).get(f"{g}/{name.rsplit('-',1)[0]}",0)>0: continue  # jacket cutout only used for open jackets
+            im=np.array(Image.open(p).convert('RGBA')); l=lab(im); L,A,Bc=l[...,0],l[...,1],l[...,2]; al=im[...,3]
+            TOPB=band in('torso','under','jacket')
+            item=name.rsplit('-',1)[0]
+            if g=='female' and (band=='head' or TOPB):
+                sw,hw=fem_split(L,A,Bc,al,item,band)
+            if g=='female' and band=='head': thr=hue_split(L,A,Bc,al)
+            elif g=='female' and TOPB:
+                hh=np.degrees(np.arctan2(Bc,A)); conf=(al>200)&(A>17)&(L>50)&(Bc>20)&(hh<66)
+                thr=float(np.median(hh[conf]))+3.2 if conf.sum()>50 else 65.
+            else: thr=70.
+            if g=='female' and (band=='head' or TOPB): pass
+            else:
+                sw=skin_w(L,A,Bc,al,thr)
+                hw=hair_w(L,A,Bc,al,g,im,thr) if band=='head' else np.zeros_like(sw)
+            if band=='head':  # eyes = holes of the face skin with eye-white in them: iris/pupil/lashes are not hair
+                sk=(sw>0.35).astype(np.uint8); ff=sk.copy(); msk=np.zeros((sk.shape[0]+2,sk.shape[1]+2),np.uint8)
+                cv2.floodFill(ff,msk,(0,0),1); holes=(1-ff).astype(np.uint8)
+                n,lb,st,_=cv2.connectedComponentsWithStats(holes,8); white=((L>78)&(np.hypot(A,Bc)<12)).astype(np.uint8)
+                eyes=np.isin(lb,[k for k in range(1,n) if st[k,4]<1500 and (white*(lb==k)).sum()>=6])
+                hw=np.where(cv2.dilate(eyes.astype(np.uint8),np.ones((3,3),np.uint8))>0,0,hw)
+            sw=sw*(1-np.clip(hw*2,0,1))
+            if band!='head': sw=sw*np.maximum(ramp(L,40,48),ramp(A,13,16))  # khaki / tan cloth sits at the L of shaded skin; lit body skin is lighter
+            # despeckle: skin mask must be part of a reasonably large blob
+            m=(sw>0.4).astype(np.uint8); n,lb,st,_=cv2.connectedComponentsWithStats(m,8)
+            big=np.isin(lb,[k for k in range(1,n) if st[k,4]>=25]).astype(np.uint8)
+            big=cv2.dilate(big,np.ones((3,3),np.uint8)); sw=sw*big
+            # firm masks: half-weights mix the original colour back in (mottled skin, greyish hair)
+            sw=np.clip((sw-0.15)/0.45,0,1); hw=np.clip((hw-0.15)/0.45,0,1)
+            # fill skin gaps (highlights/freckle-like misses) enclosed by skin; not eyes (dark / white) nor hair
+            core=(sw>0.35).astype(np.uint8); clo=cv2.morphologyEx(core,cv2.MORPH_CLOSE,np.ones((9,9),np.uint8))
+            cand=(clo>0)&(core==0)&(L>45)&(A>8)&(Bc>12)&(hw<0.3)&(al>100)
+            sw=np.maximum(sw,cand*0.95)
+            if hw.max()>0.3:  # same for hair: specks between strands keep the old colour otherwise
+                hc=(hw>0.35).astype(np.uint8); hcl=cv2.morphologyEx(hc,cv2.MORPH_CLOSE,np.ones((7,7),np.uint8))
+                hcand=(hcl>0)&(hc==0)&(sw<0.3)&(np.hypot(A,Bc)>12)&(L>8)&(al>60)
+                hw=np.maximum(hw,hcand*0.95)
+            sw=np.maximum(sw,cv2.dilate(sw.astype(np.float32),np.ones((3,3),np.uint8))*(hw<0.3)*(al<230))  # antialiased rim pixels
+            sw=cv2.GaussianBlur(sw.astype(np.float32),(3,3),0)*(al>0)
+            STORE.append((name,band,item,im,l,sw,hw))
+        # hat heads: skin / hair only where the hatless heads of this set have it (beanie stripes, bucket hats are not
+        # skin or hair); the face + chin hand there is skin even when its lighting differs
+        CW,CH=M[g]['canvas']; HS=np.zeros((CH,CW),np.float32); HH=np.zeros((CH,CW),np.float32); HN=0
+        for name,band,item,im,l,sw,hw in STORE:
+            if band!='head' or M[g]['pieces'][item]['cat']=='hat': continue
+            r=M[g]['pieces'][item][band]; h,w=sw.shape; sl=(slice(r[1],r[1]+h),slice(r[0],r[0]+w))
+            HS[sl]+=(sw>0.4); HH[sl]+=(hw>0.4); HN+=1
+        HS/=max(HN,1); HH/=max(HN,1)
+        sk_ok=cv2.dilate((HS>0.2).astype(np.uint8),np.ones((7,7),np.uint8)); sk_core=cv2.erode((HS>0.6).astype(np.uint8),np.ones((5,5),np.uint8))
+        hr_ok=cv2.dilate((HH>0.15).astype(np.uint8),np.ones((9,9),np.uint8))
+        for k,(name,band,item,im,l,sw,hw) in enumerate(STORE):
+            if band!='head' or M[g]['pieces'][item]['cat']!='hat': continue
+            r=M[g]['pieces'][item][band]; h,w=sw.shape; sl=(slice(r[1],r[1]+h),slice(r[0],r[0]+w))
+            L,A,Bc=l[...,0],l[...,1],l[...,2]; hh=np.degrees(np.arctan2(Bc,A))
+            skinish=(A>7)&(Bc>10)&(L>30)&(hh>35)&(hh<75)&(im[...,3]>100)
+            if g=='male':  # female hat images are posed differently: colour split only (+ the hand below)
+                hw=hw*hr_ok[sl]*(sk_core[sl]==0)
+                sw=np.maximum(sw*sk_ok[sl],(sk_core[sl]>0)*skinish*(hw<0.3)*0.95)
+            if g=='female':  # the chin hand in the band's faded bottom: warmer hue than the blonde hair around it
+                low=np.zeros_like(sw,bool); low[int(h*.55):]=True
+                hand=low&(A>6)&(Bc>8)&(L>30)&(hh>35)&(hh<62.5)&(im[...,3]>8)
+                sw=np.maximum(sw,hand*0.95); hw=np.where(hand,0,hw)
+            STORE[k]=(name,band,item,im,l,sw,hw)
+        # skin vote on the shared canvas: skin of a body (not skin-coloured cloth: trench, baroque, beige tee) sits where
+        # many items show skin; head bands always count as skin
+        CW,CH=M[g]['canvas']; V=np.zeros((CH,CW),np.float32); N=np.zeros((CH,CW),np.float32)
+        for name,band,item,im,l,sw,hw in STORE:
+            if band not in('torso','under','jacket'): continue
+            r=M[g]['pieces'][item][band]; h,w=sw.shape; sl=(slice(r[1],r[1]+h),slice(r[0],r[0]+w))
+            V[sl]+=(sw>0.4); N[sl]+=(im[...,3]>128)
+        vote=V/np.maximum(N,1); allow=((vote>=0.12)&(V>=3)).astype(np.uint8)
+        allow=cv2.GaussianBlur(cv2.dilate(allow,np.ones((7,7),np.uint8)).astype(np.float32),(7,7),0)
+        if DBG: os.makedirs(DBG,exist_ok=True); Image.fromarray((np.clip(vote*3,0,1)*255).astype(np.uint8)).save(f'{DBG}/_vote-{g}.png')
+        for name,band,item,im,l,sw,hw in STORE:
+            al=im[...,3]
+            if band in('torso','under','jacket'):
+                r=M[g]['pieces'][item][band]; h,w=sw.shape; sw=sw*allow[r[1]:r[1]+h,r[0]:r[0]+w]
+            out=[]
+            for t,dst in SKIN.items():
+                r=write(f'{OUT}/{g}/{name}--s-{t}.png',im,sw,rgb(recolour(l,SKIN_SRC,dst,dst[0]/SKIN_SRC[0])))
+                if r: out.append(['s-'+t,r])
+            if hw.max()>0.3:
+                hw=cv2.GaussianBlur(hw.astype(np.float32),(3,3),0)*(al>0)
+                for t,dst in HAIR.items():
+                    if t==oh: continue
+                    c=float(np.clip((dst[0]+8)/(hs[0]+8),0.4,1.8))
+                    r=write(f'{OUT}/{g}/{name}--h-{t}.png',im,hw,rgb(recolour(l,hs,dst,c)))
+                    if r: out.append(['h-'+t,r])
+            if out: meta[g]['files'].append([name,out])
+            if DBG:
+                os.makedirs(DBG,exist_ok=True)
+                vis=im[...,:3].copy(); vis[sw>0.4]=(vis[sw>0.4]*0.4+np.array([0,255,0])*0.6).astype(np.uint8); vis[hw>0.4]=(vis[hw>0.4]*0.4+np.array([255,0,255])*0.6).astype(np.uint8)
+                Image.fromarray(vis).save(f'{DBG}/{g}-{name}.png')
+    json.dump(meta,open(sys.argv[sys.argv.index('--json')+1] if '--json' in sys.argv else 'scripts/worn-bands/tones.json','w'),separators=(',',':'))
+
+
+if __name__=='__main__': main()

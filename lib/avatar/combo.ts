@@ -8,6 +8,7 @@
  */
 import type { Outfit } from './outfit';
 import type { Band, BandSet } from './wornBandInfo';
+import { styleLayerOf } from './tones';
 
 export const COMBO_REF = { male: 'top-blueberry-white-tee', female: 'top-nike-black-tee' } as const;
 /** Hats whose look IS the base head art (every female worn image already wears the black start cap). */
@@ -43,3 +44,12 @@ export function comboLayers(o: Outfit, set: BandSet, gender: 'male' | 'female'):
 
 /** Stable id of a composite (testIDs): `combo:<item>.<band>+...`. */
 export const comboId = (layers: ComboLayer[]) => 'combo:' + layers.map(l => `${l.item}.${l.band}`).join('+');
+
+/** Kapsel layer replacing the head band's own face + hair (lib/avatar/tones styleLayerOf), or null: art style, or a
+ *  hat on the head (hats win; the female start cap counts as no hat and is dropped with a style). `available`: the
+ *  styles that have a layer for this character set. */
+export function comboStyle(o: Outfit, layers: ComboLayer[], set: BandSet, available: readonly string[]): string | null {
+  const style = styleLayerOf(o), head = layers.find(l => l.band === 'head');
+  if (!style || !head || set.items[head.item]?.cat === 'hat' || !available.includes(style)) return null;
+  return style;
+}
