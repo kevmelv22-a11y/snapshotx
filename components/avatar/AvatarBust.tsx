@@ -12,6 +12,7 @@ import { ART, nearestLookArt } from './ArtImage';
 import { ComboStack, outfitCombo, outfitWornKey } from './OutfitArt';
 import { comboId } from '../../lib/avatar/combo';
 import { WORN_BANDS } from '../../lib/avatar/wornBandInfo';
+import { toneKeys } from '../../lib/avatar/tones';
 
 /** Fraction of the art's height shown as the circle's diameter, and top margin (fraction of the diameter). */
 export const BUST_FRAC = { male: 0.37, female: 0.37 } as const;
@@ -25,22 +26,24 @@ export function bustSourceFor(o: Outfit): { id: string; src: number; w: number; 
   return { id: k, ...ART[k] };
 }
 
-export function AvatarBust({ outfit, size, ring = 0, ringColor = '#E6A2EE', label = 'Avatar', testID }: { outfit: Outfit; size: number; ring?: number; ringColor?: string; label?: string; testID?: string }) {
+/** `composite` forces the band composite (appearance tiles: same clothes art for every tone); `square`/`background` for tiles. */
+export function AvatarBust({ outfit, size, ring = 0, ringColor = '#E6A2EE', label = 'Avatar', testID, composite, square, background = '#FFE11A' }: { outfit: Outfit; size: number; ring?: number; ringColor?: string; label?: string; testID?: string; composite?: boolean; square?: boolean; background?: string }) {
   const inner = size - ring * 2;
   const frac = BUST_FRAC[outfit.gender === 'female' ? 'female' : 'male'];
-  const combo = outfitCombo(outfit);
+  const combo = outfitCombo(outfit, composite);
+  const radius = square ? 0 : size / 2;
   if (combo) {
     // Same composite as the doll: figure height → inner / frac, figure top at TOP_PAD.
     const set = WORN_BANDS[outfit.gender === 'female' ? 'female' : 'male'], c = set.canvas, scale = inner / frac / c.figH;
     // Figure top incl. a hat (like the trimmed worn PNGs): the highest band rect.
     const topY = Math.min(...combo.map(l => set.items[l.item]?.bands[l.band]?.[1] ?? c.figTop));
-    return <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: ring, borderColor: ringColor, backgroundColor: '#FFE11A', overflow: 'hidden' }} accessibilityLabel={label} testID={testID ?? `avatar-bust:${comboId(combo)}`}>
+    return <View style={{ width: size, height: size, borderRadius: radius, borderWidth: ring, borderColor: ringColor, backgroundColor: background, overflow: 'hidden' }} accessibilityLabel={label} testID={testID ?? `avatar-bust:${[comboId(combo), ...toneKeys(outfit)].join('~')}`}>
       <ComboStack outfit={outfit} layers={combo} scale={scale} left={(inner - c.w * scale) / 2} top={inner * TOP_PAD - topY * scale}/>
     </View>;
   }
   const a = bustSourceFor(outfit);
   const h = inner / frac, w = h * a.w / a.h;
-  return <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: ring, borderColor: ringColor, backgroundColor: '#FFE11A', overflow: 'hidden' }} accessibilityLabel={label} testID={testID ?? `avatar-bust:${a.id}`}>
+  return <View style={{ width: size, height: size, borderRadius: radius, borderWidth: ring, borderColor: ringColor, backgroundColor: background, overflow: 'hidden' }} accessibilityLabel={label} testID={testID ?? `avatar-bust:${a.id}`}>
     <Image key={a.id} source={a.src} style={{ position: 'absolute', left: (inner - w) / 2, top: inner * TOP_PAD, width: w, height: h }} resizeMode="stretch" accessibilityIgnoresInvertColors/>
   </View>;
 }

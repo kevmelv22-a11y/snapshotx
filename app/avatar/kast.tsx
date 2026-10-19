@@ -15,6 +15,7 @@ import { ArtTile } from '../../components/avatar/ArtTile';
 import { CategoryIcon } from '../../components/avatar/WardrobeIcons';
 import { REACTIONS, type Reaction } from '../../components/avatar/WardrobeAvatar';
 import { OutfitArt, outfitArtId } from '../../components/avatar/OutfitArt';
+import { AppearancePicker } from '../../components/avatar/AppearancePicker';
 import { ITEM_ART } from '../../components/avatar/itemArt';
 import { useSession } from '../../hooks/useSession';
 import { useWardrobeSync } from '../../hooks/useWardrobeSync';
@@ -415,8 +416,8 @@ const LookCard = React.memo(function LookCard({ look, selected, unlocked, onPres
 });
 
 function AvatarPanel({ outfit, bottomPad }: { outfit: Outfit; bottomPad: number }) {
-  // Skin tone, hair colour and hairstyle are gone: the ChatGPT-style art cannot show them (like the clothing
-  // colour swatches). The one body choice the art does have is the character set (Man / Vrouw).
+  // Character set (Man / Vrouw) + skin tone / hair colour / hairstyle (AppearancePicker: recoloured overlays of the
+  // same composited art; previewed like any kast change and saved with the outfit).
   const pose = useAvatarPose(st => st.pose);
   const gender = useWardrobe(st => st.gender);
   const saved = useWardrobe(st => st.saved);
@@ -433,7 +434,7 @@ function AvatarPanel({ outfit, bottomPad }: { outfit: Outfit; bottomPad: number 
         label={CHARACTER_LABEL[g]} meta={g === gender ? 'Gekozen' : 'Tik om te wisselen'} selected={g === gender} onPress={() => pick(g)} testID={`kast-character:${g}`}/>)}
     </ScrollView>
     {!!error && <Text style={s.panelHint}>{error}</Text>}
-    <Text style={s.panelHint}>Huidskleur, haarkleur en kapsel zitten vast in de getekende avatar en kun je (nog) niet los aanpassen.</Text>
+    <AppearancePicker outfit={outfit} tileSize={LOOK_W} titleStyle={s.panelTitle} hintStyle={s.panelHint} onChange={next => useWardrobe.getState().apply(next)}/>
 
     <Pressable onPress={() => router.push('/avatar-editor')} style={({ pressed }) => [s.editorLink, pressed && { opacity: 0.8 }]} accessibilityRole="link" accessibilityLabel="Avatar-editor openen">
       <View style={s.editorIcon}><Ionicons name="color-wand-outline" size={20} color="#FFF"/></View>

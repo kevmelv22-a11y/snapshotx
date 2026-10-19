@@ -16,6 +16,9 @@ import { comboId, comboLayers, type ComboLayer } from '../../lib/avatar/combo';
 import { WORN_BANDS } from '../../lib/avatar/wornBandInfo';
 import { WORN_BAND_SRC } from '../../lib/wornBands';
 import { CATEGORIES } from '../../lib/avatar/outfit';
+import { hasToneChoice, toneKeys } from '../../lib/avatar/tones';
+import { WORN_TONES } from '../../lib/avatar/wornToneInfo';
+import { WORN_TONE_SRC } from '../../lib/wornTones';
 
 const AVAILABLE = new Set(Object.keys(BODY_LAYERS));
 export const outfitLayers = (o: Outfit) => bodyLayersFor(o, AVAILABLE);
@@ -23,24 +26,34 @@ export const outfitLayers = (o: Outfit) => bodyLayersFor(o, AVAILABLE);
 const WORN = new Set(Object.keys(WORN_ART));
 export const outfitWornKey = (o: Outfit) => wornArtKey(o, WORN);
 const genderOf = (o: Outfit) => (o.gender === 'female' ? 'female' : 'male') as 'male' | 'female';
-/** Composite layers when the user picked an item that is still on (else null: look art as before). */
-export function outfitCombo(o: Outfit): ComboLayer[] | null {
-  if (!o.worn || !CATEGORIES.some(c => o[c] === o.worn)) return null;
+/** Composite layers when the user picked an item that is still on, or picked a skin tone / hair colour the
+ *  pre-rendered look art cannot show (else null: look art as before). */
+export function outfitCombo(o: Outfit, force = false): ComboLayer[] | null {
+  if (!force && !hasToneChoice(o) && (!o.worn || !CATEGORIES.some(c => o[c] === o.worn))) return null;
   const layers = comboLayers(o, WORN_BANDS[genderOf(o)], genderOf(o));
   return layers.length ? layers : null;
 }
 export const outfitArtId = (o: Outfit) => {
-  const c = outfitCombo(o); if (c) return comboId(c);
+  const c = outfitCombo(o); if (c) return [comboId(c), ...toneKeys(o)].join('~');
   const w = outfitWornKey(o); return w ? `worn:${w}` : outfitLayers(o)?.join('+') ?? nearestLookArt(o);
 };
 
 /** Absolutely positioned band images of a composite; `scale` maps canvas px → dp, (left, top) = canvas origin. */
 export function ComboStack({ outfit, layers, scale, left, top }: { outfit: Outfit; layers: ComboLayer[]; scale: number; left: number; top: number }) {
-  const g = genderOf(outfit), set = WORN_BANDS[g];
+  const g = genderOf(outfit), set = WORN_BANDS[g], keys = toneKeys(outfit);
   return <>{layers.map(l => {
     const r = set.items[l.item]?.bands[l.band]; const src = WORN_BAND_SRC[`${g}/${l.item}/${l.band}`];
     if (!r || src == null) return null;
-    return <Image key={`${l.item}/${l.band}`} source={src} style={{ position: 'absolute', left: left + r[0] * scale, top: top + r[1] * scale, width: r[2] * scale, height: r[3] * scale }} resizeMode="stretch" accessibilityIgnoresInvertColors/>;
+    // Skin tone / hair colour: recoloured overlays drawn right over their band (rect inside the band image).
+    const tones = WORN_TONES[g][`${l.item}/${l.band}`];
+    return <React.Fragment key={`${l.item}/${l.band}`}>
+      <Image source={src} style={{ position: 'absolute', left: left + r[0] * scale, top: top + r[1] * scale, width: r[2] * scale, height: r[3] * scale }} resizeMode="stretch" accessibilityIgnoresInvertColors/>
+      {tones && keys.map(k => {
+        const o = tones[k], osrc = WORN_TONE_SRC[`${g}/${l.item}/${l.band}/${k}`];
+        if (!o || osrc == null) return null;
+        return <Image key={k} source={osrc} style={{ position: 'absolute', left: left + (r[0] + o[0]) * scale, top: top + (r[1] + o[1]) * scale, width: o[2] * scale, height: o[3] * scale }} resizeMode="stretch" accessibilityIgnoresInvertColors/>;
+      })}
+    </React.Fragment>;
   })}</>;
 }
 /** Figure scale/origin so a composite fills a width×height box like the other full-body art (lowest band at the bottom). */

@@ -1,7 +1,7 @@
 /**
  * Avatar editor ("SnapShot X"): same ChatGPT-style art and tiles as the Avatar-kast (OutfitArt / ArtTile).
- * Mode = curated looks, Kast = saved outfit / start look, Avatar = character (Man / Vrouw).
- * Skin tone, hair colour and hairstyle are not offered: the pre-rendered art cannot show them.
+ * Mode = curated looks, Kast = saved outfit / start look, Avatar = character (Man / Vrouw) + skin tone, hair colour
+ * and hairstyle (AppearancePicker: recoloured band overlays of the same art, lib/avatar/tones).
  * Everything is saved into the per-account wardrobe (stores/wardrobe); paid looks go to the Kast to be (mock) bought.
  */
 import React, { useMemo, useState } from 'react';
@@ -11,6 +11,8 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArtTile, KastStage } from '../components/avatar/ArtTile';
+import { AppearancePicker } from '../components/avatar/AppearancePicker';
+import { withAppearance } from '../lib/avatar/tones';
 import { OutfitArt, outfitArtId } from '../components/avatar/OutfitArt';
 import { useConfirmDialog } from '../components/ConfirmDialog';
 import { useSession } from '../hooks/useSession';
@@ -25,8 +27,9 @@ type Tab = 'mode' | 'kast' | 'avatar';
 type Draft = { outfit: Outfit; label: string };
 const GENDERS: Gender[] = ['male', 'female'];
 const genderOf = (o: Outfit): Gender => (o.gender === 'female' ? 'female' : 'male');
-const sameOutfit = (a: Outfit, b: Outfit) => genderOf(a) === genderOf(b) && CATEGORIES.every(c => (a[c] ?? null) === (b[c] ?? null)) && (a.worn ?? null) === (b.worn ?? null);
-const lookOutfit = (look: CuratedLook, gender: Gender): Outfit => ({ ...applyLook(defaultOutfitFor(gender), look.items), gender });
+const sameOutfit = (a: Outfit, b: Outfit) => genderOf(a) === genderOf(b) && CATEGORIES.every(c => (a[c] ?? null) === (b[c] ?? null)) && (a.worn ?? null) === (b.worn ?? null)
+  && (a.colors.skin ?? null) === (b.colors.skin ?? null) && (a.colors.hair ?? null) === (b.colors.hair ?? null);
+const lookOutfit = (look: CuratedLook, gender: Gender, from: Outfit): Outfit => withAppearance({ ...applyLook(defaultOutfitFor(gender), look.items), gender }, from);
 const lookItems = (look: CuratedLook) => Object.values(look.items).map(id => ITEMS_BY_ID.get(id!)!).filter(Boolean);
 
 export default function AvatarEditor() {
@@ -65,7 +68,7 @@ export default function AvatarEditor() {
   const undo = () => { if (!past.length) return; setFuture(f => [...f, draft]); setDraft(past[past.length - 1]); setPast(past.slice(0, -1)); };
   const redo = () => { if (!future.length) return; setPast(p => [...p, draft]); setDraft(future[future.length - 1]); setFuture(future.slice(0, -1)); };
   /** Same outfit on the other character set; without any saved outfit / picked look that is that set's start look. */
-  const asCharacter = (next: Gender): Outfit => sameOutfit(draft.outfit, defaultOutfitFor(g)) ? defaultOutfitFor(next) : { ...draft.outfit, gender: next };
+  const asCharacter = (next: Gender): Outfit => withAppearance(sameOutfit(draft.outfit, defaultOutfitFor(g)) ? defaultOutfitFor(next) : { ...draft.outfit, gender: next }, draft.outfit);
 
   async function save() {
     if (!uid || busy) return;
@@ -135,14 +138,15 @@ export default function AvatarEditor() {
           <View style={s.grid}>{CURATED_LOOKS.map(look => {
             const items = lookItems(look);
             const toBuy = items.filter(i => !isOwned(i, unlocked));
-            return tile(look.id, lookOutfit(look, g), look.name, `${items.length} items`, () => change({ outfit: lookOutfit(look, g), label: look.name }), toBuy.length ? '€' : undefined);
+            const o = lookOutfit(look, g, draft.outfit);
+            return tile(look.id, o, look.name, `${items.length} items`, () => change({ outfit: o, label: look.name }), toBuy.length ? '€' : undefined);
           })}</View>
         </>}
         {tab === 'kast' && <>
           <Text style={s.title}>Mijn kast</Text>
           <View style={s.grid}>
             {saved && tile('saved', { ...saved, gender: g }, 'Opgeslagen', 'outfit uit je kast', () => change({ outfit: { ...saved, gender: g }, label: 'outfit uit je Avatar-kast' }))}
-            {tile('start', defaultOutfitFor(g), 'Startlook', CHARACTER_LABEL[g], () => change({ outfit: defaultOutfitFor(g), label: 'startlook' }))}
+            {tile('start', withAppearance(defaultOutfitFor(g), draft.outfit), 'Startlook', CHARACTER_LABEL[g], () => change({ outfit: withAppearance(defaultOutfitFor(g), draft.outfit), label: 'startlook' }))}
           </View>
           <Pressable onPress={() => router.push('/avatar/kast')} style={({ pressed }) => [s.link, pressed && { opacity: 0.8 }]} accessibilityRole="link" accessibilityLabel="Open de Avatar-kast">
             <View style={s.linkIcon}><MaterialCommunityIcons name="hanger" size={20} color="#FFF"/></View>
@@ -154,7 +158,7 @@ export default function AvatarEditor() {
           <Text style={s.title}>Karakter</Text>
           <View style={s.grid}>{GENDERS.map(id => tile(`character-${id}`, g === id ? draft.outfit : asCharacter(id), CHARACTER_LABEL[id], g === id ? 'Gekozen' : undefined,
             () => change({ outfit: asCharacter(id), label: draft.label })))}</View>
-          <Text style={s.hint}>Je avatar is getekend in de stijl van de Avatar-kast. Huidskleur, haarkleur en kapsel zitten vast in die tekening en kun je daarom (nog) niet los aanpassen.</Text>
+          <AppearancePicker outfit={draft.outfit} tileSize={Math.min(104, tileW)} onChange={(outfit, label) => change({ outfit, label })}/>
         </>}
       </ScrollView>
       {!!notice && <Pressable onPress={() => setNotice('')} style={s.notice}><Text style={s.noticeText}>{notice} ×</Text></Pressable>}
