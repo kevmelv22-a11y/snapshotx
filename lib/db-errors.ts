@@ -58,6 +58,8 @@ export function isUnavailable(e: unknown): boolean {
 
 /** Known exceptions raised by our own SQL functions and Supabase Auth, in Dutch. */
 const KNOWN: [RegExp, string][] = [
+  // expo-file-system File/Directory without its native methods (see lib/media-bytes.ts), or our MediaReadError.
+  [/validatePath|bestand kon niet worden gelezen|FileSystem|could not read file|isn't readable/i, 'Je foto, video of spraakbericht kon niet worden gelezen. Probeer het opnieuw of kies een ander bestand.'],
   [/friend request not found/i, 'Dit vriendschapsverzoek bestaat niet meer.'],
   [/only friends can be added/i, 'Je kunt alleen vrienden toevoegen aan een chat.'],
   [/choose 1 to 20 friends/i, 'Kies 1 tot 20 vrienden.'],
