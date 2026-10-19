@@ -138,7 +138,7 @@ export const WORN_ART: Record<string, { src: number; w: number; h: number }> = {
   'male/top-blueberry-white-tee': { src: require('../assets/avatar-art/worn/male/top-blueberry-white-tee.png'), w: 251, h: 700 },
   'male/top-carhartt-longsleeve': { src: require('../assets/avatar-art/worn/male/top-carhartt-longsleeve.png'), w: 250, h: 699 },
   'male/top-clubsportif-rugby': { src: require('../assets/avatar-art/worn/male/top-clubsportif-rugby.png'), w: 249, h: 699 },
-  'male/top-feyenoord-jersey': { src: require('../assets/avatar-art/worn/male/top-feyenoord-jersey.png'), w: 231, h: 699 },
+  'male/top-feyenoord-jersey': { src: require('../assets/avatar-art/worn/male/top-feyenoord-jersey.png'), w: 230, h: 699 },
   'male/top-kast-stripe-longsleeve': { src: require('../assets/avatar-art/worn/male/top-kast-stripe-longsleeve.png'), w: 252, h: 707 },
   'male/top-lacoste-polo': { src: require('../assets/avatar-art/worn/male/top-lacoste-polo.png'), w: 247, h: 698 },
   'male/top-nike-black-tee': { src: require('../assets/avatar-art/worn/male/top-nike-black-tee.png'), w: 250, h: 698 },
@@ -148,6 +148,6 @@ export const WORN_ART: Record<string, { src: number; w: number; h: number }> = {
   'male/top-snapnation-movements': { src: require('../assets/avatar-art/worn/male/top-snapnation-movements.png'), w: 251, h: 706 },
   'male/top-strideon-neon-tee': { src: require('../assets/avatar-art/worn/male/top-strideon-neon-tee.png'), w: 249, h: 707 },
   'male/top-trivo-heart-tee': { src: require('../assets/avatar-art/worn/male/top-trivo-heart-tee.png'), w: 245, h: 697 },
-  'male/top-twente-jersey': { src: require('../assets/avatar-art/worn/male/top-twente-jersey.png'), w: 232, h: 699 },
-  'male/top-utrecht-jersey': { src: require('../assets/avatar-art/worn/male/top-utrecht-jersey.png'), w: 233, h: 699 },
+  'male/top-twente-jersey': { src: require('../assets/avatar-art/worn/male/top-twente-jersey.png'), w: 231, h: 699 },
+  'male/top-utrecht-jersey': { src: require('../assets/avatar-art/worn/male/top-utrecht-jersey.png'), w: 232, h: 699 },
 };

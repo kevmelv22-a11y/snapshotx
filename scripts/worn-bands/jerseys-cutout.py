@@ -13,6 +13,8 @@ for nm in ['psv','feyenoord','az','twente','utrecht']:
     # green-key: pixels strongly green => background
     R,G,B=rgb[...,0],rgb[...,1],rgb[...,2]; gk=G-np.maximum(R,B)
     a=a*np.clip((35-gk)/15,0,1)  # bg is mid green (63,112,56): gk~50
+    # green screen seen through the hand/body gap mixes with skin into olive/yellow (G>>B, G~R): background too
+    olive=np.clip(((G-B)-25)/15,0,1)*np.clip(((G-R)+20)/10,0,1); a=a*(1-olive)
     a=np.where(a>200,255,np.where(a<30,0,a))
     # erode 1px edge ring to kill fringe
     hard=(a>0).astype(np.uint8); er=cv2.erode(hard,np.ones((3,3),np.uint8)); a=a*er
