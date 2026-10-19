@@ -180,6 +180,10 @@ if __name__=='__main__':
                 rr=T.write(f'{OUT}/{g}/style-{sid}--s-{t}.png',im,np.clip((sw-0.15)/0.45,0,1),T.rgb(T.recolour(l,T.SKIN_SRC,dstc,dstc[0]/T.SKIN_SRC[0])))
                 if rr: ov['s-'+t]=rr
             hwf=np.clip((hw-0.15)/0.45,0,1); hs=np.median(l[hwf>0.6],0)
+            if g=="male":  # skin-light pixels at the hairline: no hair overlay there (recoloured they turn into a light line)
+                inner=cv2.erode((im[...,3]>250).astype(np.uint8),np.ones((9,9),np.uint8))>0  # not at the outer silhouette
+                nearskin=(cv2.dilate(((sw>0.5)&inner).astype(np.uint8),np.ones((5,5),np.uint8))>0)&inner
+                hwf=np.where(nearskin&(np.hypot(l[...,1],l[...,2])>14),hwf*(1-np.clip((l[...,0]-hs[0]-8)/12,0,1)),hwf)
             for t,dstc in T.HAIR.items():
                 c=float(np.clip((dstc[0]+8)/(hs[0]+8),0.4,1.8))
                 rr=T.write(f'{OUT}/{g}/style-{sid}--h-{t}.png',im,hwf,T.rgb(T.recolour(l,hs,dstc,c)))
