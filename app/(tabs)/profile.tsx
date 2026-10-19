@@ -48,7 +48,7 @@ export default function Profile(){
   footer={<View style={{marginTop:6}}>
    {tile('shirt-outline','Avatar-kast','/avatar/kast')}
    {tile('happy-outline','Avatarstickers','/avatar/stickers')}
-   {tile('color-palette-outline','Klassieke avatar-editor','/avatar-editor')}
+   {tile('color-palette-outline','Avatar-editor','/avatar-editor')}
    {isStaff&&tile('shield-checkmark-outline','Staff- en moderatiepaneel','/staff')}
    {!!(notice||own?.notice)&&<Text style={s.notice}>{[own?.notice,notice].filter(Boolean).join('\n')}</Text>}
   </View>}/>;

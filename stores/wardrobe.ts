@@ -82,7 +82,8 @@ export const useWardrobe = create<WardrobeState>()(persist((set, get) => ({
     alias = { uid: user.id, key };
     const state = get();
     if (state.ownerId === key || state.ownerId == null) { // same account, or an unclaimed (legacy) local copy
-      if (state.ownerId == null) set({ ownerId: key });
+      // Always set: the alias above changes what hasSavedOutfit() answers, so subscribed screens must re-run.
+      set({ ownerId: key });
       if (gender) get().setGender(gender);
       return;
     }

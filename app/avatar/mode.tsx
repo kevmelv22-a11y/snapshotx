@@ -16,7 +16,7 @@ export default function ModeRoute() {
     <Stack.Screen options={{ headerShown: false }}/>
     <ModeScreen outfit={preview?.outfit ?? saved} pose={pose} selectedLook={preview?.id ?? null}
       onPickLook={(id, outfit) => setPreview(p => p?.id === id ? null : { id, outfit })}
-      onMore={() => { if (preview) useWardrobe.getState().apply(preview.outfit); router.push('/avatar/kast'); }}
+      onMore={() => { if (preview) useWardrobe.getState().apply(preview.outfit); router.push(preview ? { pathname: '/avatar/kast', params: { keep: '1' } } : '/avatar/kast'); }}
       onClose={() => router.back()} onTab={t => { if (t !== 'mode') router.push('/avatar/kast'); }}
       topInset={insets.top} bottomInset={insets.bottom}/>
   </>;

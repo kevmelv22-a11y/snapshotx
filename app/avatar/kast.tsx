@@ -6,11 +6,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, FlatList, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { FigureArt, HeadPreviewArt, ItemPreviewArt } from '../../components/avatar/AvatarArt';
+import { ItemPreviewArt } from '../../components/avatar/AvatarArt';
+import { ArtTile } from '../../components/avatar/ArtTile';
 import { CategoryIcon } from '../../components/avatar/WardrobeIcons';
 import { REACTIONS, type Reaction } from '../../components/avatar/WardrobeAvatar';
 import { OutfitArt, outfitArtId } from '../../components/avatar/OutfitArt';
@@ -18,15 +19,17 @@ import { ITEM_ART } from '../../components/avatar/itemArt';
 import { useSession } from '../../hooks/useSession';
 import { useWardrobeSync } from '../../hooks/useWardrobeSync';
 import {
-  CATEGORIES, DEFAULT_HAIR, DEFAULT_OUTFIT, DEFAULT_SKIN, HAIR_STYLES, applyLook, formatPriceCents, isFree, isOwned, itemsForTab, recolor, removeLayer, unownedItems, wearItem,
-  type CategoryTab, type HairStyle, type Layer, type Outfit, type OutfitHistory, type SortMode, type WardrobeCategory, type WardrobeItem,
+  CATEGORIES, DEFAULT_HAIR, DEFAULT_OUTFIT, applyLook, defaultOutfitFor, formatPriceCents, isFree, isOwned, itemsForTab, recolor, removeLayer, unownedItems, wearItem,
+  type CategoryTab, type Gender, type Layer, type Outfit, type OutfitHistory, type SortMode, type WardrobeCategory, type WardrobeItem,
 } from '../../lib/avatar/outfit';
 import {
-  CATEGORY_TABS, CHIP_CATEGORIES, CURATED_LOOKS, HAIR_STYLE_LABELS, ITEMS_BY_ID, SKIN_SWATCHES, WARDROBE_ITEMS, swatchesFor, type CuratedLook,
+  CATEGORY_TABS, CHIP_CATEGORIES, CURATED_LOOKS, ITEMS_BY_ID, WARDROBE_ITEMS, swatchesFor, type CuratedLook,
 } from '../../lib/avatar/wardrobeItems';
 import { useWardrobe } from '../../stores/wardrobe';
 import { useAvatarPose } from '../../stores/avatarPose';
 import { PosePicker } from '../../components/avatar/PosePicker';
+import { CHARACTER_LABEL, saveCharacter } from '../../lib/avatar/character';
+import { friendlyError } from '../../lib/db-errors';
 
 type SheetTab = 'mode' | 'kast' | 'avatar';
 type ModeFilter = 'featured' | 'premium';
@@ -68,8 +71,11 @@ export default function WardrobeScreen() {
   const closing = useRef(false);
 
   // Restore the saved outfit once AsyncStorage has hydrated, then reconcile with the account copy.
+  // `?keep=1` (editor / Mode route handing over a previewed look): keep that unsaved draft instead of restarting.
+  const { keep } = useLocalSearchParams<{ keep?: string }>();
+  const keepDraft = useRef(keep === '1');
   useEffect(() => {
-    const start = () => { useWardrobe.getState().begin(); setReady(true); };
+    const start = () => { const st = useWardrobe.getState(); if (!(keepDraft.current && st.history.past.length)) st.begin(); setReady(true); };
     if (useWardrobe.persist.hasHydrated()) { start(); return; }
     return useWardrobe.persist.onFinishHydration(start);
   }, []);
@@ -133,7 +139,6 @@ export default function WardrobeScreen() {
     setPending(null);
     react();
   };
-  const applyBody = (next: Outfit) => { setPending(null); useWardrobe.getState().apply(next); };
   const onSwatch = (color: string) => {
     if (!activeLayer) return;
     if (activeLayer !== 'hair' && !outfit[activeLayer]) return;
@@ -240,7 +245,7 @@ export default function WardrobeScreen() {
         <Chip label={onlyFree ? 'Alleen gratis' : 'Filter'} active={onlyFree} icon="options-outline" onPress={() => setOnlyFree(v => !v)}/>
       </View>}
 
-      {tab === 'avatar' ? <AvatarPanel outfit={outfit} bottomPad={insets.bottom + 40} onApply={applyBody}/>
+      {tab === 'avatar' ? <AvatarPanel outfit={outfit} bottomPad={insets.bottom + 40}/>
         : tab === 'mode' ? <FlatList
           key={`mode-${modeFilter}`}
           data={modeData}
@@ -409,70 +414,37 @@ const LookCard = React.memo(function LookCard({ look, selected, unlocked, onPres
   </Pressable>;
 });
 
-function AvatarPanel({ outfit, bottomPad, onApply }: { outfit: Outfit; bottomPad: number; onApply: (next: Outfit) => void }) {
-  const hair = outfit.colors.hair ?? null;
-  const skin = (outfit.colors.skin ?? DEFAULT_SKIN).toUpperCase();
-  const setHairColor = (color: string | null) => {
-    const colors = { ...outfit.colors };
-    if (color) colors.hair = color; else delete colors.hair;
-    onApply({ ...outfit, colors });
-  };
+function AvatarPanel({ outfit, bottomPad }: { outfit: Outfit; bottomPad: number }) {
+  // Skin tone, hair colour and hairstyle are gone: the ChatGPT-style art cannot show them (like the clothing
+  // colour swatches). The one body choice the art does have is the character set (Man / Vrouw).
   const pose = useAvatarPose(st => st.pose);
+  const gender = useWardrobe(st => st.gender);
+  const saved = useWardrobe(st => st.saved);
+  const savedAt = useWardrobe(st => st.savedAt);
+  // Preview = what wardrobe.setGender gives: the saved outfit on the other set, else that set's start look.
+  const asCharacter = (g: Gender): Outfit => savedAt ? { ...saved, gender: g } : defaultOutfitFor(g);
+  const [error, setError] = useState('');
+  const pick = (g: Gender) => { setError(''); void saveCharacter(g).then(e => { if (e) setError(friendlyError(e, 'Opslaan')); }); };
   return <ScrollView style={{ flex: 1 }} contentContainerStyle={[s.avatarPanel, { paddingBottom: bottomPad }]} showsVerticalScrollIndicator={false}>
     <PosePicker outfit={outfit} value={pose} onChange={useAvatarPose.getState().setPose}/>
-    <Text style={s.panelTitle}>Kapsel</Text>
+    <Text style={s.panelTitle}>Karakter</Text>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.looksScroll} contentContainerStyle={s.looksRow}>
-      {HAIR_STYLES.map(style => <HairCard key={style} style={style} outfit={outfit} selected={outfit.hairStyle === style} onPress={() => onApply({ ...outfit, hairStyle: style })}/>)}
+      {(['male', 'female'] as const).map(g => <ArtTile key={g} outfit={g === gender ? outfit : asCharacter(g)} width={LOOK_W} imageHeight={LOOK_IMG}
+        label={CHARACTER_LABEL[g]} meta={g === gender ? 'Gekozen' : 'Tik om te wisselen'} selected={g === gender} onPress={() => pick(g)} testID={`kast-character:${g}`}/>)}
     </ScrollView>
+    {!!error && <Text style={s.panelHint}>{error}</Text>}
+    <Text style={s.panelHint}>Huidskleur, haarkleur en kapsel zitten vast in de getekende avatar en kun je (nog) niet los aanpassen.</Text>
 
-    <Text style={s.panelTitle}>Haarkleur</Text>
-    <View style={s.swatchRow}>
-      <Pressable onPress={() => setHairColor(null)} style={[s.bigSwatchRing, !hair && s.bigSwatchRingActive]} accessibilityRole="button" accessibilityLabel="Standaard haarkleur met blonde punten" accessibilityState={{ selected: !hair }}>
-        <View style={[s.bigSwatch, { backgroundColor: DEFAULT_HAIR, overflow: 'hidden' }]}><View style={s.tipsHalf}/></View>
-      </Pressable>
-      {swatchesFor('hair').map(color => {
-        const active = hair?.toUpperCase() === color.toUpperCase();
-        return <Pressable key={color} onPress={() => setHairColor(color)} style={[s.bigSwatchRing, active && s.bigSwatchRingActive]} accessibilityRole="button" accessibilityLabel={`Haarkleur ${color}`} accessibilityState={{ selected: active }}>
-          <View style={[s.bigSwatch, { backgroundColor: color }]}/>
-        </Pressable>;
-      })}
-    </View>
-    <Text style={s.panelHint}>De eerste kleur is je standaard krullen met blonde punten.</Text>
-
-    <Text style={s.panelTitle}>Huidskleur</Text>
-    <View style={s.swatchRow}>
-      {SKIN_SWATCHES.map(color => {
-        const active = skin === color.toUpperCase();
-        return <Pressable key={color} onPress={() => onApply(recolor(outfit, 'skin', color))} style={[s.bigSwatchRing, active && s.bigSwatchRingActive]} accessibilityRole="button" accessibilityLabel={`Huidskleur ${color}`} accessibilityState={{ selected: active }}>
-          <View style={[s.bigSwatch, { backgroundColor: color }]}/>
-        </Pressable>;
-      })}
-    </View>
-
-    <Pressable onPress={() => router.push('/avatar-editor')} style={({ pressed }) => [s.editorLink, pressed && { opacity: 0.8 }]} accessibilityRole="link" accessibilityLabel="Klassieke avatar-editor openen">
+    <Pressable onPress={() => router.push('/avatar-editor')} style={({ pressed }) => [s.editorLink, pressed && { opacity: 0.8 }]} accessibilityRole="link" accessibilityLabel="Avatar-editor openen">
       <View style={s.editorIcon}><Ionicons name="color-wand-outline" size={20} color="#FFF"/></View>
       <View style={{ flex: 1 }}>
-        <Text style={s.editorTitle}>Klassieke avatar-editor</Text>
-        <Text style={s.editorSub}>Gezicht, kapsel en kleding van je Snapshot X-avatar</Text>
+        <Text style={s.editorTitle}>Avatar-editor</Text>
+        <Text style={s.editorSub}>Looks en karakter van je Snapshot X-avatar</Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color="#8E8E93"/>
     </Pressable>
   </ScrollView>;
 }
-
-const HAIR_W = 82, HAIR_IMG = 84;
-const HairCard = React.memo(function HairCard({ style, outfit, selected, onPress }: { style: HairStyle; outfit: Outfit; selected: boolean; onPress: () => void }) {
-  const preview = useMemo(() => ({ ...outfit, hairStyle: style }), [outfit, style]);
-  return <Pressable onPress={onPress} style={[s.lookRing, { width: HAIR_W }, selected && { borderColor: BLUE }]} accessibilityRole="button" accessibilityLabel={`Kapsel ${HAIR_STYLE_LABELS[style]}`} accessibilityState={{ selected }}>
-    <View style={s.lookCard}>
-      <View style={{ width: HAIR_W - 5, height: HAIR_IMG }}>
-        <CardGlow width={HAIR_W - 5} height={HAIR_IMG}/>
-        <HeadPreviewArt outfit={preview} width={HAIR_W - 5} height={HAIR_IMG}/>
-      </View>
-      <Text style={s.hairLabel} numberOfLines={1}>{HAIR_STYLE_LABELS[style]}</Text>
-    </View>
-  </Pressable>;
-});
 
 function PurchaseSheet({ pending, bottomInset, onBuy, onDismiss }: { pending: Pending | null; bottomInset: number; onBuy: () => void; onDismiss: () => void }) {
   const [y] = useState(() => new Animated.Value(220));
@@ -570,16 +542,10 @@ const s = StyleSheet.create({
   avatarPanel: { paddingHorizontal: 12, paddingTop: 12 },
   panelTitle: { color: '#FFF', fontSize: 16, fontWeight: '800', marginTop: 6, marginBottom: 8 },
   panelHint: { color: '#8E8E93', fontSize: 12, marginTop: -2, marginBottom: 8 },
-  swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 },
-  bigSwatchRing: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
-  bigSwatchRingActive: { borderColor: BLUE },
-  bigSwatch: { width: 31, height: 31, borderRadius: 15.5, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.25)' },
-  tipsHalf: { position: 'absolute', left: 0, right: 0, top: 0, height: 13, backgroundColor: '#E2BF74' },
   editorLink: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, padding: 14, borderRadius: 14, backgroundColor: '#1C1C1E' },
   editorIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3A3A3C', alignItems: 'center', justifyContent: 'center' },
   editorTitle: { color: '#FFF', fontSize: 15, fontWeight: '800' },
   editorSub: { color: '#8E8E93', fontSize: 12, marginTop: 2 },
-  hairLabel: { color: '#D1D1D6', fontSize: 12, fontWeight: '700', textAlign: 'center', paddingVertical: 6 },
   modeHeader: { gap: 0, marginBottom: 2 },
   sectionHead: { marginBottom: 8 },
   sectionTitle: { color: '#FFF', fontSize: 17, fontWeight: '800' },

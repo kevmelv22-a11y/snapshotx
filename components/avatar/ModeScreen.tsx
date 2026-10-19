@@ -10,11 +10,7 @@ import Svg, { Defs, Ellipse, RadialGradient, Rect, Stop } from 'react-native-svg
 import { applyLook, DEFAULT_OUTFIT, type Outfit } from '../../lib/avatar/outfit';
 import { TRY_LOOKS } from '../../lib/avatar/modeLooks';
 import type { PoseId } from '../../lib/avatar/poses';
-import { FigureArt } from './AvatarArt';
 import { WardrobePortrait } from './OwnAvatar';
-import { PosedAvatar } from './PosedAvatar';
-import { Avatar3DView } from '../avatar3d/Avatar3DView';
-import { Avatar3DImage } from '../avatar3d/Avatar3D';
 import { ArtImage, poseArtFor } from './ArtImage';
 import { OutfitArt, outfitArtId } from './OutfitArt';
 
@@ -34,13 +30,11 @@ export function ModeScreen({ outfit, pose = 'stand', selectedLook, onPickLook, o
         <Rect width="100%" height={heroH} fill="url(#modeGlow)"/>
       </Svg>
       <View style={{ position: 'absolute', left: (width - heroH * 0.62) / 2, top: 6 }}>
-        {/* Default: pre-rendered art (default character; hair/skin personalisation not shown). The reference
-            "thinking" pose stands in for the default pose. Without art: 3D (web) with 2D fallback. */}
-        {(() => { const standing: boolean = pose === 'stand'; const art = poseArtFor(outfit, pose === 'stand' ? 'think' : pose); return art
+        {/* Pre-rendered pose art of the default character (the "thinking" pose stands in for "stand"), else the
+            outfit's own Avatar-kast art (OutfitArt), standing. Never the old doll / 3D render. */}
+        {(() => { const art = poseArtFor(outfit, pose === 'stand' ? 'think' : pose); return art
           ? <ArtImage art={art} width={heroH * 0.62} height={heroH - 26} testID={`mode-hero-art:${art}`}/>
-          : standing ? <OutfitArt outfit={outfit} width={heroH * 0.62} height={heroH - 26} testID={`mode-hero-art:${outfitArtId(outfit)}`}/>
-          : <Avatar3DView outfit={outfit} pose={pose === 'stand' ? 'think' : pose} framing="hero" width={heroH * 0.62} height={heroH - 8} testID="mode-hero-3d"
-          fallback={<View style={{ paddingLeft: heroH * 0.05 }}><PosedAvatar outfit={outfit} pose={pose} width={heroH * 0.52} height={heroH * 0.99}/></View>}/>; })()}
+          : <OutfitArt outfit={outfit} width={heroH * 0.62} height={heroH - 26} testID={`mode-hero-art:${outfitArtId(outfit)}`}/>; })()}
       </View>
       <Pressable onPress={onClose} style={[s.close, { top: topInset + 12 }]} accessibilityRole="button" accessibilityLabel="Sluiten"><Ionicons name="close" size={28} color="#111"/></Pressable>
       <Text style={[s.brand, { top: topInset + 22 }]}>Snapshot X</Text>

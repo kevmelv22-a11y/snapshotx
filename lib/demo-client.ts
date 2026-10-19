@@ -314,7 +314,7 @@ export class DemoClient {
       const s = this.makeSession(); this.setSession(s, 'SIGNED_IN'); return { data: { session: s, user: s.user }, error: null }; },
     signOut: async () => { this.setSession(null, 'SIGNED_OUT'); return { error: null }; },
     resetPasswordForEmail: async () => ({ data: {}, error: null }),
-    updateUser: async (u: { data?: Row }) => { if (u?.data) Object.assign(this.meta, u.data); const s = this.makeSession(); this.session = s; return { data: { user: s.user }, error: null }; },
+    updateUser: async (u: { data?: Row }) => { if (u?.data) Object.assign(this.meta, u.data); const s = this.makeSession(); this.setSession(s, 'USER_UPDATED'); return { data: { user: s.user }, error: null }; }, // persisted + USER_UPDATED, like Supabase
     exchangeCodeForSession: async () => ({ data: { session: this.session }, error: null }),
     setSession: async () => ({ data: { session: this.session }, error: null }),
     startAutoRefresh: () => {}, stopAutoRefresh: () => {},
