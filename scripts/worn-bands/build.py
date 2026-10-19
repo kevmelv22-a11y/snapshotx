@@ -37,7 +37,10 @@ for g in ['male','female']:
         al=img[...,3]>128; row=Y(B['face']); xs=np.where(al[row])[0]; cx=int(xs.mean())
         patch=lab[row-4:row+5,cx-4:cx+5].reshape(-1,3); ref=np.median(patch,0)
         d=np.sqrt(0.3*(lab[...,0]-ref[0])**2+(lab[...,1]-ref[1])**2+(lab[...,2]-ref[2])**2)
-        m=((d<20)&al).astype(np.uint8); m=cv2.morphologyEx(m,cv2.MORPH_OPEN,np.ones((3,3),np.uint8)); return cv2.dilate(m,np.ones((5,5),np.uint8))
+        m=((d<20)&al).astype(np.uint8); m=cv2.morphologyEx(m,cv2.MORPH_OPEN,np.ones((3,3),np.uint8)); m=cv2.dilate(m,np.ones((5,5),np.uint8))
+        # fill holes (shaded back of a hand fell outside the colour range and left a square gap in the torso piece)
+        m=cv2.morphologyEx(m,cv2.MORPH_CLOSE,np.ones((7,7),np.uint8)); ff=m.copy(); msk=np.zeros((m.shape[0]+2,m.shape[1]+2),np.uint8)
+        cv2.floodFill(ff,msk,(0,0),1); return np.maximum(m,(1-ff).astype(np.uint8))
     # hem profile of the top every bottom image wears (black hoodie / black tee): from the light-trousers bottom image
     hi,_=warp_item('bottom-white-cargo'); hsv=cv2.cvtColor(u8(hi[...,:3]),cv2.COLOR_RGB2HSV)
     dark=((hsv[...,2]<85)&(hi[...,3]>100)&(yy<B['b']+0.12)).astype(np.uint8)
@@ -78,6 +81,14 @@ for g in ['male','female']:
                 ids=set(np.unique(lab[r-2:r+2][grey[r-2:r+2]>0]))-{0}
                 jeans=cv2.dilate(np.isin(lab,list(ids)).astype(np.uint8),np.ones((3,3),np.uint8)).astype(np.float32)
                 t=t*(1-jeans*(1-sk))
+                # light/colourful tops: also drop the dark shadow strip their hem casts on those trousers (it showed as a grey band under the shirt)
+                ya,yb=Y(bb-0.1),Y(bb-0.05); smp=(img[ya:yb,:,3]>200)&(sk[ya:yb]==0)
+                if smp.sum()>50 and (hsv[ya:yb][...,2][smp]<90).mean()<0.3:
+                    dk=((hsv[...,2]<110)&(hsv[...,1]<90)&(img[...,3]>20)&(yy>=bb-0.035)&(yy<bb+3*D)).astype(np.uint8)
+                    n,lab=cv2.connectedComponents(np.maximum(dk,(jeans>0).astype(np.uint8)))
+                    ids=set(np.unique(lab[jeans>0]))-{0}
+                    shadow=(np.isin(lab,list(ids))&(dk>0)).astype(np.float32)
+                    t=t*(1-cv2.GaussianBlur(cv2.dilate(shadow,np.ones((3,3),np.uint8)),(3,3),0)*(1-sk))
             if cat=='outerwear':
                 sm=np.load(cache+f'{g}-{i}.npy'); a0=np.array(reg[g]['items'][i]['A'],np.float64); a0[:,2]+=[PX,PT]
                 up=cv2.warpAffine(np.maximum(sm[0],sm[2]),a0,(CW,CH)); up=cv2.GaussianBlur(cv2.dilate((up>128).astype(np.float32),np.ones((7,7),np.uint8)),(5,5),0)
@@ -105,20 +116,96 @@ for g in ['male','female']:
         if 'legs' in ps:
             L=(yy>=bb-2*D)*dn(B['s']); RGB['legs']=img.copy()
             if cat=='bottom':
-                sk=cv2.dilate(skin_mask(img),np.ones((7,7),np.uint8)); L=L*(1-sk*(yy<B['hand']))   # hands come from the torso source
+                from scipy.ndimage import minimum_filter1d, maximum_filter1d
+                al=img[...,3]>128; xx=np.arange(CW)
+                # the bottom image's own hands (over/beside the hips): fill them with trouser inside the trouser silhouette,
+                # drop them outside it. The torso piece brings the real hands; no hand-shaped holes or boxes.
+                # "not trousers" = colours unlike the trousers' own (sampled just below the waist, centre): hands, sleeves, shadows
+                lab0=cv2.cvtColor(u8(img[...,:3]),cv2.COLOR_RGB2LAB).astype(np.float32)
+                ra,rb2=Y(bb+0.01),Y(bb+0.06); xs=np.where(al[(ra+rb2)//2])[0]; pcx=(xs.min()+xs.max())/2; pw=xs.max()-xs.min()
+                ps_=lab0[ra:rb2,int(pcx-0.2*pw):int(pcx+0.2*pw)][al[ra:rb2,int(pcx-0.2*pw):int(pcx+0.2*pw)]]
+                pmu=ps_.mean(0); pCi=np.linalg.inv(np.cov(ps_.T)+np.eye(3)*10); pd_=lab0-pmu; pmd=np.einsum('...i,ij,...j->...',pd_,pCi,pd_)
+                y0,y1=Y(bb-0.08),Y(B['hand']+0.09)
+                side=(np.abs(xx-pcx)>0.22*pw)[None,:]
+                sk=((pmd>16)|skin_mask(img).astype(bool))&al&side&(rows_:=np.arange(CH))[:,None].__ge__(y0)&(np.arange(CH)[:,None]<Y(B['hand']+0.06))
+                sk=cv2.morphologyEx(sk.astype(np.uint8),cv2.MORPH_OPEN,np.ones((3,3),np.uint8))
+                sk=cv2.dilate(sk,np.ones((5,5),np.uint8)).astype(bool)
+                pants=al&~sk
+                # trouser side edges: straight lines fitted on rows where no hand/sleeve touches that edge
+                rows=np.arange(CH); lft=np.full(CH,np.nan); rgt=np.full(CH,np.nan); vl=[]; vr=[]
+                pcol=pants&(pmd<16)   # trouser-coloured only (not the sweater the bottom image wears above it)
+                for y in range(Y(bb)+3,y1):
+                    xs=np.where(pcol[y])[0]
+                    if len(xs)<=10: continue
+                    lft[y],rgt[y]=xs.min(),xs.max(); ks=np.where(sk[y])[0]
+                    if not len(ks) or ks.min()>lft[y]+4 or ks.max()<lft[y]-40: vl.append(y)
+                    if not len(ks) or ks.max()<rgt[y]-4 or ks.min()>rgt[y]+40: vr.append(y)
+                    # a hand right on the edge: only rows where it doesn't border the edge count
+                    if len(ks) and ((ks<=lft[y]+4)&(ks>=lft[y]-40)).any() and y in vl: vl.remove(y)
+                    if len(ks) and ((ks>=rgt[y]-4)&(ks<=rgt[y]+40)).any() and y in vr: vr.remove(y)
+                def fit(e,v):
+                    v=np.array(v)
+                    if len(v)<8: v=np.where(~np.isnan(e))[0]
+                    p=np.polyfit(v,e[v],1); return np.polyval(p,rows)
+                lft=fit(lft,vl)-1; rgt=fit(rgt,vr)+1
+                span=(xx[None,:]>=lft[:,None])&(xx[None,:]<=rgt[:,None])&(rows[:,None]>=y0)&(rows[:,None]<y1)
+                span|=al&((rows[:,None]<y0)|(rows[:,None]>=y1))
+                hole=(sk&span).astype(np.uint8)
+                rgbL=img.copy()
+                # fill from the nearest trouser pixel in the same row (inpainting bled skin colour in), then soften
+                fill=img[...,:3].copy(); hole=cv2.dilate(hole,np.ones((5,5),np.uint8))&span.astype(np.uint8)
+                for y in np.where(hole.any(1))[0]:
+                    src=np.where(pcol[y])[0]
+                    if not len(src): continue
+                    hx=np.where(hole[y])[0]; j=np.clip(np.searchsorted(src,hx),0,len(src)-1); j2=np.clip(j-1,0,len(src)-1)
+                    near=np.where(np.abs(src[j]-hx)<np.abs(src[j2]-hx),src[j],src[j2]); fill[y,hx]=img[y,near,:3]
+                fb_=cv2.GaussianBlur(fill,(7,7),0); hm=cv2.GaussianBlur(hole.astype(np.float32),(5,5),0)[...,None]
+                rgbL[...,:3]=np.where(hole[...,None]>0,fb_*hm+fill*(1-hm),img[...,:3])
+                rgbL[...,3]=np.where(hole>0,255,img[...,3])
+                spanf=cv2.GaussianBlur(span.astype(np.float32),(5,5),0)
+                L=L*np.where(sk,spanf,1.0)
+                # the hem of the top the bottom image wears: feathered cut (no per-column steps)
                 cut=np.zeros((CH,CW),np.float32)
                 for x in range(CW):
                     if HEM[x]>=0: cut[:HEM[x]+7,x]=1
+                cut=cv2.GaussianBlur(cv2.GaussianBlur(cut,(1,9),0),(9,1),0)
                 L=L*(1-cut)
-                # extend the trousers' waistband up under the top (no hole above the pants of a lower-hemmed top)
-                rgbL=img.copy(); yT=Y(bb-0.045)
-                for x in range(CW):
-                    if HEM[x]<0: continue
-                    c=np.where((L[:,x]>0.9)&(img[:,x,3]>200)&(np.arange(CH)>HEM[x]))[0]
-                    if not len(c) or c[0]>HEM[x]+0.05*RH: continue
-                    p0=c[0]+3; rgbL[yT:p0,x,:3]=img[p0,x,:3]; rgbL[yT:p0,x,3]=255; L[yT:p0,x]=1
+                # extend the trousers' waistband up under the top (no hole above the pants of a lower-hemmed top), inside the silhouette only
+                yT=Y(bb-0.045); top_l,top_r=lft[Y(bb)+8],rgt[Y(bb)+8]
+                P0=np.full(CW,np.nan)
+                for x in range(int(top_l)+2,int(top_r)-1):
+                    c=np.where(pcol[:,x]&(L[:,x]>0.5)&(np.arange(CH)>=Y(bb-0.06))&(np.arange(CH)<Y(bb+0.06)))[0]   # first clean trouser pixel below the worn sweater + its shadow
+                    if len(c)>8: P0[x]=c[0]+4
+                okc=~np.isnan(P0)
+                if okc.sum()>10:
+                    from scipy.ndimage import median_filter
+                    xsv=np.arange(CW); x0e,x1e=xsv[okc].min(),xsv[okc].max()
+                    P0=np.interp(xsv,xsv[okc],P0[okc]); P0=median_filter(P0,15); P0=cv2.GaussianBlur(P0.reshape(1,-1),(9,1),0).ravel()
+                    for x in range(x0e,x1e+1):
+                        p0=int(round(P0[x])); fr=abs(x-(top_l+top_r)/2)/max(1,(top_r-top_l)/2)
+                        yt=int(p0-(p0-yT)*np.clip((0.9-fr)/0.35,0,1))       # full height in the middle, tapering to nothing at the hips (rounded, no boxes)
+                        if yt>=p0: continue
+                        rgbL[yt:p0,x,:3]=rgbL[p0,x,:3]; rgbL[yt:p0,x,3]=255; L[yt:p0+1,x]=1
+                L[:Y(bb)+12]=cv2.GaussianBlur(L,(5,1),0)[:Y(bb)+12]   # soft side edges of the extension
+                # the bottom image's own shoes: keep only trouser-coloured (or bare-leg) pixels connected to the leg above, feathered
+                lab3=cv2.cvtColor(u8(rgbL[...,:3]),cv2.COLOR_RGB2LAB).astype(np.float32)
+                ya,yb=Y(fb-0.12),Y(fb-0.06); samp=lab3[ya:yb][(rgbL[ya:yb,:,3]>230)&~skin_mask(img)[ya:yb].astype(bool)]
+                low=(yy>=fb-0.06)
+                if len(samp)>50:
+                    mu=samp.mean(0); Ci=np.linalg.inv(np.cov(samp.T)+np.eye(3)*6); dd=lab3-mu; md=np.einsum('...i,ij,...j->...',dd,Ci,dd)
+                    legish=((md<12)|skin_mask(img).astype(bool))&(rgbL[...,3]>40)
+                    keep=(legish|~low).astype(np.uint8)&(rgbL[...,3]>40)
+                    n,cl=cv2.connectedComponents(keep.astype(np.uint8),connectivity=4)
+                    ids=set(np.unique(cl[Y(fb-0.1)][keep[Y(fb-0.1)]>0]))-{0}
+                    keep=np.isin(cl,list(ids)).astype(np.uint8)
+                    keep=cv2.morphologyEx(keep,cv2.MORPH_OPEN,np.ones((5,5),np.uint8))
+                    L=L*np.where(low,cv2.GaussianBlur(keep.astype(np.float32),(7,7),0),1.0)
                 RGB['legs']=rgbL
-            M['legs']=L; M['sole']=(yy>=B['s'])*1.0
+            if cat=='bottom':   # trousers end feathered just below the shoe-band top; the bare-foot/own-shoe 'sole' band takes over from there
+                end=fb+(0.025 if g=='female' else 0.005)
+                bare=skin_mask(img).astype(np.float32)*(yy>=fb-0.1)   # bare shins (shorts/skirts) run on down to the shoe
+                L=L*np.maximum(1-np.clip((yy-end)/0.025,0,1),bare*dn(B['s'])); M['legs']=L; M['sole']=(yy>=fb-0.01)*1.0
+            else: M['legs']=L; M['sole']=(yy>=B['s'])*1.0
         if 'feet' in ps:
             # the shoe image's own trouser hem = colours like its trousers just above the shoes (Lab Mahalanobis), connected to the band top
             lab3=cv2.cvtColor(u8(img[...,:3]),cv2.COLOR_RGB2LAB).astype(np.float32)
@@ -139,7 +226,7 @@ for g in ['male','female']:
             n,cl,st,_=cv2.connectedComponentsWithStats(keep,8)
             big=st[1:,4].max() if n>1 else 0
             keep=np.isin(cl,[k for k in range(1,n) if st[k,4]>=0.08*big]).astype(np.uint8)
-            M['feet']=np.clip((yy-(fb-2*D))/0.02,0,1)*cv2.GaussianBlur(keep.astype(np.float32),(3,3),0)   # soft top edge: no hard boot-shaft/cuff line over the trousers
+            M['feet']=np.clip((yy-(fb-2*D))/0.012,0,1)*cv2.GaussianBlur(keep.astype(np.float32),(3,3),0)   # soft top edge: no hard boot-shaft/cuff line over the trousers
         meta[g]['pieces'][i]={'cat':cat,'long':bool(long_ or cat=='dress')}
         for nme,m in M.items():
             src=RGB.get(nme,img); o=src.copy(); o[...,3]=src[...,3]*m
