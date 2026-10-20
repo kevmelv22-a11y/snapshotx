@@ -105,12 +105,12 @@ export const WARDROBE_ITEMS: WardrobeItem[] = [
   item('top-trivo-heart-tee', 'top', 'trivo', 'Hartjes-T-shirt', 79, ['#F7F2EC', '#E2477F'], { variant: 'tee', graphic: 'heart' }),
   item('top-rossano-silk-shirt', 'top', 'ROSSANO', 'Zijden overhemd', 279, ['#3B2A5E', '#D9C9F2'], { variant: 'shirt', pattern: 'swirl' }, true),
   item('top-kast-stripe-longsleeve', 'top', 'Kast Studio', 'Gestreepte longsleeve', null, ['#F2EFE8', '#26324F'], { variant: 'longsleeve', pattern: 'stripes' }),
-  // Eredivisie-style voetbalshirts (free, both character sets)
-  item('top-psv-jersey', 'top', 'Eindhoven FC', 'Rood-wit gestreept voetbalshirt', null, ['#E1061B', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
-  item('top-feyenoord-jersey', 'top', 'Rotterdam FC', 'Rood-wit gedeeld voetbalshirt', null, ['#E1061B', '#FFFFFF'], { variant: 'tee' }),
-  item('top-az-jersey', 'top', 'Alkmaar FC', 'Rood voetbalshirt', null, ['#D8141E', '#FFFFFF'], { variant: 'tee' }),
-  item('top-twente-jersey', 'top', 'Enschede FC', 'Rood voetbalshirt met witte kraag', null, ['#D2141C', '#FFFFFF'], { variant: 'tee' }),
-  item('top-utrecht-jersey', 'top', 'Domstad FC', 'Wit-rood voetbalshirt', null, ['#FFFFFF', '#D8141E'], { variant: 'tee' }),
+  // Eredivisie-clubshirts (free, both character sets)
+  item('top-psv-jersey', 'top', 'PSV', 'Rood-wit gestreept PSV-thuisshirt', null, ['#E1061B', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
+  item('top-feyenoord-jersey', 'top', 'Feyenoord', 'Rood-wit gedeeld Feyenoord-thuisshirt', null, ['#E1061B', '#FFFFFF'], { variant: 'tee' }),
+  item('top-az-jersey', 'top', 'AZ', 'Rood AZ-thuisshirt', null, ['#D8141E', '#FFFFFF'], { variant: 'tee' }),
+  item('top-twente-jersey', 'top', 'FC Twente', 'Rood FC Twente-thuisshirt met witte kraag', null, ['#D2141C', '#FFFFFF'], { variant: 'tee' }),
+  item('top-utrecht-jersey', 'top', 'FC Utrecht', 'Wit-rood FC Utrecht-thuisshirt', null, ['#FFFFFF', '#D8141E'], { variant: 'tee' }),
   // Internationale clubshirts (free, both character sets)
   item('top-barcelona-jersey', 'top', 'FC Barcelona', 'Blauwgrana voetbalshirt', null, ['#A50044', '#004D98'], { variant: 'tee', pattern: 'stripes' }),
   item('top-realmadrid-jersey', 'top', 'Real Madrid', 'Wit voetbalshirt', null, ['#FFFFFF', '#FEBE10'], { variant: 'tee' }),

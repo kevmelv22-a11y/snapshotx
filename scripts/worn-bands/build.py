@@ -70,7 +70,7 @@ for g in ['male','female']:
             m=(img[...,3]>128)&(yy>=fb); ys,xs=np.where(m)
             img,_=warp_item(i,dx=ref_feet_cx-xs.mean(),dy=rb-ys.max()); al=img[...,3]/255.
         hsv=cv2.cvtColor(u8(img[...,:3]),cv2.COLOR_RGB2HSV)
-        long_=i in LONG; M={}; RGB={}
+        long_=i in LONG; M={}; RGB={}; hem_=False
         HD=0.05 if g=='female' else D
         if 'head' in ps: M['head']=1-np.clip((yy-hb)/(2*HD),0,1)
         if cat=='hat' and g=='female':
@@ -104,6 +104,41 @@ for g in ['male','female']:
                     ids=set(np.unique(lab[jeans>0]))-{0}
                     shadow=(np.isin(lab,list(ids))&(dk>0)).astype(np.float32)
                     t=t*(1-cv2.GaussianBlur(cv2.dilate(shadow,np.ones((3,3),np.uint8)),(3,3),0)*(1-sk))
+            if cat=='top' and 'jersey' in i and g=='female':   # (male shirts already end on the reference hip line)
+                # football shirts hang lower than the reference tee: keep the whole shirt (+ its own arms/hands) down to its hem,
+                # minus the image's own trousers (Lab model sampled on the thighs, connected region), so it sits over any
+                # bottom's waistband: no cut line / see-through strip at the hips
+                labT=cv2.cvtColor(u8(img[...,:3]),cv2.COLOR_RGB2LAB).astype(np.float32)
+                cx=int(np.median(np.where(img[Y(bb+0.2),:,3]>200)[0])); smp=labT[Y(bb+0.17):Y(bb+0.27),cx-25:cx+25].reshape(-1,3)
+                mu=smp.mean(0); Ci=np.linalg.inv(np.cov(smp.T)+np.eye(3)*6); dd=labT-mu; md=np.einsum('...i,ij,...j->...',dd,Ci,dd)
+                # per column: walk up from the thighs while the pixels look like those trousers (2px gaps allowed) = the hem
+                hemy=np.full(CW,-1); y0t=Y(bb+0.2); ytop=Y(bb-0.04); TM=9
+                for x in range(CW):
+                    if img[y0t,x,3]<200 or md[y0t,x]>=TM: continue
+                    y=y0t; miss=0
+                    while y>ytop:
+                        if md[y-1,x]<TM and img[y-1,x,3]>40: miss=0
+                        else:
+                            miss+=1
+                            if miss>2: break
+                        y-=1
+                    hemy[x]=y+miss
+                okh=hemy>=0
+                if okh.sum()>10:
+                    from scipy.ndimage import median_filter
+                    xs_=np.arange(CW); body=img[y0t,:,3]>200; xb=xs_[body]
+                    span_=(xs_>=xb.min())&(xs_<=xb.max())   # incl. the gap between the legs
+                    hemy=np.where(span_,np.interp(xs_,xs_[okh],hemy[okh]),-1).astype(int)   # seams/shadows on the thighs: from the neighbours
+                    hv=median_filter(hemy,41); cap=np.percentile(hemy[okh],30)+8   # the hem runs nearly level: cap columns that stopped low
+                    hemy=np.where(span_,np.minimum(np.minimum(hemy,hv+3),cap),-1).astype(int)
+                trousers=np.zeros((CH,CW),bool)
+                for x in np.where(hemy>=0)[0]: trousers[hemy[x]:,x]=True
+                shirt=((img[...,3]>40)&~trousers&(yy<bb+0.16)).astype(np.uint8)
+                n,lab=cv2.connectedComponents(shirt); r=Y(bb-0.03)
+                ids=set(np.unique(lab[r][shirt[r]>0]))-{0}   # the shirt body crossing the old band line (no specks)
+                shirt=cv2.morphologyEx(np.isin(lab,list(ids)).astype(np.uint8),cv2.MORPH_OPEN,np.ones((3,3),np.uint8))
+                hem=cv2.GaussianBlur(cv2.erode(shirt,np.ones((3,3),np.uint8)).astype(np.float32),(5,5),0)
+                t=np.maximum(t,hem*(yy>=bb-0.04)*(yy<max(bb+0.16,B['hand']+0.03))); hem_=True
             if cat=='outerwear':
                 sm=np.load(cache+f'{g}-{i}.npy'); a0=np.array(reg[g]['items'][i]['A'],np.float64); a0[:,2]+=[PX,PT]
                 up=cv2.warpAffine(np.maximum(sm[0],sm[2]),a0,(CW,CH)); up=cv2.GaussianBlur(cv2.dilate((up>128).astype(np.float32),np.ones((7,7),np.uint8)),(5,5),0)
@@ -197,7 +232,7 @@ for g in ['male','female']:
                 for x in range(int(top_l)+2,int(top_r)-1):
                     c=np.where(pcol[:,x]&(L[:,x]>0.5)&(np.arange(CH)>=Y(bb-0.06))&(np.arange(CH)<Y(bb+(0.06 if g=='male' else 0.12))))[0]   # first clean trouser pixel below the worn sweater + its shadow
                     if len(c)>8: P0[x]=c[0]+4
-                okc=~np.isnan(P0)
+                okc=~np.isnan(P0); rgbN,LN=rgbL.copy(),L.copy()   # 'legsn': narrow extension (under long-hem football shirts)
                 if okc.sum()>10:
                     from scipy.ndimage import median_filter
                     xsv=np.arange(CW); x0e,x1e=xsv[okc].min(),xsv[okc].max()
@@ -205,10 +240,14 @@ for g in ['male','female']:
                     for x in range(x0e,x1e+1):
                         p0=int(round(P0[x])); fr=abs(x-(top_l+top_r)/2)/max(1,(top_r-top_l)/2)
                         yt=int(p0-(p0-yT)*(np.clip((0.9-fr)/0.35,0,1) if g=='male' else np.clip((1.02-fr)/0.1,0,1)))       # full height in the middle, tapering to nothing at the hips (rounded, no boxes)
-                        if yt>=p0: continue
-                        src=np.clip(2*p0-np.arange(yt,p0),p0,CH-1)        # mirror the fabric below (no vertical streaks)
-                        rgbL[yt:p0,x,:3]=rgbL[src,x,:3]; rgbL[yt:p0,x,3]=255; L[yt:p0+1,x]=1
+                        # long-hem shirts cover the waist: the narrow variant stays inside the shirt (no trouser hip poking out beside it)
+                        ytn=int(p0-(p0-yT)*(np.clip((0.9-fr)/0.35,0,1) if g=='male' else np.clip((0.8-fr)/0.2,0,1)))
+                        for (R_,L_,y_) in ((rgbL,L,yt),(rgbN,LN,ytn)):
+                            if y_>=p0: continue
+                            src=np.clip(2*p0-np.arange(y_,p0),p0,CH-1)        # mirror the fabric below (no vertical streaks)
+                            R_[y_:p0,x,:3]=R_[src,x,:3]; R_[y_:p0,x,3]=255; L_[y_:p0+1,x]=1
                 L[:Y(bb)+12]=cv2.GaussianBlur(L,(5,1),0)[:Y(bb)+12]   # soft side edges of the extension
+                LN[:Y(bb)+12]=cv2.GaussianBlur(LN,(5,1),0)[:Y(bb)+12]
                 # the bottom image's own shoes: keep only trouser-coloured (or bare-leg) pixels connected to the leg above, feathered
                 lab3=cv2.cvtColor(u8(rgbL[...,:3]),cv2.COLOR_RGB2LAB).astype(np.float32)
                 ya,yb=Y(fb-0.12),Y(fb-0.06); samp=lab3[ya:yb][(rgbL[ya:yb,:,3]>230)&~skin_mask(img)[ya:yb].astype(bool)]
@@ -221,12 +260,13 @@ for g in ['male','female']:
                     ids=set(np.unique(cl[Y(fb-0.1)][keep[Y(fb-0.1)]>0]))-{0}
                     keep=np.isin(cl,list(ids)).astype(np.uint8)
                     keep=cv2.morphologyEx(keep,cv2.MORPH_OPEN,np.ones((5,5),np.uint8))
-                    L=L*np.where(low,cv2.GaussianBlur(keep.astype(np.float32),(7,7),0),1.0)
-                RGB['legs']=rgbL
+                    kf=np.where(low,cv2.GaussianBlur(keep.astype(np.float32),(7,7),0),1.0); L=L*kf; LN=LN*kf
+                RGB['legs']=rgbL; RGB['legsn']=rgbN
             if cat=='bottom':   # trousers end feathered just below the shoe-band top; the bare-foot/own-shoe 'sole' band takes over from there
                 end=fb+(0.025 if g=='female' else 0.005)
                 bare=skin_mask(img).astype(np.float32)*(yy>=fb-0.1)   # bare shins (shorts/skirts) run on down to the shoe
-                L=L*np.maximum(1-np.clip((yy-end)/0.025,0,1),bare*dn(B['s'])); M['legs']=L; M['sole']=(yy>=fb-0.01)*1.0
+                kf=np.maximum(1-np.clip((yy-end)/0.025,0,1),bare*dn(B['s'])); M['legs']=L*kf; M['sole']=(yy>=fb-0.01)*1.0
+                if g=='female' and 'legsn' in RGB: M['legsn']=LN*kf
             else: M['legs']=L; M['sole']=(yy>=B['s'])*1.0
         if 'feet' in ps:
             # the shoe image's own trouser hem = colours like its trousers just above the shoes (Lab Mahalanobis), connected to the band top
@@ -250,6 +290,7 @@ for g in ['male','female']:
             keep=np.isin(cl,[k for k in range(1,n) if st[k,4]>=0.08*big]).astype(np.uint8)
             M['feet']=np.clip((yy-(fb-2*D))/0.012,0,1)*cv2.GaussianBlur(keep.astype(np.float32),(3,3),0)   # soft top edge: no hard boot-shaft/cuff line over the trousers
         meta[g]['pieces'][i]={'cat':cat,'long':bool(long_ or cat=='dress')}
+        if hem_: meta[g]['pieces'][i]['hem']=True   # shirt hangs to its own hem: bottoms use their 'legsn' band under it
         for nme,m in M.items():
             src=RGB.get(nme,img); o=src.copy(); o[...,3]=src[...,3]*m
             o=u8(o); ys,xs=np.where(o[...,3]>3)
