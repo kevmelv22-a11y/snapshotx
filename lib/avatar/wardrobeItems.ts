@@ -111,6 +111,13 @@ export const WARDROBE_ITEMS: WardrobeItem[] = [
   item('top-az-jersey', 'top', 'Alkmaar FC', 'Rood voetbalshirt', null, ['#D8141E', '#FFFFFF'], { variant: 'tee' }),
   item('top-twente-jersey', 'top', 'Enschede FC', 'Rood voetbalshirt met witte kraag', null, ['#D2141C', '#FFFFFF'], { variant: 'tee' }),
   item('top-utrecht-jersey', 'top', 'Domstad FC', 'Wit-rood voetbalshirt', null, ['#FFFFFF', '#D8141E'], { variant: 'tee' }),
+  // Internationale clubshirts (free, both character sets)
+  item('top-barcelona-jersey', 'top', 'FC Barcelona', 'Blauwgrana voetbalshirt', null, ['#A50044', '#004D98'], { variant: 'tee', pattern: 'stripes' }),
+  item('top-realmadrid-jersey', 'top', 'Real Madrid', 'Wit voetbalshirt', null, ['#FFFFFF', '#FEBE10'], { variant: 'tee' }),
+  item('top-manutd-jersey', 'top', 'Manchester United', 'Rood voetbalshirt', null, ['#DA291C', '#000000'], { variant: 'tee' }),
+  item('top-besiktas-jersey', 'top', 'Beşiktaş', 'Zwart-wit gestreept voetbalshirt', null, ['#000000', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
+  item('top-fenerbahce-jersey', 'top', 'Fenerbahçe', 'Geel-blauw gestreept voetbalshirt', null, ['#FFED00', '#163962'], { variant: 'tee', pattern: 'stripes' }),
+  item('top-galatasaray-jersey', 'top', 'Galatasaray', 'Geel-rood gedeeld voetbalshirt', null, ['#FDB912', '#A90432'], { variant: 'tee' }),
   item('bottom-trivo-shorts', 'bottom', 'trivo', 'Sportshort', null, ['#2851A3', '#FFFFFF'], { variant: 'shorts', graphic: 'stripes2' }),
   item('bottom-rossano-plaid-skirt', 'bottom', 'ROSSANO', 'Ruitrok', 229, ['#7C1E2C', '#1B1B1E'], { variant: 'skirt', pattern: 'plaid' }),
   item('bottom-strideon-black-cargo', 'bottom', 'Strideon', 'Zwarte cargobroek', 129, ['#1E1E22'], { variant: 'cargo' }),
