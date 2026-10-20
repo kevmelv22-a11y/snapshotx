@@ -15,7 +15,8 @@ def pick(g,o):
     feet=o['shoes'] if has(o.get('shoes'),'feet') else None
     head=o['hat'] if has(o.get('hat'),'head') and not (g=='female' and o['hat']=='hat-nike-cap') else own
     L=[] if feet else [(legsrc,'sole')]
-    L+=[(legsrc,'legs')]+([(feet,'feet')] if feet else [])+[(base,'under' if jacket and has(base,'under') else 'torso')]+([(jacket,'jacket')] if jacket else [])+[(head,'head')]
+    lb='legsn' if (not jacket and P[base].get('hem') and legsrc==o.get('bottom') and has(legsrc,'legsn')) else 'legs'
+    L+=[(legsrc,lb)]+([(feet,'feet')] if feet else [])+[(base,'under' if jacket and has(base,'under') else 'torso')]+([(jacket,'jacket')] if jacket else [])+[(head,'head')]
     return [x for x in L if has(*x)]
 def comp(g,o):
     CW,CH=meta[g]['canvas']; c=Image.new('RGBA',(CW,CH),(0,0,0,0))

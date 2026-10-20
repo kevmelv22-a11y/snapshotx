@@ -1,7 +1,7 @@
 /**
  * Composite doll: the whole combination of worn items, stacked from registered band crops of the worn art
  * (lib/avatar/wornBandInfo, cut by scripts/worn-bands/build.py). Bottom → top:
- *   sole (legs source, only without own shoes) · legs (bottom, or a dress / long coat) · feet (shoes) · torso (base) · head (hat, else base)
+ *   sole (legs source, only without own shoes) · legs (bottom, or a dress / long coat; 'legsn' under a long-hem shirt) · feet (shoes) · torso (base) · head (hat, else base)
  * Open jacket over a top (unless the top was picked last): top 'under' (chest only; else torso) + outer 'jacket' cutout.
  * Base = the last picked torso item (Outfit.torso) while worn, else outer layer, else dress, else top, else the gender's reference. Missing art for an item → base band.
  * Pure (type-only imports) so it runs under `node --test`.
@@ -32,7 +32,11 @@ export function comboLayers(o: Outfit, set: BandSet, gender: 'male' | 'female'):
   const head = has(o.hat, 'head') && !BASE_HEAD[gender].includes(o.hat) ? o.hat : own;
   const out: ComboLayer[] = [];
   if (!feet && has(legs, 'sole')) out.push({ item: legs, band: 'sole' });
-  if (has(legs, 'legs')) out.push({ item: legs, band: 'legs' });
+  // A football shirt hangs to its own hem: trousers use their narrow-waist variant so no hip pokes out beside the shirt.
+  const torsoTop = jacket ? null : base;
+  const narrow = !!torsoTop && !!set.items[torsoTop]?.hem && legs === o.bottom && has(legs, 'legsn');
+  if (narrow) out.push({ item: legs, band: 'legsn' });
+  else if (has(legs, 'legs')) out.push({ item: legs, band: 'legs' });
   if (feet) out.push({ item: feet, band: 'feet' });
   // Under an open jacket the top contributes only its chest ('under': no arms/hands/hair that would poke out around the jacket).
   if (jacket && has(base, 'under')) out.push({ item: base, band: 'under' });
