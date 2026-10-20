@@ -6,18 +6,18 @@
 import React from 'react';
 import { View } from 'react-native';
 import type { AvatarAppearance } from '../lib/avatar';
-import { DEFAULT_OUTFIT } from '../lib/avatar/outfit';
+import { DEFAULT_OUTFIT, defaultOutfitFor, type Gender } from '../lib/avatar/outfit';
 import { friendArtFor } from '../lib/avatar/friendArt';
 import { FriendArtCircle } from './avatar/ArtImage';
 import { AvatarBust } from './avatar/AvatarBust';
 import { OutfitArt } from './avatar/OutfitArt';
 
-type Props = { id: string; size?: number; selected?: boolean; appearance?: AvatarAppearance };
+type Props = { id: string; size?: number; selected?: boolean; appearance?: AvatarAppearance; gender?: Gender };
 
 /** Round portrait (lists, map dock, banners). */
-export function MapAvatar({ id, size = 54, selected = false }: Props) {
+export function MapAvatar({ id, size = 54, selected = false, gender }: Props) {
   if (friendArtFor(id)) return <FriendArtCircle id={id} size={size} selected={selected}/>;
-  return <AvatarBust outfit={DEFAULT_OUTFIT} size={size} ring={Math.max(2, Math.round(size * 0.045))} ringColor={selected ? '#FFE436' : '#E6A2EE'} label="Avatar"/>;
+  return <AvatarBust outfit={gender ? defaultOutfitFor(gender) : DEFAULT_OUTFIT} size={size} ring={Math.max(2, Math.round(size * 0.045))} ringColor={selected ? '#FFE436' : '#E6A2EE'} label="Avatar"/>;
 }
 
 /** Full-body figure (map marker), footprint size × size·119/82. */

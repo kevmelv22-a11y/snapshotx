@@ -6,14 +6,14 @@
  */
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
-import type { Outfit } from '../../lib/avatar/outfit';
+import type { Gender, Outfit } from '../../lib/avatar/outfit';
 import { MapAvatar, MapExplorer } from '../MapAvatar';
 import { SizedFigure, WardrobePortrait } from './OwnAvatar';
 import { FriendArtCircle } from './ArtImage';
 import { friendArtFor } from '../../lib/avatar/friendArt';
 
 type OutfitProp = Outfit | 'pending' | null | undefined;
-type Props = { id: string; outfit: OutfitProp; size: number; selected?: boolean; name?: string; /** Replaces the classic MapAvatar fallback. */ fallback?: React.ReactNode };
+type Props = { id: string; outfit: OutfitProp; size: number; selected?: boolean; name?: string; /** Character set for the default art when there is no outfit. */ gender?: Gender; /** Replaces the classic MapAvatar fallback. */ fallback?: React.ReactNode };
 
 /** Short, stable signature of an outfit (testID only: lets tests see WHICH outfit is on screen). */
 function signature(outfit: Outfit): string {
@@ -28,7 +28,7 @@ function useTestId(id: string, outfit: OutfitProp): string {
 }
 
 /** Round portrait (lists, map dock, banners). */
-export function FriendAvatar({ id, outfit, size, selected, name, fallback }: Props) {
+export function FriendAvatar({ id, outfit, size, selected, name, gender, fallback }: Props) {
   const testID = useTestId(id, outfit);
   let content: React.ReactNode;
   if (outfit && outfit !== 'pending') {
@@ -40,7 +40,7 @@ export function FriendAvatar({ id, outfit, size, selected, name, fallback }: Pro
   } else if (outfit) {
     content = <WardrobePortrait outfit={outfit} size={size} selected={selected} label={name ? `Avatar van ${name}` : 'Avatar van vriend'}/>;
   } else {
-    content = fallback ?? <MapAvatar id={id} size={size} selected={selected}/>;
+    content = fallback ?? <MapAvatar id={id} size={size} selected={selected} gender={gender}/>;
   }
   return <View testID={testID} style={{ width: size, height: size }}>{content}</View>;
 }

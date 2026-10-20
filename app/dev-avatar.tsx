@@ -32,7 +32,7 @@ export default function DevAvatar(){
   const {scene='poses'}=useLocalSearchParams<{scene?:string}>();
   if(!__DEV__)return null;
   return <View style={{flex:1,backgroundColor:C.bg}}><Stack.Screen options={{headerShown:false}}/>
-    {scene==='profile'?<ProfileHome username="kv.savage #32" score={84732} ownOutfit={ME} storyCount={0} sharingLocation
+    {scene==='profile'?<ProfileHome username="kv.savage" score={84732} ownOutfit={ME} storyCount={0} sharingLocation
       hero={<YellowAvatarCircle size={230}><PosedAvatar outfit={ME} pose="stand" width={230} height={230} viewBox={BUST_VIEWBOX}/></YellowAvatarCircle>}
       friends={[{id:'aria',name:'Aria',outfit:ARIA,ring:'unseen'},{id:'lien',name:'Lien',outfit:LIEN,ring:'seen'},{id:'noor',name:'Noor',outfit:NOOR,ring:'unseen'},{id:'sem',name:'Sem',outfit:SEM}]}
       onMenu={noop} onSettings={noop} onAvatar={noop} onStory={noop} onFriends={noop} onMap={noop} onTimers={noop}/>
