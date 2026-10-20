@@ -11,6 +11,7 @@ import {friendOutfitCache,useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {useSession} from '../../hooks/useSession';
 import {useOwnProfile} from '../../hooks/useOwnProfile';
 import {friendlyError,isUnavailable} from '../../lib/db-errors';
+import {isUuid} from '../../lib/chat-ids';
 import {parseFriendCode} from '../../lib/own-profile';
 import {hideSuggestion, type SuggestedFriend} from '../../lib/friends/suggest';
 import {supabase} from '../../lib/supabase';
@@ -69,7 +70,7 @@ export default function Friends(){
  const friendOutfits=useFriendOutfits(useMemo(()=>friends.map(p=>p.id),[friends]),{live:true});
  async function invite(id:string){if(!uid||pending.includes(id))return;const {error}=await supabase.from('sx_friend_requests').insert({sender_id:uid,recipient_id:id});if(error)setNotice(friendlyError(error));else{setPending(v=>[...v,id]);setNotice('Vriendschapsverzoek verstuurd')}}
  async function accept(id:string){const {error}=await supabase.rpc('sx_accept_friend',{request_id:id});if(error)setNotice(friendlyError(error));else await load()}
- async function chat(id:string){const {data,error}=await supabase.rpc('sx_open_thread',{participants:[id],group_title:null});if(error)setNotice(friendlyError(error,'Chat openen'));else router.push({pathname:'/chat/[id]',params:{id:data}})}
+ async function chat(id:string){if(!isUuid(id)){setNotice('Chat openen: deze vriend is (nog) geen echt account.');return}const {data,error}=await supabase.rpc('sx_open_thread',{participants:[id],group_title:null});if(error)setNotice(friendlyError(error,'Chat openen'));else router.push({pathname:'/chat/[id]',params:{id:data}})}
  async function scan(data:string){const code=parseFriendCode(data);if(!code){setNotice('Dit is geen SnapShot X-code.');return}setScanOpen(false);
   if(code.kind==='username'){setQuery(code.value);return}
   // Code of someone without a username yet: look the account up by id.
