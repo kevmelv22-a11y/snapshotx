@@ -28,6 +28,39 @@ def despill(img):
     R,G,Bc=img[...,0],img[...,1],img[...,2]; mx=np.maximum(R,Bc); gk=G-mx
     img[...,1]=np.where(ring&(gk>0),mx,G); img[...,3]=np.where(ring&(gk>18),img[...,3]*np.clip(1-(gk-18)/30,0,1),img[...,3])
     return img
+def clean_edges(o):
+    # boy bottoms: drop stray slivers left over from the bottom image's own sweater/hands (bits floating beside the hips)
+    # and recolour the soft silhouette edge from the solid fabric/skin just inside it (no green-screen fringe around
+    # shorts, shins or joggers, whatever the colour of the trousers)
+    from scipy.ndimage import distance_transform_edt
+    a=o[...,3]; n,cl,st,_=cv2.connectedComponentsWithStats((a>24).astype(np.uint8),8)
+    if n>2:
+        big=st[1:,4].max(); keep=np.isin(cl,[k for k in range(1,n) if st[k,4]>=0.05*big])
+        o[...,3]=np.where(keep|(a<=24)&(cv2.dilate(keep.astype(np.uint8),np.ones((5,5),np.uint8))>0),a,0); a=o[...,3]
+    # hips: going up from the thigh the outline may only widen gently (no boxy step where the sweater's hip was)
+    H_,W_=a.shape; rws=np.where((a>128).any(1))[0]; zt=rws.min(); zb=int(zt+0.45*(rws.max()-zt)); lim=np.ones((H_,W_),np.float32); xx_=np.arange(W_)
+    ext=[(np.where(a[y]>128)[0]) for y in range(zb+1)]
+    LL=np.full(zb+1,np.nan); RR=np.full(zb+1,np.nan)
+    for y in range(zt,zb+1):
+        if len(ext[y]): LL[y],RR[y]=ext[y].min(),ext[y].max()
+    for rng,sl in ((range(zb-1,-1,-1),0.35),(range(1,zb+1),0.6)):   # up: hips barely wider than thighs; down: waist -> hip as a curve, not a step
+        for y in rng:
+            p_=y+1 if sl==0.35 else y-1
+            if np.isnan(LL[y]) or np.isnan(LL[p_]): continue
+            LL[y]=max(LL[y],LL[p_]-sl); RR[y]=min(RR[y],RR[p_]+sl)
+    for y in range(zb+1):
+        if not np.isnan(LL[y]): lim[y]=np.clip(np.minimum(xx_-LL[y]+1,RR[y]+1-xx_),0,1)
+    o[...,3]=u8(o[...,3]*lim); a=o[...,3]
+    # leftover green-screen pixels (solid or soft): not fabric
+    R_,G_,B_=[o[...,k].astype(int) for k in range(3)]
+    gr=(G_>np.maximum(R_,B_)+4)&(a>0)
+    near=cv2.dilate((a<128).astype(np.uint8),np.ones((13,13),np.uint8))>0
+    o[...,3]=np.where(gr&near,0,a); a=o[...,3]
+    inner=cv2.erode(((a>=250)&~gr).astype(np.uint8),np.ones((5,5),np.uint8))
+    if inner.sum()<50: return o
+    _,(iy,ix)=distance_transform_edt(inner==0,return_indices=True)
+    edge=(a>0)&(inner==0)
+    o[...,:3]=np.where(edge[...,None],o[iy,ix,:3],o[...,:3]); return o
 for g in ['male','female']:
     RW,RH=reg[g]['ref']; PX,PT,PB=70,60,70; CW,CH=RW+2*PX,RH+PT+PB
     B=BANDS[g]; meta[g]={'canvas':[CW,CH],'pieces':{}}; os.makedirs(OUT+g,exist_ok=True)
@@ -36,7 +69,24 @@ for g in ['male','female']:
         a=np.array(Image.open(W+f'{g}/{i}.png').convert('RGBA')); A=np.array(reg[g]['items'][i]['A'],np.float64); A[:,2]+=[PX+dx,PT+dy]
         w=despill(cv2.warpAffine(a,A,(CW,CH),flags=cv2.INTER_LINEAR,borderValue=0).astype(np.float32))
         if not any(k in i for k in GREEN_OK): w=unscreen(w)
+        if g=='male' and reg[g]['items'][i].get('how')=='tmpl' and i!=REF[g]: w=fit_body(w)
         return w, A
+    FIT={}
+    def fit_body(w):
+        # Template-registered boy jerseys: the head lines up but the shirt body is drawn wider and off-centre compared
+        # with the reference doll every bottom is cut for. Squeeze/shift the body (shoulders down) onto the reference
+        # silhouette at hip/hand height so trousers and shorts sit under the shirt like under any other top.
+        if 'ref' not in FIT:
+            r,_=warp_item(REF[g]); FIT['ref']=r[...,3]>128
+        def ext(m,f):
+            xs=np.where(m[int(PT+f*RH)])[0]; return xs.min(),xs.max()
+        rl,rr=ext(FIT['ref'],0.55); il,ir=ext(w[...,3]>128,0.55)
+        s=float(np.clip((rr-rl)/max(ir-il,1),0.85,1.05)); rc=(rl+rr)/2; ic=(il+ir)/2
+        t=np.clip((np.arange(CH)-(PT+0.24*RH))/(0.16*RH),0,1)[:,None]   # 0 at the neck -> 1 from mid-chest down
+        sy=1+(s-1)*t; cy=ic+(rc-ic)*t*0   # map x around the item centre, then move it to the reference centre
+        xs=np.arange(CW)[None,:].astype(np.float32)
+        mapx=(ic+(xs-(ic+(rc-ic)*t))/sy).astype(np.float32); mapy=np.repeat(np.arange(CH,dtype=np.float32)[:,None],CW,1)
+        return cv2.remap(w,mapx,mapy,cv2.INTER_LINEAR,borderValue=0)
     REFC,_=warp_item(REF[g]) if REF[g] in reg[g]['items'] else (None,None)
     ra=REFC[...,3]>128; rb=np.where(ra.any(1))[0].max()
     fy=np.where(ra[Y(B['f']):])[0]; fx=np.where(ra[Y(B['f']):])[1]; ref_feet_cx=fx.mean()
@@ -293,7 +343,9 @@ for g in ['male','female']:
         if hem_: meta[g]['pieces'][i]['hem']=True   # shirt hangs to its own hem: bottoms use their 'legsn' band under it
         for nme,m in M.items():
             src=RGB.get(nme,img); o=src.copy(); o[...,3]=src[...,3]*m
-            o=u8(o); ys,xs=np.where(o[...,3]>3)
+            o=u8(o)
+            if g=='male' and cat=='bottom' and nme in('legs','legsn'): o=clean_edges(o)
+            ys,xs=np.where(o[...,3]>3)
             if not len(ys): continue
             x0,y0,x1,y1=xs.min(),ys.min(),xs.max()+1,ys.max()+1
             Image.fromarray(o[y0:y1,x0:x1]).save(OUT+f'{g}/{i}-{nme}.png')
