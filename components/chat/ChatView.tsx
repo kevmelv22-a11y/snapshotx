@@ -33,7 +33,7 @@ export function ChatView(p:ChatViewProps){
   const current=target?p.reactions.find(r=>r.messageId===target.id&&r.userId===p.me)?.emoji:null;
   return <View style={{flex:1}}>
     <StreakWarning streak={p.streak}/>
-    <FlatList data={p.rows} inverted keyExtractor={x=>x.id} contentContainerStyle={{padding:15}} ListEmptyComponent={<Hint>Stuur het eerste bericht ✦</Hint>}
+    <FlatList data={p.rows} inverted keyExtractor={x=>x.id} contentContainerStyle={{padding:15}}
       ListHeaderComponent={<TypingIndicator text={p.typing}/>} ListHeaderComponentStyle={{marginHorizontal:-15}}
       renderItem={({item})=>{
         if(item.kind==='system')return <SystemLine text={item.body??''} icon={item.body?.includes('screenshot')?'📸':item.body?.includes('gesprek')?'📹':'⏱'}/>;
@@ -47,6 +47,8 @@ export function ChatView(p:ChatViewProps){
           <ReactionChips mine={mine} items={summarizeReactions(p.reactions,item.id,p.me)}/>
         </View>;
       }}/>
+    {/* Empty state lives OUTSIDE the inverted list: an inverted FlatList renders ListEmptyComponent upside down on iOS. */}
+    {p.rows.length===0&&<View pointerEvents="none" style={s.empty} testID="chat-empty"><Hint>Stuur het eerste bericht ✦</Hint></View>}
     <ReactionPicker visible={!!target} current={current} onClose={()=>setPicker(null)} onPick={e=>target&&p.onReact(target.id,e)} actions={target&&p.extraActions?p.extraActions(target,target.sender_id===p.me):[]}/>
   </View>;
 }
@@ -54,5 +56,6 @@ const s=StyleSheet.create({
   header:{flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:14,paddingVertical:10,backgroundColor:C.surface,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:C.border},
   title:{color:C.text,fontSize:17,fontWeight:'700',maxWidth:150},pill:{backgroundColor:C.elevated,borderRadius:14,paddingHorizontal:10,paddingVertical:5},pillText:{color:C.text,fontSize:12},callBtn:{padding:4},
   bubble:{maxWidth:'83%',borderRadius:18,padding:12,marginVertical:5},mine:{alignSelf:'flex-end',backgroundColor:'#273A7B'},theirs:{alignSelf:'flex-start',backgroundColor:C.elevated},
+  empty:{position:'absolute',left:0,right:0,top:0,bottom:0,alignItems:'center',justifyContent:'center',padding:15},
   time:{color:C.muted,fontSize:10,alignSelf:'flex-end',marginTop:6},
 });
