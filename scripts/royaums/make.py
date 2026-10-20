@@ -3,7 +3,7 @@ from PIL import Image
 sys.path.insert(0,'/workspace/scripts_tmp/roy'); from mask import shoe_mask
 W='/workspace/sx-jerseys/assets/avatar-art/worn/'
 BASE={'male':'shoes-nike-white','female':'shoes-strideon-panda'}
-def parts(a,m):
+def parts(a,m,thin=False):
     h,w=m.shape; n,cl,st,_=cv2.connectedComponentsWithStats(m.astype(np.uint8),8)
     comps=sorted([k for k in range(1,n) if st[k,4]>300],key=lambda k:st[k,0])
     out=[]
@@ -14,8 +14,16 @@ def parts(a,m):
             col=np.where(c[:,x])[0]
             if len(col): yb[x]=col.max()
         sole=np.zeros_like(c); t=0.27*(y1-y0)
+        top=np.full(w,np.nan)
         for x in range(x0,x1+1):
-            if yb[x]>=0: sole[int(yb[x]-t):yb[x]+1,x]=True
+            if yb[x]>=0:
+                ch=yb[x]-np.where(c[:,x])[0].min()
+                tt=t if (ch>1.6*t or not thin) else 0.55*ch   # thin heel/back columns: keep the upper above the sole
+                top[x]=yb[x]-tt
+        if thin:   # smooth sole line across columns (no stair steps)
+            v=top[x0:x1+1]; k=np.ones(9)/9; pad=np.pad(v,4,mode='edge'); top[x0:x1+1]=np.convolve(pad,k,'valid')
+        for x in range(x0,x1+1):
+            if yb[x]>=0: sole[int(top[x]):yb[x]+1,x]=True
         sole&=c; out.append(dict(side=side,c=c,sole=sole,up=c&~sole,box=(x0,y0,x1,y1)))
     return out
 def stud(img,cx,cy,r,col,hi):
@@ -30,13 +38,13 @@ def make(g,design):
     a=np.array(Image.open(W+f'{g}/{BASE[g]}.png').convert('RGBA')); m=shoe_mask(a); P=parts(a,m)
     img=a.astype(np.float32); hsv=cv2.cvtColor(a[...,:3],cv2.COLOR_RGB2HSV); V=hsv[...,2].astype(np.float32)
     if g=='female':   # plain white low top: paint out the base shoe's black side panel
-        hz=np.zeros_like(m); hz[int(a.shape[0]*0.86):]=True
-        near=cv2.dilate(m.astype(np.uint8),np.ones((3,3),np.uint8))>0
-        blk=(V<60)&near&hz&(a[...,3]>0)
-        dark=(((V<175)&m)|blk).astype(np.uint8); dark=cv2.dilate(dark,np.ones((5,5),np.uint8))&(m|blk).astype(np.uint8)
-        src=a[...,:3].copy(); src[a[...,3]<255]=235
-        rgb=cv2.inpaint(src,dark,5,cv2.INPAINT_TELEA); img[...,:3]=np.where(dark[...,None]>0,rgb,img[...,:3])
+        from fmask import female_shoe
+        m,pan=female_shoe(a)
+        src=a[...,:3].copy()
+        rgb=cv2.inpaint(src,pan.astype(np.uint8),6,cv2.INPAINT_TELEA)
+        img[...,:3]=np.where(pan[...,None],rgb,img[...,:3])
         V=cv2.cvtColor(np.clip(img[...,:3],0,255).astype(np.uint8),cv2.COLOR_RGB2HSV)[...,2].astype(np.float32)
+        P=parts(a,m,thin=True)
     sc=1.0 if g=='male' else 0.85
     for p in P:
         up=p['up']; x0,y0,x1,y1=p['box']; wv=x1-x0; hv=y1-y0
@@ -70,7 +78,7 @@ def make(g,design):
                     if toe[int(y),int(x)]: stud(img,x,y,r,(214,214,218),(255,255,255))
         # ROYAUMS signature: red ring at the top eyelet
         ys,xs=np.where(up); ty=ys.min(); tx=int(np.median(xs[ys<ty+4]))
-        cy,cx=ty+5*sc,tx
+        cy,cx=ty+(5 if g=='male' else (12 if p['side']=='L' else 8))*sc,tx
         yy,xx=np.mgrid[0:img.shape[0],0:img.shape[1]]; d=np.hypot(xx-cx,yy-cy)
         ring=(d<=2.6*sc)&up; img[ring,0]=196; img[ring,1]=24; img[ring,2]=34
         hole=(d<=1.1*sc)&up; img[hole,:3]=40

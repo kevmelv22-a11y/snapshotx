@@ -127,7 +127,7 @@ for g in ['male','female']:
         hb,bb,fb=B['h'],B['b'],B['f']
         if cat in('shoes','socks'):  # stand on the reference floor, centred on the reference feet
             m=(img[...,3]>128)&(yy>=fb); ys,xs=np.where(m)
-            img,_=warp_item(i,dx=ref_feet_cx-xs.mean(),dy=rb-ys.max()); al=img[...,3]/255.
+            img,SA=warp_item(i,dx=ref_feet_cx-xs.mean(),dy=rb-ys.max()); al=img[...,3]/255.
         hsv=cv2.cvtColor(u8(img[...,:3]),cv2.COLOR_RGB2HSV)
         long_=i in LONG; M={}; RGB={}; hem_=False
         HD=0.05 if g=='female' else D
@@ -348,6 +348,11 @@ for g in ['male','female']:
             n,cl,st,_=cv2.connectedComponentsWithStats(keep,8)
             big=st[1:,4].max() if n>1 else 0
             keep=np.isin(cl,[k for k in range(1,n) if st[k,4]>=0.08*big]).astype(np.uint8)
+            SM=os.path.join(os.path.dirname(os.path.abspath(__file__)),'shoe-masks',g,i+'.png')
+            if os.path.exists(SM):
+                # hand-made shoe outline for this item: keep exactly the shoe, never the source trouser hem
+                sm=cv2.warpAffine(np.array(Image.open(SM).convert('L')),SA,(CW,CH),flags=cv2.INTER_LINEAR,borderValue=0)
+                keep=((sm>127)&(img[...,3]>40)).astype(np.uint8)
             M['feet']=cv2.GaussianBlur(keep.astype(np.float32),(3,3),0)   # top edge = the real shoe outline / the source trouser hem (no flat faded cut)
         meta[g]['pieces'][i]={'cat':cat,'long':bool(long_ or cat=='dress')}
         if hem_: meta[g]['pieces'][i]['hem']=True   # shirt hangs to its own hem: bottoms use their 'legsn' band under it
