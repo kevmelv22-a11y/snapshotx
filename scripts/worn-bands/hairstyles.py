@@ -79,7 +79,11 @@ def style_layer(g,key):
         for ex_,ey_ in dst: brow|=(abs(xx-ex_)<0.5*ED)&(yy>ey_-0.6*ED)&(yy<ey_-0.12*ED)
         brow=brow&(L<36)  # brow strokes keep their drawn brown
         noface=iris_|white_|brow
-        hw_e=hp*(out[...,3]>8)*ramp(L,10,16)*(1-ramp(dh,22,30))*(~noface)*ramp(fr,0.9,0.96)  # no hair inside the face (forehead highlights)
+        # no hair inside the face (forehead highlights), except strands that clearly are hair falling over the face's
+        # sides (beside the eyes / cheeks): left out they stayed the art blonde, or turned skin-coloured, next to the cheek
+        side=(abs(xx-cx)>0.6*ED)&(yy>ey-1.3*ED)
+        strong=np.clip(((ds-dh)/sep-0.3)/0.4,0,1)*side
+        hw_e=hp*(out[...,3]>8)*ramp(L,10,16)*(1-ramp(dh,22,30))*(~noface)*np.maximum(ramp(fr,0.9,0.96),strong)
         hw_e=np.where(cv2.morphologyEx((hw_e>0.5).astype(np.uint8),cv2.MORPH_OPEN,np.ones((3,3),np.uint8))>0,hw_e,hw_e*0.3)
         sw_e=(out[...,3]>8)*(1-hw_e)*(~noface)
         hw=hw_e
@@ -132,6 +136,8 @@ def style_layer(g,key):
         white=cv2.dilate(white.astype(np.uint8),np.ones((3,3),np.uint8))>0
         sw=(out[...,3]>8)*(1-hw)*~(iris|white)
     if BLONDE: sw,hw=sw_e,cv2.GaussianBlur(hw_e.astype(np.float32),(3,3),0)
+    # female edits: the drawn brows and the eyes, for the overlays in __main__ (brows follow the skin tone, eyes never)
+    style_layer.marks=(brow[sl].astype(np.float32),(iris_|white_)[sl]) if BLONDE else None
     return out[sl],[int(x0),int(y0),int(x1-x0),int(y1-y0)],sw[sl],(hw*(out[...,3]>4))[sl],chinY
 TONES=json.load(open(f'{HERE}/tones.json')); TDIR=os.environ.get('TDIR','assets/avatar-art/worn-tones')
 def keep_band(g,item,extra=()):
@@ -204,14 +210,25 @@ if __name__=='__main__':
             im,rect,sw,hw,chinY=style_layer(g,key)
             q=T.kq(im); q.save(f'{OUT}/{g}/style-{sid}.png',optimize=True,transparency=q.info['transparency'])
             l=T.lab(im); ov={}
-            for t,dstc in T.SKIN.items():
-                rr=T.write(f'{OUT}/{g}/style-{sid}--s-{t}.png',im,np.clip((sw-0.15)/0.45,0,1),T.rgb(T.recolour(l,T.SKIN_SRC,dstc,dstc[0]/T.SKIN_SRC[0])))
-                if rr: ov['s-'+t]=rr
             hwf=np.clip((hw-0.15)/0.45,0,1); hs=np.median(l[hwf>0.6],0)
+            swf=np.clip((sw-0.15)/0.45,0,1)
+            if g=='female' and style_layer.marks is not None:
+                # skin-light pixels at the hairline / beside the cheeks that the colour split left half hair, half skin:
+                # recoloured they showed as a grey patch (Knot, dark hair) or a light streak (Lang stijl): they are skin
+                brow,eyes=style_layer.marks
+                inner=cv2.erode((im[...,3]>250).astype(np.uint8),np.ones((5,5),np.uint8))>0
+                nearskin=(cv2.dilate(((swf>0.6)&inner).astype(np.uint8),np.ones((7,7),np.uint8))>0)&inner&~eyes
+                fix=nearskin*np.clip((l[...,0]-hs[0]-10)/10,0,1)*np.clip((sw-0.15)/0.15,0,1)   # some skin evidence: no hair highlights
+                hwf=hwf*(1-fix); swf=np.maximum(swf,fix)
+                # the drawn brows darken with the skin (a mid-brown brow looked orange on dark skin); soft edge
+                swf=np.maximum(swf,cv2.GaussianBlur(cv2.dilate(brow,np.ones((3,3),np.uint8)),(3,3),0)*(~eyes))
             if g=="male":  # skin-light pixels at the hairline: no hair overlay there (recoloured they turn into a light line)
                 inner=cv2.erode((im[...,3]>250).astype(np.uint8),np.ones((9,9),np.uint8))>0  # not at the outer silhouette
                 nearskin=(cv2.dilate(((sw>0.5)&inner).astype(np.uint8),np.ones((5,5),np.uint8))>0)&inner
                 hwf=np.where(nearskin&(np.hypot(l[...,1],l[...,2])>14),hwf*(1-np.clip((l[...,0]-hs[0]-8)/12,0,1)),hwf)
+            for t,dstc in T.SKIN.items():
+                rr=T.write(f'{OUT}/{g}/style-{sid}--s-{t}.png',im,swf,T.rgb(T.recolour(l,T.SKIN_SRC,dstc,dstc[0]/T.SKIN_SRC[0])))
+                if rr: ov['s-'+t]=rr
             for t,dstc in T.HAIR.items():
                 if g=='female' and t==T.orig_hair(g): continue  # the edits keep the art's own blonde: drawn as is
                 c=float(np.clip((dstc[0]+8)/(hs[0]+8),0.4,1.8))
