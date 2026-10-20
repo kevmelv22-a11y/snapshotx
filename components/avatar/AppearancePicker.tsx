@@ -8,6 +8,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Outfit } from '../../lib/avatar/outfit';
 import { HAIRSTYLES, HAIR_COLORS, SKIN_TONES, hairColorOf, hairStyleOf, skinToneOf, withHairColor, withHairStyle, withSkinTone } from '../../lib/avatar/tones';
 import { AvatarBust } from './AvatarBust';
+import { outfitKapselBlocked } from './OutfitArt';
 import { CardGlow, KAST_BLUE } from './ArtTile';
 
 export function AppearanceTile({ outfit, size, label, selected, onPress, swatch, testID }: { outfit: Outfit; size: number; label: string; selected: boolean; onPress: () => void; swatch?: string; testID?: string }) {
@@ -28,7 +29,7 @@ export function AppearanceTile({ outfit, size, label, selected, onPress, swatch,
 
 export function AppearancePicker({ outfit, onChange, tileSize = 92, titleStyle, hintStyle }: { outfit: Outfit; onChange: (next: Outfit, label: string) => void; tileSize?: number; titleStyle?: object; hintStyle?: object }) {
   const g = outfit.gender === 'female' ? 'female' : 'male';
-  const skin = skinToneOf(outfit), hair = hairColorOf(outfit), style = hairStyleOf(outfit), styles = HAIRSTYLES[g];
+  const skin = skinToneOf(outfit), hair = hairColorOf(outfit), style = hairStyleOf(outfit), styles = HAIRSTYLES[g], blocked = outfitKapselBlocked(outfit);
   return <View testID="appearance-picker">
     <Text style={[s.title, titleStyle]}>Huidskleur</Text>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.row}>
@@ -45,7 +46,9 @@ export function AppearancePicker({ outfit, onChange, tileSize = 92, titleStyle, 
       {styles.map(t => <AppearanceTile key={t.id} outfit={withHairStyle(outfit, t.id)} size={tileSize} label={t.label} selected={style === t.id}
         onPress={() => onChange(withHairStyle(outfit, t.id), `kapsel ${t.label.toLowerCase()}`)} testID={`appearance-hairstyle:${t.id}${style === t.id ? ':selected' : ''}`}/>)}
     </ScrollView>
-    <Text style={[s.hint, hintStyle]}>{styles.length > 1 ? 'Een pet of muts gaat over je kapsel heen.' : 'Een pet of muts gaat over je kapsel heen. Meer kapsels komen eraan.'}</Text>
+    <Text style={[s.hint, hintStyle]} testID={blocked ? `appearance-kapsel-hint:${blocked}` : undefined}>{blocked === 'clothes'
+      ? 'Dit kapsel zie je nog niet met deze kleding: daar zit het lange haar in de tekening. Kies bijvoorbeeld het zwarte T-shirt, een hoodie of een jack uit de Kast.'
+      : 'Een pet of muts gaat over je kapsel heen.'}</Text>
   </View>;
 }
 

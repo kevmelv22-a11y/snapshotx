@@ -12,8 +12,8 @@ import { BODY_LAYERS } from './bodyLayerRegistry';
 import { ArtImage, nearestLookArt } from './ArtImage';
 import { wornArtKey } from '../../lib/avatar/worn';
 import { WORN_ART } from '../../lib/wornArt';
-import { comboId, comboLayers, comboStyle, type ComboLayer } from '../../lib/avatar/combo';
-import { WORN_BANDS } from '../../lib/avatar/wornBandInfo';
+import { comboId, comboLayers, comboStyle, kapselBlocked, type ComboLayer } from '../../lib/avatar/combo';
+import { WORN_BANDS, type Band } from '../../lib/avatar/wornBandInfo';
 import { WORN_BAND_SRC } from '../../lib/wornBands';
 import { CATEGORIES } from '../../lib/avatar/outfit';
 import { hairColorOf, hasToneChoice, skinToneOf, toneKeys, ART_SKIN } from '../../lib/avatar/tones';
@@ -35,7 +35,15 @@ export function outfitCombo(o: Outfit, force = false): ComboLayer[] | null {
   const layers = comboLayers(o, WORN_BANDS[genderOf(o)], genderOf(o));
   return layers.length ? layers : null;
 }
-const styleOf = (o: Outfit, layers: ComboLayer[]) => { const g = genderOf(o); return comboStyle(o, layers, WORN_BANDS[g], Object.keys(WORN_STYLES[g].styles)); };
+/** Female: a Kapsel only with clothes that have hair-free art (keep band for the head, clean top bands). */
+const femaleSupports = (item: string, band: Band) => band === 'head' ? !!WORN_STYLES.female.keep[item] : !!WORN_STYLES.female.clean[`${item}/${band}`];
+const supportsOf = (g: 'male' | 'female') => (g === 'female' ? femaleSupports : undefined);
+const styleOf = (o: Outfit, layers: ComboLayer[]) => { const g = genderOf(o); return comboStyle(o, layers, WORN_BANDS[g], Object.keys(WORN_STYLES[g].styles), supportsOf(g)); };
+/** Why the picked Kapsel is not drawn right now ('hat' / 'clothes'), for the picker's hint; null when it is. */
+export function outfitKapselBlocked(o: Outfit) {
+  const g = genderOf(o), layers = comboLayers(o, WORN_BANDS[g], g);
+  return kapselBlocked(o, layers, WORN_BANDS[g], Object.keys(WORN_STYLES[g].styles), supportsOf(g));
+}
 /** Id of a composite incl. Kapsel and tone overlays (testIDs). */
 export const comboArtId = (o: Outfit, c: ComboLayer[]) => { const st = styleOf(o, c); return [comboId(c), ...(st ? [`style-${st}`] : []), ...toneKeys(o)].join('~'); };
 /** Highest canvas y the composite draws (a hat band or a Kapsel layer can reach above the figure top). */
@@ -66,6 +74,15 @@ export function ComboStack({ outfit, layers, scale, left, top }: { outfit: Outfi
         {k && ksrc != null && sk.map(t => { const o = k.tones[t], os = WORN_STYLE_SRC[`${g}/keep/${l.item}/${t}`]; return o && os != null ? img(`keep-${t}`, os, r[0] + o[0], r[1] + o[1], o[2], o[3]) : null; })}
         {ssrc != null && img('style', ssrc, st.rect[0], st.rect[1], st.rect[2], st.rect[3])}
         {[...sk, `h-${hairColorOf(outfit)}`].map(t => { const o = st.tones[t], os = WORN_STYLE_SRC[`${g}/style/${style}/${t}`]; return o && os != null ? img(`style-${t}`, os, st.rect[0] + o[0], st.rect[1] + o[1], o[2], o[3]) : null; })}
+      </React.Fragment>;
+    }
+    // Female Kapsel: the hair-free version of the band (same rect) with its own skin overlays (no hair left in it).
+    const clean = style && g === 'female' ? WORN_STYLES.female.clean[`${l.item}/${l.band}`] : undefined, csrc = clean ? WORN_STYLE_SRC[`female/clean/${l.item}/${l.band}`] : undefined;
+    if (clean && csrc != null) {
+      const skin = skinToneOf(outfit), t = skin === ART_SKIN ? null : `s-${skin}`, o = t ? clean[t] : undefined, os = t ? WORN_STYLE_SRC[`female/clean/${l.item}/${l.band}/${t}`] : undefined;
+      return <React.Fragment key={`${l.item}/${l.band}`}>
+        {img('clean', csrc, r[0], r[1], r[2], r[3])}
+        {o && os != null && img(`clean-${t}`, os, r[0] + o[0], r[1] + o[1], o[2], o[3])}
       </React.Fragment>;
     }
     // Skin tone / hair colour: recoloured overlays drawn right over their band (rect inside the band image).

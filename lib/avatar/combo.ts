@@ -51,9 +51,22 @@ export const comboId = (layers: ComboLayer[]) => 'combo:' + layers.map(l => `${l
 
 /** Kapsel layer replacing the head band's own face + hair (lib/avatar/tones styleLayerOf), or null: art style, or a
  *  hat on the head (hats win; the female start cap counts as no hat and is dropped with a style). `available`: the
- *  styles that have a layer for this character set. */
-export function comboStyle(o: Outfit, layers: ComboLayer[], set: BandSet, available: readonly string[]): string | null {
+ *  styles that have a layer for this character set. `supports(item, band)` (female): whether the item has hair-free art
+ *  for that band ('head' = keep band; torso / under / jacket = clean band). The female art bakes its long hair into
+ *  the top bands, so with clothes that have no hair-free version the art hair stays (null). */
+export function comboStyle(o: Outfit, layers: ComboLayer[], set: BandSet, available: readonly string[], supports?: (item: string, band: Band) => boolean): string | null {
   const style = styleLayerOf(o), head = layers.find(l => l.band === 'head');
   if (!style || !head || set.items[head.item]?.cat === 'hat' || !available.includes(style)) return null;
+  if (supports && !layers.every(l => !HAIR_BANDS.includes(l.band) || supports(l.item, l.band))) return null;
   return style;
+}
+/** Bands whose female art carries the long hair (head: face + hair; torso / under / jacket: the hair over the shoulders). */
+export const HAIR_BANDS: readonly Band[] = ['head', 'torso', 'under', 'jacket'];
+/** Why a picked Kapsel is not drawn: a hat on the head, or (female) clothes without hair-free art; null when it is drawn
+ *  or no Kapsel is picked. */
+export function kapselBlocked(o: Outfit, layers: ComboLayer[], set: BandSet, available: readonly string[], supports?: (item: string, band: Band) => boolean): 'hat' | 'clothes' | null {
+  const style = styleLayerOf(o); if (!style || !available.includes(style)) return null;
+  const head = layers.find(l => l.band === 'head');
+  if (head && set.items[head.item]?.cat === 'hat') return 'hat';
+  return comboStyle(o, layers, set, available, supports) ? null : 'clothes';
 }
