@@ -1,3 +1,4 @@
+import {isUuid, uuidList} from './chat-ids';
 import * as Crypto from 'expo-crypto';
 import {supabase} from './supabase';
 import {hashPin, memoryInsert, resendMessages, type Memory} from './memories';
@@ -19,10 +20,11 @@ export async function setMemoryPrivate(id: string, value: boolean) {
 }
 export async function resendMemory(m: Memory, uid: string, friendIds: string[]) {
   const threads: string[] = [];
-  for (const id of friendIds) {
+  for (const id of uuidList(friendIds)) {
     const {data, error} = await supabase.rpc('sx_open_thread', {participants: [id], group_title: null});
     if (error) throw error;
-    threads.push(data as string);
+    if (!isUuid(data)) throw new Error('Chat kon niet worden geopend.');
+    threads.push(data);
   }
   const {error} = await supabase.from('sx_messages').insert(resendMessages(m, uid, threads, Date.now()));
   if (error) throw error;

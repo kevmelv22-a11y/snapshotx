@@ -14,6 +14,7 @@ import {friendOutfitCache,useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {AI_DEMO,DEMO_CHATS,loadChatRows,type ChatRow} from '../../lib/chat-list';
 
 import {friendlyError} from '../../lib/db-errors';
+import {isUuid,uuidList} from '../../lib/chat-ids';
 type Filter='all'|'unread'|'ai'|'nearby'|'stories';
 type DemoMessage={id:number;own:boolean;text:string};
 const violet='#B629E2';
@@ -42,10 +43,10 @@ export default function Chats(){
  // Friends' saved Avatar-kast outfits (one batched, cached RPC); rows without one keep the initial bubble.
  const friendOutfits=useFriendOutfits(useMemo(()=>[...rows.filter(x=>!x.isGroup).flatMap(x=>x.peerIds),...friends.map(x=>x.id)],[rows,friends]),{live:true});
  async function openComposer(){if(!uid)return;setError('');const result=await supabase.from('sx_friends').select('friend_id').eq('user_id',uid);if(result.error){setError(friendlyError(result.error,'Je vrienden'));return}const ids=(result.data||[]).map(x=>x.friend_id);friendOutfitCache.prune(ids);if(!ids.length){router.push('/(tabs)/friends');return}const p=await supabase.from('profiles').select('id,display_name').in('id',ids);if(p.error){setError(friendlyError(p.error));return}setFriends(p.data||[]);setSelected([]);setNewOpen(true)}
- async function createChat(){if(busy||!selected.length)return;setBusy(true);try{const {data,error:e}=await supabase.rpc('sx_open_thread',{participants:selected,group_title:selected.length>1?groupName.trim()||'Nieuwe groep':null});if(e)throw e;setNewOpen(false);setGroupName('');await load();router.push({pathname:'/chat/[id]',params:{id:data}})}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
+ async function createChat(){const ids=uuidList(selected);if(busy||!ids.length)return;setBusy(true);try{const {data,error:e}=await supabase.rpc('sx_open_thread',{participants:ids,group_title:ids.length>1?groupName.trim()||'Nieuwe groep':null});if(e)throw e;setNewOpen(false);setGroupName('');await load();if(!isUuid(data))throw new Error('Chat kon niet worden aangemaakt.');router.push({pathname:'/chat/[id]',params:{id:data}})}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
  function openDemo(row:ChatRow){setDemo(row);setDemoMessages([{id:0,own:false,text:row.id==='local-ai'?'Hoi! Dit is een lokale voorbeeldchat, geen echte AI-service. Je berichten blijven op dit toestel.':row.preview}]);setDemoInput('')}
  function sendDemo(){const text=demoInput.trim();if(!text)return;setDemoMessages(v=>[...v,{id:Date.now(),own:true,text}]);setDemoInput('')}
- function openRow(row:ChatRow){if(row.demo)openDemo(row);else router.push({pathname:'/chat/[id]',params:{id:row.id}})}
+ function openRow(row:ChatRow){if(row.demo||!isUuid(row.id))openDemo(row);else router.push({pathname:'/chat/[id]',params:{id:row.id}})}
  const filters:{id:Filter;label:string;icon?:keyof typeof Ionicons.glyphMap}[]=[{id:'all',label:'Alles'},{id:'unread',label:`Ongelezen ${unread}`},{id:'ai',label:'AI chat',icon:'sparkles'},{id:'nearby',label:'In de buurt',icon:'location-outline'},{id:'stories',label:'Verhalen',icon:'albums-outline'}];
  return <View style={s.root}><ChatGalaxy/><View style={[s.header,{paddingTop:insets.top+9}]}>
   <Pressable accessibilityLabel="Mijn profiel" onPress={()=>router.push('/(tabs)/profile')} style={s.profile}><OwnAvatar userId={uid} size={42} fallback={<Avatar name={session?.user.email||'X'} size={42}/>}/></Pressable>

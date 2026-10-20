@@ -8,7 +8,7 @@ import {RecordingBar,RetentionSheet,VoiceNoteView} from '../components/chat/Chat
 import {activeTypers,computeStreak,isMessageVisible,retentionChangeText,screenshotText,toggleReaction,typingText,type Reaction,type RetentionMode} from '../lib/chat-features';
 
 /** Dev-only harness for step 4 chat features with local mock data. No Supabase, works on Expo web.
- *  ?scene=overview|reactions|retention|recording|risk|after_view  (default overview). */
+ *  ?scene=overview|reactions|retention|recording|risk|after_view|empty  (default overview). */
 const ME='me',ARIA='aria',H=3600000;
 export default function DevChat(){
   const {scene='overview'}=useLocalSearchParams<{scene?:string}>();
@@ -34,7 +34,7 @@ export default function DevChat(){
   // Viewed-at for received messages: m4 viewed 20 h ago (previous session), others just now.
   const sessionStart=now-2*60000;
   const viewedAt:Record<string,number>={m9:now-30000,m7:now-60000,m5:now-40*60000,m4:now-20*H};
-  const rows=all.filter(m=>m.sender_id===ME||m.kind==='system'||isMessageVisible(retention,viewedAt[m.id]??null,now,{leftAt:viewedAt[m.id]!==undefined&&viewedAt[m.id]<sessionStart?sessionStart:null}));
+  const rows=scene==='empty'?[]:all.filter(m=>m.sender_id===ME||m.kind==='system'||isMessageVisible(retention,viewedAt[m.id]??null,now,{leftAt:viewedAt[m.id]!==undefined&&viewedAt[m.id]<sessionStart?sessionStart:null}));
   // Streak: snaps both ways the last 6 days; today only I sent (in 'risk' it is late evening -> ⌛).
   const snaps=[];for(let d=1;d<=6;d++){snaps.push({senderId:ME,at:now-d*24*H},{senderId:ARIA,at:now-d*24*H+H})}snaps.push({senderId:ME,at:now-3*H});
   const streak=computeStreak(snaps,ME,ARIA,now,120);

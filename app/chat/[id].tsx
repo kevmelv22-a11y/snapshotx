@@ -24,10 +24,11 @@ import {chatStickerBody,stickerFromChatBody} from '../../lib/avatar/poses';
 import {VOICE_MAX_MS,activeTypers,applyTyping,computeStreak,isMessageVisible,keepRecording,meterLevel,parseRetention,retentionChangeText,screenshotText,shouldReportScreenshot,shouldSendTyping,toggleReaction,typingText,type Reaction,type RetentionMode,type TypingMap} from '../../lib/chat-features';
 
 import {friendlyError} from '../../lib/db-errors';
+import {isSilentSystemMessageError,systemMessageRow,threadIdFromParam} from '../../lib/chat-ids';
 export default function Chat(){
  const confirm=useConfirmDialog();
- const {id}=useLocalSearchParams<{id:string}>(),{session}=useSession(),uid=session?.user.id??'';
- const [rows,setRows]=useState<Message[]>([]),[body,setBody]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[opened,setOpened]=useState<Record<string,boolean>>({});
+ const {id:rawId}=useLocalSearchParams<{id:string|string[]}>(),id=threadIdFromParam(rawId)??'',{session}=useSession(),uid=session?.user.id??'';
+ const [rows,setRows]=useState<Message[]>([]),[body,setBody]=useState(''),[notice,setNotice]=useState(id?'':'Deze chat kon niet worden geopend.'),[busy,setBusy]=useState(false),[opened,setOpened]=useState<Record<string,boolean>>({});
  const [retention,setRetention]=useState<RetentionMode>('24h'),[retentionOpen,setRetentionOpen]=useState(false);
  const [viewedAt,setViewedAt]=useState<Record<string,number>>({}),[reactions,setReactions]=useState<Reaction[]>([]);
  const [peers,setPeers]=useState<{id:string;name:string}[]>([]),[typingMap,setTypingMap]=useState<TypingMap>({}),[now,setNow]=useState(Date.now());
@@ -43,7 +44,7 @@ export default function Chat(){
  // Thread meta: retention setting + peers (names for typing, streak partner).
  useEffect(()=>{if(!id||!uid)return;let alive=true;void (async()=>{const t=await supabase.from('sx_threads').select('retention_mode').eq('id',id).maybeSingle();if(alive&&!t.error)setRetention(parseRetention(t.data?.retention_mode));
   const m=await supabase.from('sx_members').select('user_id').eq('thread_id',id);const ids=(m.data||[]).map(x=>x.user_id).filter(x=>x!==uid);if(!ids.length)return;const p=await supabase.from('profiles').select('id,display_name').in('id',ids);const names=new Map((p.data||[]).map(x=>[x.id,x.display_name]));if(alive)setPeers(ids.map(x=>({id:x,name:names.get(x)||'Vriend'})))})();return()=>{alive=false}},[id,uid]);
- useEffect(()=>{const timer=setTimeout(()=>void load(),0);
+ useEffect(()=>{if(!id)return;const timer=setTimeout(()=>void load(),0);
   const channel=supabase.channel(`sx-thread-${id}`)
    .on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_messages',filter:`thread_id=eq.${id}`},()=>void load())
    .on('postgres_changes',{event:'*',schema:'public',table:'sx_reactions'},()=>void load())
@@ -56,7 +57,8 @@ export default function Chat(){
  useFocusEffect(useCallback(()=>{if(!uid)return;const ids=rows.filter(m=>m.sender_id!==uid&&m.kind!=='snap'&&m.kind!=='system').map(m=>m.id);if(!ids.length)return;let active=true;void (async()=>{const {data,error}=await supabase.from('sx_receipts').select('message_id').eq('user_id',uid).in('message_id',ids);if(error||!active)return;const read=new Set((data||[]).map(x=>x.message_id));const at=new Date().toISOString();const pending=ids.filter(message_id=>!read.has(message_id)).map(message_id=>({message_id,user_id:uid,opened_at:at,replay_count:0}));if(pending.length){const result=await supabase.from('sx_receipts').insert(pending);if(result.error&&active)setNotice(friendlyError(result.error));else if(active)setViewedAt(v=>({...v,...Object.fromEntries(pending.map(x=>[x.message_id,Date.parse(at)]))}))}})();return()=>{active=false}},[rows,uid]));
 
  // Screenshot notification (native only; expo-screen-capture has no web screenshot event).
- const postSystem=useCallback(async(text:string)=>{if(!uid||!id)return;const {error}=await supabase.from('sx_messages').insert({thread_id:id,sender_id:uid,kind:'system',body:text,expires_at:null});if(error)setNotice(friendlyError(error));else void load()},[id,uid,load]);
+ // Best-effort: a live DB without 20261013150000_chat_step4 rejects kind='system' (23514); never show that as an error.
+ const postSystem=useCallback(async(text:string)=>{const row=systemMessageRow(id,uid,text);if(!row)return;const {error}=await supabase.from('sx_messages').insert(row);if(error){if(!isSilentSystemMessageError(error))setNotice(friendlyError(error));else console.warn('[chat] system line skipped',error.code)}else void load()},[id,uid,load]);
  useEffect(()=>{if(Platform.OS==='web'||!uid)return;const sub=ScreenCapture.addScreenshotListener(()=>{const t=Date.now();if(!shouldReportScreenshot(lastShot.current,t))return;lastShot.current=t;void postSystem(screenshotText(session?.user.user_metadata?.display_name||'Je vriend',false))});return()=>sub.remove()},[uid,postSystem,session?.user.user_metadata?.display_name]);
 
  // Auto-stop voice notes at the max length.
@@ -70,7 +72,7 @@ export default function Chat(){
  const outfitOf=(sender:string)=>{if(sender===uid)return ownOutfit;const o=friendOutfits.get(sender);return o&&o!=='pending'?o:null};
  const title=peers.length===1?peers[0].name:peers.length>1?`${peers.length+1} personen`:'Chat';
 
- async function createMessage(kind:Message['kind'],text:string|null,path:string|null){if(!session)return;const {error}=await supabase.from('sx_messages').insert({thread_id:id,sender_id:uid,body:text,kind,media_path:path,expires_at:retention==='keep'?null:new Date(Date.now()+86400000).toISOString()});if(error)throw error;await load()}
+ async function createMessage(kind:Message['kind'],text:string|null,path:string|null){if(!session)return;if(!id)throw new Error('Deze chat kon niet worden geopend.');const {error}=await supabase.from('sx_messages').insert({thread_id:id,sender_id:uid,body:text,kind,media_path:path,expires_at:retention==='keep'?null:new Date(Date.now()+86400000).toISOString()});if(error)throw error;await load()}
  function onChangeBody(v:string){setBody(v);const t=Date.now();if(shouldSendTyping(lastTyping.current,t,v)){lastTyping.current=t;void channelRef.current?.send({type:'broadcast',event:'typing',payload:{user:uid,typing:true}})}}
  function stopTyping(){lastTyping.current=null;void channelRef.current?.send({type:'broadcast',event:'typing',payload:{user:uid,typing:false}})}
  async function send(){if(!body.trim()||busy)return;setBusy(true);try{await createMessage('text',body.trim(),null);setBody('');stopTyping()}catch(e){setNotice(friendlyError(e))}finally{setBusy(false)}}
