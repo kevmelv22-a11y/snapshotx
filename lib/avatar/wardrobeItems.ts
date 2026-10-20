@@ -138,6 +138,9 @@ export const WARDROBE_ITEMS: WardrobeItem[] = [
   item('bottom-kast-cream-joggers', 'bottom', 'Kast Studio', 'Crème joggingbroek', null, ['#DCCFB6'], { variant: 'joggers' }),
   item('bottom-basisbes-grey-jeans', 'bottom', 'Basisbes', 'Grijze baggy jeans', null, ['#8A8D93'], { variant: 'jeans' }),
   item('shoes-strideon-panda', 'shoes', 'Strideon', 'Zwart-witte lowtops', 119, ['#F4F4F6', '#1C1C1E'], { variant: 'sneaker', graphic: 'wave' }, true),
+  item('shoes-royaums-kilian-black', 'shoes', 'Royaums', 'Kilian zwart met studs', 179, ['#1C1C1E', '#F4F4F6'], { variant: 'sneaker' }, true),
+  item('shoes-royaums-kilian-grey', 'shoes', 'Royaums', 'Kilian grijs met studs', 179, ['#5F6166', '#F4F4F6'], { variant: 'sneaker' }),
+  item('shoes-royaums-luisa-white', 'shoes', 'Royaums', 'Luisa wit met driehoekstuds', 159, ['#F4F4F6', '#C41822'], { variant: 'sneaker' }),
   item('glasses-trivo-sport', 'glasses', 'trivo', 'Sportzonnebril', 99, ['#FF5B95'], { variant: 'shades' }),
 ];
 
