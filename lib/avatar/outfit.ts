@@ -1,10 +1,10 @@
 /**
- * Pure outfit logic for the Avatar-kast (wardrobe) screen.
+ * Pure outfit logic for the avatarkast (wardrobe) screen.
  * No runtime imports, so it runs under `node --test` (type stripping) as well as in Metro.
  */
 
 export type WardrobeCategory = 'top' | 'bottom' | 'dress' | 'shoes' | 'socks' | 'bag' | 'outerwear' | 'hat' | 'accessory' | 'glasses';
-export type Layer = WardrobeCategory | 'hair' | 'skin';
+export type Layer = WardrobeCategory | 'hair' | 'skin' | 'eyes';
 export type HairStyle = 'curly' | 'short' | 'wavy' | 'buzz' | 'long' | 'afro' | 'bun';
 export const HAIR_STYLES: HairStyle[] = ['curly', 'short', 'wavy', 'buzz', 'long', 'afro', 'bun'];
 export type CategoryTab = 'featured' | 'all' | WardrobeCategory;
@@ -15,7 +15,7 @@ export type ItemPreview = {
   variant: string;
   pattern?: Pattern;
   /** Optional chest graphic / detail. */
-  graphic?: 'stripe' | 'skull' | 'pumpkin' | 'heart' | 'logo' | 'stripes3' | 'crest';
+  graphic?: 'wave' | 'skull' | 'pumpkin' | 'heart' | 'patch' | 'stripes2' | 'star';
 };
 
 export type WardrobeItem = {
@@ -46,7 +46,17 @@ export type Outfit = {
   hairStyle: HairStyle;
   /** Primary colour override per layer (hair and skin included). */
   colors: Partial<Record<Layer, string>>;
+  /** Character set chosen at registration (absent = 'male'): picks the male or female pre-rendered art. */
+  gender?: Gender;
+  /** Most recently picked item (Kast tap): its worn image is shown while that item is still on (lib/avatar/worn). */
+  worn?: string;
+  /** Last picked torso item (top / outerwear / dress): the composite doll shows it as the visible upper body. */
+  torso?: string;
 };
+
+export type Gender = 'male' | 'female';
+export const GENDERS: Gender[] = ['male', 'female'];
+export const isGender = (v: unknown): v is Gender => v === 'male' || v === 'female';
 
 export const CATEGORIES: WardrobeCategory[] = ['top', 'bottom', 'dress', 'shoes', 'socks', 'bag', 'outerwear', 'hat', 'accessory', 'glasses'];
 
@@ -68,6 +78,28 @@ export const DEFAULT_OUTFIT: Outfit = {
   colors: {},
 };
 
+/** Female start look (reference art): black cap, black tee, grey jeans, white sneakers, blonde wavy hair. */
+export const DEFAULT_FEMALE_OUTFIT: Outfit = {
+  top: 'top-nike-black-tee',
+  bottom: 'bottom-basisbes-grey-jeans',
+  dress: null,
+  shoes: 'shoes-nike-white',
+  socks: null,
+  bag: null,
+  outerwear: null,
+  hat: 'hat-nike-cap',
+  accessory: null,
+  glasses: null,
+  hairStyle: 'wavy',
+  colors: { hair: '#D2A85E' },
+  gender: 'female',
+};
+
+/** Start outfit for a character set (male = hoodie DEFAULT_OUTFIT, female = cap + black tee). */
+export function defaultOutfitFor(gender: Gender | null | undefined): Outfit {
+  return gender === 'female' ? { ...DEFAULT_FEMALE_OUTFIT, colors: { ...DEFAULT_FEMALE_OUTFIT.colors } } : { ...DEFAULT_OUTFIT, colors: {} };
+}
+
 export function isFree(item: Pick<WardrobeItem, 'priceCents'>): boolean {
   return item.priceCents == null || item.priceCents <= 0;
 }
@@ -88,7 +120,8 @@ export function formatPriceCents(cents: number): string {
 export function wearItem(outfit: Outfit, item: Pick<WardrobeItem, 'id' | 'category'>): Outfit {
   const colors = { ...outfit.colors };
   delete colors[item.category];
-  const next: Outfit = { ...outfit, colors, [item.category]: item.id };
+  const next: Outfit = { ...outfit, colors, [item.category]: item.id, worn: item.id };
+  if (item.category === 'top' || item.category === 'outerwear' || item.category === 'dress') next.torso = item.id;
   if (item.category === 'top' || item.category === 'bottom') next.dress = null;
   return next;
 }
@@ -96,7 +129,10 @@ export function wearItem(outfit: Outfit, item: Pick<WardrobeItem, 'id' | 'catego
 export function removeLayer(outfit: Outfit, layer: WardrobeCategory): Outfit {
   const colors = { ...outfit.colors };
   delete colors[layer];
-  return { ...outfit, colors, [layer]: null };
+  const next: Outfit = { ...outfit, colors, [layer]: null };
+  if (next.worn && next.worn === outfit[layer]) delete next.worn;
+  if (next.torso && next.torso === outfit[layer]) delete next.torso;
+  return next;
 }
 
 export function recolor(outfit: Outfit, layer: Layer, color: string): Outfit {
@@ -104,7 +140,7 @@ export function recolor(outfit: Outfit, layer: Layer, color: string): Outfit {
 }
 
 export function sameOutfit(a: Outfit, b: Outfit): boolean {
-  if (CATEGORIES.some(c => a[c] !== b[c]) || a.hairStyle !== b.hairStyle) return false;
+  if (CATEGORIES.some(c => a[c] !== b[c]) || a.hairStyle !== b.hairStyle || (a.gender ?? 'male') !== (b.gender ?? 'male') || a.worn !== b.worn || a.torso !== b.torso) return false;
   const keys = new Set([...Object.keys(a.colors), ...Object.keys(b.colors)]) as Set<Layer>;
   for (const k of keys) if (a.colors[k] !== b.colors[k]) return false;
   return true;
@@ -133,7 +169,7 @@ export function redoHistory(h: OutfitHistory): OutfitHistory {
 
 // ---------------------------------------------------------------- persistence helpers
 const HEX_RE = /^#[0-9a-f]{6}$/i;
-const LAYERS: Layer[] = [...CATEGORIES, 'hair', 'skin'];
+const LAYERS: Layer[] = [...CATEGORIES, 'hair', 'skin', 'eyes'];
 
 /** Validates a stored outfit; unknown ids / categories fall back to the default outfit. */
 export function parseOutfit(value: unknown, items: readonly Pick<WardrobeItem, 'id' | 'category'>[]): Outfit {
@@ -147,6 +183,9 @@ export function parseOutfit(value: unknown, items: readonly Pick<WardrobeItem, '
     else if (typeof v === 'string' && byId.get(v)?.category === c) out[c] = v;
   }
   if (typeof src.hairStyle === 'string' && (HAIR_STYLES as string[]).includes(src.hairStyle)) out.hairStyle = src.hairStyle as HairStyle;
+  if (src.gender === 'female') out.gender = 'female';
+  if (typeof src.worn === 'string' && CATEGORIES.some(c => out[c] === src.worn)) out.worn = src.worn;
+  if (typeof src.torso === 'string' && CATEGORIES.some(c => out[c] === src.torso)) out.torso = src.torso;
   const colors = src.colors && typeof src.colors === 'object' ? src.colors as Record<string, unknown> : {};
   for (const l of LAYERS) { const v = colors[l]; if (typeof v === 'string' && HEX_RE.test(v)) out.colors[l] = v; }
   return out;
@@ -169,6 +208,8 @@ export function sanitizeOutfit(outfit: Outfit, items: readonly WardrobeItem[], u
     if (item && isOwned(item, unlocked)) continue;
     const fb = fallback[c];
     const fbItem = fb ? byId.get(fb) : undefined;
+    if (out.worn === id) delete out.worn;
+    if (out.torso === id) delete out.torso;
     out[c] = fbItem && isOwned(fbItem, unlocked) ? fb : null;
     delete out.colors[c];
   }
@@ -181,6 +222,7 @@ export function applyLook(outfit: Outfit, look: Partial<Record<WardrobeCategory,
   if (outfit.colors.hair) colors.hair = outfit.colors.hair;
   if (outfit.colors.skin) colors.skin = outfit.colors.skin;
   const next: Outfit = { ...outfit, colors };
+  delete next.worn; delete next.torso; // a look is shown as a whole (look art), not as the last single item
   for (const c of CATEGORIES) next[c] = look[c] ?? null;
   return next;
 }

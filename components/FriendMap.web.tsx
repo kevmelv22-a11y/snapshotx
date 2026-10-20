@@ -3,15 +3,18 @@ import {Pressable, StyleSheet, Text, View} from 'react-native';
 import type {FriendMapProps} from './FriendMap.native';
 import {FriendAvatar} from './avatar/FriendAvatar';
 import {OwnAvatar} from './avatar/OwnAvatar';
+import {useNow} from '../hooks/useNow';
+import {lastSeenText} from '../lib/map-privacy';
 
 export default function FriendMap({pins, own, ownAppearance, friendOutfits, selectedId, onSelect, onLocate}: FriendMapProps) {
+  const now = useNow();
   return <View style={styles.root}>
     <Text style={styles.title}>Kaart op je telefoon</Text>
     <Text style={styles.description}>De interactieve kaart gebruikt de native iOS- of Android-kaart in Snapshot X. Hier zie je alleen vrienden die locatie delen.</Text>
     {own && <Pressable onPress={onLocate} style={styles.row}><OwnAvatar userId={own.id} size={44} appearance={ownAppearance}/><Text style={styles.name}>Jij · locatie beschikbaar</Text></Pressable>}
     {pins.map(pin => <Pressable key={pin.id} onPress={() => onSelect(pin.id)} style={[styles.row, selectedId === pin.id && styles.selected]}>
       <FriendAvatar id={pin.id} outfit={friendOutfits?.get(pin.id)} size={44} name={pin.name} selected={selectedId === pin.id}/>
-      <View style={styles.copy}><Text style={styles.name}>{pin.name}</Text><Text style={styles.sub}>Deelt locatie met jou</Text></View>
+      <View style={styles.copy}><Text style={styles.name}>{pin.name}</Text><Text style={styles.sub}>{pin.updatedAt ? `Laatst gezien: ${lastSeenText(pin.updatedAt, now)}` : 'Deelt locatie met jou'}</Text></View>
     </Pressable>)}
     {!pins.length && <Text style={styles.description}>Nog geen vrienden op de kaart.</Text>}
   </View>;

@@ -1,6 +1,7 @@
 /**
  * kind: 'tint' = colour grade over the whole snap; 'face' = lens drawn on detected face landmarks;
- * 'frame' = decoration placed around the face (or centred when no face is found).
+ * 'frame' = decoration placed around the face (or centred when no face is found);
+ * 'world' = face-free 2D effect over the whole view (rear camera / no face), see lib/lens-effects.ts.
  */
 export const PHOTO_FILTERS = [
   {id: 'original', name: 'Origineel', tint: 'transparent', category: 'all', kind: 'tint', keywords: 'geen normaal'},
@@ -17,7 +18,17 @@ export const PHOTO_FILTERS = [
   {id: 'balaclava', name: 'Balaclava', tint: 'transparent', category: 'masks', kind: 'face', keywords: 'bivakmuts masker muts zwart'},
   {id: 'sunglasses', name: 'Zonnebril', tint: 'transparent', category: 'masks', kind: 'face', keywords: 'bril cool'},
   {id: 'crown', name: 'Kroon', tint: 'transparent', category: 'masks', kind: 'face', keywords: 'koning koningin'},
+  {id: 'dragon', name: 'Draak', tint: 'transparent', category: 'animals', kind: 'face', keywords: 'vuur hoorns mond open spuwen'},
+  {id: 'rainbow', name: 'Regenboog', tint: 'transparent', category: 'creative', kind: 'face', keywords: 'kleuren mond open regenboog'},
+  {id: 'blush', name: 'Blosjes', tint: 'transparent', category: 'creative', kind: 'face', keywords: 'lach glimlach hartjes wangen verliefd'},
+  {id: 'sparkle', name: 'Sterrenogen', tint: 'transparent', category: 'creative', kind: 'face', keywords: 'knipperen ogen sterren glitter'},
+  {id: 'clown', name: 'Clown', tint: 'transparent', category: 'masks', kind: 'face', keywords: 'neus pruik grappig circus'},
+  {id: 'devil', name: 'Duiveltje', tint: 'transparent', category: 'masks', kind: 'face', keywords: 'hoorntjes rood halloween'},
+  {id: 'halo', name: 'Engeltje', tint: 'transparent', category: 'masks', kind: 'face', keywords: 'aureool engel vleugels'},
   {id: 'hearts', name: 'Hartjes', tint: 'transparent', category: 'creative', kind: 'frame', keywords: 'liefde love'},
+  {id: 'confetti', name: 'Confetti', tint: 'transparent', category: 'creative', kind: 'world', keywords: 'feest party wereld achtercamera'},
+  {id: 'snow', name: 'Sneeuw', tint: '#CFE6FF18', category: 'mood', kind: 'world', keywords: 'winter sneeuwvlokken wereld achtercamera'},
+  {id: 'heartRain', name: 'Hartjesregen', tint: 'transparent', category: 'creative', kind: 'world', keywords: 'liefde hartjes regen wereld achtercamera'},
 ] as const;
 
 export type PhotoFilter = (typeof PHOTO_FILTERS)[number];

@@ -17,4 +17,8 @@ export type FaceGeometry = {
   landmarks?: Partial<Record<LandmarkName, Pt>>;
   rollAngle?: number;
   yawAngle?: number;
+  /** ML Kit classification (0…1), only present when the detector runs with `runClassifications`. */
+  leftEyeOpenProbability?: number;
+  rightEyeOpenProbability?: number;
+  smilingProbability?: number;
 };

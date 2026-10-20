@@ -4,6 +4,11 @@ import Svg, { Defs, Ellipse, LinearGradient, Path, Rect, Stop } from 'react-nati
 import { FaceFilterOverlay } from './FaceFilterOverlay';
 import { centroid, placeholderFace } from '../lib/face-filters/geometry';
 import type { PhotoFilter } from '../lib/photo-filters';
+import type { ExpressionState } from '../lib/face-filters/expressions';
+
+/** Tiles show triggered lenses mid-effect (mouth open / smiling / just blinked) so the effect is visible. */
+const TILE_EXPRESSION: ExpressionState = { active: { mouthOpen: true, smile: true, blink: false }, lastRise: { mouthOpen: 0, smile: 0, blink: 0 }, count: { mouthOpen: 1, smile: 1, blink: 1 } };
+const TILE_NOW_MS = 420;
 
 /** Tile preview: the app's own filter rendered on a neutral, drawn placeholder face (no photos). */
 export const LensTilePreview = React.memo(function LensTilePreview({ lens, width, height }: { lens: PhotoFilter; width: number; height: number }) {
@@ -36,7 +41,7 @@ export const LensTilePreview = React.memo(function LensTilePreview({ lens, width
       <Ellipse cx={mouth.x} cy={mouth.y} rx={rx * 0.3} ry={rx * 0.09} fill="#B5535C" />
       {lens.kind === 'tint' && <Rect width={width} height={height} fill={lens.tint} />}
     </Svg>
-    <FaceFilterOverlay filterId={lens.id} face={face} width={width} height={height} />
+    <FaceFilterOverlay filterId={lens.id} face={face} width={width} height={height} expression={TILE_EXPRESSION} nowMs={TILE_NOW_MS} />
   </View>;
 });
 

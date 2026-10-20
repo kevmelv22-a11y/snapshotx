@@ -6,6 +6,7 @@ import {useSession} from '../hooks/useSession';
 import {C} from '../lib/theme';
 import {Button,Hint,Page,Title} from '../components/UI';
 
+import {friendlyError} from '../lib/db-errors';
 export default function ReportScreen(){
  const {message_id,story_id}=useLocalSearchParams<{message_id?:string;story_id?:string}>();
  const {session}=useSession();
@@ -17,7 +18,7 @@ export default function ReportScreen(){
   const {error}=await supabase.from('sx_reports').insert({reporter_id:session.user.id,
    message_id:message_id||null,story_id:story_id||null,reason:reason.trim()});
   setBusy(false);
-  if(error)setNotice(error.message);else {setNotice('Melding ontvangen.');router.back()}
+  if(error)setNotice(friendlyError(error));else {setNotice('Melding ontvangen.');router.back()}
  }
  return <Page><Title>Meld inhoud</Title><Hint>Een moderator ziet je reden en welke story of welk bericht je meldt; privégesprekken worden niet volledig geopend.</Hint>
   <TextInput style={s.input} multiline value={reason} onChangeText={setReason} maxLength={1000}

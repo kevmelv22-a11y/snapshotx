@@ -4,25 +4,33 @@
  * Paid items use a MOCK purchase that only unlocks the item: no payment is ever made.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, FlatList, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { FigureArt, HeadPreviewArt, ItemPreviewArt } from '../../components/avatar/AvatarArt';
+import { ItemPreviewArt } from '../../components/avatar/AvatarArt';
+import { ArtTile } from '../../components/avatar/ArtTile';
 import { CategoryIcon } from '../../components/avatar/WardrobeIcons';
-import { REACTIONS, WardrobeAvatar, type Reaction } from '../../components/avatar/WardrobeAvatar';
+import { REACTIONS, type Reaction } from '../../components/avatar/WardrobeAvatar';
+import { OutfitArt, outfitArtId } from '../../components/avatar/OutfitArt';
+import { AppearancePicker } from '../../components/avatar/AppearancePicker';
+import { ITEM_ART } from '../../components/avatar/itemArt';
 import { useSession } from '../../hooks/useSession';
 import { useWardrobeSync } from '../../hooks/useWardrobeSync';
 import {
-  CATEGORIES, DEFAULT_HAIR, DEFAULT_OUTFIT, DEFAULT_SKIN, HAIR_STYLES, applyLook, formatPriceCents, isFree, isOwned, itemsForTab, recolor, removeLayer, unownedItems, wearItem,
-  type CategoryTab, type HairStyle, type Layer, type Outfit, type OutfitHistory, type SortMode, type WardrobeCategory, type WardrobeItem,
+  CATEGORIES, DEFAULT_HAIR, DEFAULT_OUTFIT, applyLook, defaultOutfitFor, formatPriceCents, isFree, isOwned, itemsForTab, recolor, removeLayer, unownedItems, wearItem,
+  type CategoryTab, type Gender, type Layer, type Outfit, type OutfitHistory, type SortMode, type WardrobeCategory, type WardrobeItem,
 } from '../../lib/avatar/outfit';
 import {
-  CATEGORY_TABS, CHIP_CATEGORIES, CURATED_LOOKS, HAIR_STYLE_LABELS, ITEMS_BY_ID, SKIN_SWATCHES, WARDROBE_ITEMS, swatchesFor, type CuratedLook,
+  CATEGORY_TABS, CHIP_CATEGORIES, CURATED_LOOKS, ITEMS_BY_ID, WARDROBE_ITEMS, swatchesFor, type CuratedLook,
 } from '../../lib/avatar/wardrobeItems';
 import { useWardrobe } from '../../stores/wardrobe';
+import { useAvatarPose } from '../../stores/avatarPose';
+import { PosePicker } from '../../components/avatar/PosePicker';
+import { CHARACTER_LABEL, saveCharacter } from '../../lib/avatar/character';
+import { friendlyError } from '../../lib/db-errors';
 
 type SheetTab = 'mode' | 'kast' | 'avatar';
 type ModeFilter = 'featured' | 'premium';
@@ -64,8 +72,11 @@ export default function WardrobeScreen() {
   const closing = useRef(false);
 
   // Restore the saved outfit once AsyncStorage has hydrated, then reconcile with the account copy.
+  // `?keep=1` (editor / Mode route handing over a previewed look): keep that unsaved draft instead of restarting.
+  const { keep } = useLocalSearchParams<{ keep?: string }>();
+  const keepDraft = useRef(keep === '1');
   useEffect(() => {
-    const start = () => { useWardrobe.getState().begin(); setReady(true); };
+    const start = () => { const st = useWardrobe.getState(); if (!(keepDraft.current && st.history.past.length)) st.begin(); setReady(true); };
     if (useWardrobe.persist.hasHydrated()) { start(); return; }
     return useWardrobe.persist.onFinishHydration(start);
   }, []);
@@ -79,7 +90,10 @@ export default function WardrobeScreen() {
   const activeLayer: Layer | null = tab === 'avatar' ? 'hair' : tab === 'mode' || category === 'featured' || category === 'all' ? lastLayer : category;
   const activeItem = activeLayer && activeLayer !== 'hair' ? (outfit[activeLayer] ? ITEMS_BY_ID.get(outfit[activeLayer]!) : undefined) : undefined;
   // The Avatar tab has its own hair/skin rows, so the side strip only serves clothing layers.
-  const swatches = tab !== 'avatar' && activeItem ? swatchesFor(activeLayer) : [];
+  // Clothing colour swatches are hidden: the preview is pre-rendered art that cannot be recoloured, so a swatch
+  // would change nothing visible (and the art cards would lie about the colour). Hair/skin stay in the Avatar tab.
+  const swatches: string[] = [];
+  void swatchesFor;
   const activeColor = activeLayer === 'hair' ? (outfit.colors.hair ?? DEFAULT_HAIR) : activeItem ? (outfit.colors[activeItem.category] ?? activeItem.colors[0]) : null;
 
   const data = useMemo(() => itemsForTab(WARDROBE_ITEMS, category, { onlyFree, sort }), [category, onlyFree, sort]);
@@ -126,7 +140,6 @@ export default function WardrobeScreen() {
     setPending(null);
     react();
   };
-  const applyBody = (next: Outfit) => { setPending(null); useWardrobe.getState().apply(next); };
   const onSwatch = (color: string) => {
     if (!activeLayer) return;
     if (activeLayer !== 'hair' && !outfit[activeLayer]) return;
@@ -165,7 +178,11 @@ export default function WardrobeScreen() {
 
     {/* avatar */}
     <View style={[s.avatarWrap, { top: stageH - 26 - avatarW * 2 * 0.885, left: (winW - avatarW) / 2, transform: [{ scale: avatarScale }] }]} pointerEvents="none">
-      {ready && <WardrobeAvatar outfit={outfit} width={avatarW} reaction={reaction}/>}
+      {/* ChatGPT-style art only: the exact look image, else the closest look (lib/avatar/avatarArt nearestLookArt). */}
+      {ready && <View style={{ width: avatarW, height: avatarW * 2 * 0.885 + 10, justifyContent: 'flex-end' }} testID={`kast-preview-art:${outfitArtId(outfit)}`}>
+        <OutfitArt outfit={outfit} width={avatarW} height={avatarW * 2 * 0.885}/>
+        <View style={s.artShadow}/>
+      </View>}
     </View>
 
     {/* top bar */}
@@ -229,7 +246,7 @@ export default function WardrobeScreen() {
         <Chip label={onlyFree ? 'Alleen gratis' : 'Filter'} active={onlyFree} icon="options-outline" onPress={() => setOnlyFree(v => !v)}/>
       </View>}
 
-      {tab === 'avatar' ? <AvatarPanel outfit={outfit} bottomPad={insets.bottom + 40} onApply={applyBody}/>
+      {tab === 'avatar' ? <AvatarPanel outfit={outfit} bottomPad={insets.bottom + 40}/>
         : tab === 'mode' ? <FlatList
           key={`mode-${modeFilter}`}
           data={modeData}
@@ -303,7 +320,7 @@ const ItemCard = React.memo(function ItemCard({ item, width, height, selected, c
     <View style={s.card}>
       <View style={{ width: inner, height: imgH }}>
         <CardGlow width={inner} height={imgH}/>
-        <ItemPreviewArt item={item} color={color} width={inner} height={imgH}/>
+        <ItemThumb item={item} color={color} width={inner} height={imgH}/>
         {!owned && <View style={s.euro}><Text style={s.euroText}>€</Text></View>}
       </View>
       <BrandLabel brand={item.brand}/>
@@ -319,28 +336,28 @@ function CardGlow({ width, height }: { width: number; height: number }) {
 }
 
 const BRAND_STYLE: Record<string, object> = {
-  blueberry: { fontWeight: '900', letterSpacing: -0.2 },
-  Nike: { fontWeight: '900', fontStyle: 'italic', letterSpacing: 0.5 },
-  carhartt: { fontWeight: '800', letterSpacing: 0.2 },
-  'CLUB SPORTIF': { fontFamily: SERIF, fontWeight: '700', letterSpacing: 1.2, fontSize: 10 },
-  VERSACE: { fontFamily: SERIF, letterSpacing: 2.4, fontSize: 12 },
-  BALENCIAGA: { fontWeight: '800', letterSpacing: 1, fontSize: 9.5 },
-  COACH: { fontFamily: SERIF, fontWeight: '700', letterSpacing: 2.2 },
-  adidas: { fontWeight: '800', letterSpacing: 0.3 },
-  DRESSX: { fontWeight: '900', letterSpacing: 1.6 },
-  'MIU MIU': { fontWeight: '600', letterSpacing: 2.6 },
-  Paramount: { fontFamily: SERIF, fontStyle: 'italic', letterSpacing: 0.3 },
-  LACOSTE: { fontWeight: '600', letterSpacing: 1.8, fontSize: 10.5 },
-  PRADA: { fontFamily: SERIF, fontWeight: '800', letterSpacing: 2.2 },
-  UGG: { fontFamily: SERIF, fontWeight: '900', letterSpacing: 1.4, fontSize: 13 },
-  crocs: { fontWeight: '900', fontStyle: 'italic' },
+  'Basisbes': { fontWeight: '900', letterSpacing: -0.2 },
+  'Strideon': { fontWeight: '900', fontStyle: 'italic', letterSpacing: 0.5 },
+  'Ploeg & Co': { fontWeight: '800', letterSpacing: 0.2 },
+  'CLUB VELDE': { fontFamily: SERIF, fontWeight: '700', letterSpacing: 1.2, fontSize: 10 },
+  'AURELIO': { fontFamily: SERIF, letterSpacing: 2.4, fontSize: 12 },
+  'BALDERO': { fontWeight: '800', letterSpacing: 1, fontSize: 9.5 },
+  'LINDEHOF': { fontFamily: SERIF, fontWeight: '700', letterSpacing: 2.2 },
+  'trivo': { fontWeight: '800', letterSpacing: 0.3 },
+  'PIXELWEAR': { fontWeight: '900', letterSpacing: 1.6 },
+  'LUNE LUNE': { fontWeight: '600', letterSpacing: 2.6 },
+  'Sterrenzaal': { fontFamily: SERIF, fontStyle: 'italic', letterSpacing: 0.3 },
+  'MAISON ORLÉ': { fontWeight: '600', letterSpacing: 1.8, fontSize: 10.5 },
+  'ROSSANO': { fontFamily: SERIF, fontWeight: '800', letterSpacing: 2.2 },
+  'WOLKJE': { fontFamily: SERIF, fontWeight: '900', letterSpacing: 1.4, fontSize: 13 },
+  'klompz': { fontWeight: '900', fontStyle: 'italic' },
   'Festive Fashion': { fontFamily: SERIF, fontStyle: 'italic' },
-  'X NATION': { fontWeight: '900', letterSpacing: 0.4, fontSize: 10 },
-  OVERTIME: { fontWeight: '900', fontStyle: 'italic', letterSpacing: 0.8 },
+  'FLITS CREW': { fontWeight: '900', letterSpacing: 0.4, fontSize: 10 },
+  'VERLENGING': { fontWeight: '900', fontStyle: 'italic', letterSpacing: 0.8 },
 };
 
 function BrandLabel({ brand }: { brand: string }) {
-  if (brand === 'Atlas Wear') return <Text style={s.brand} numberOfLines={1}>Atlas <Text style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: '700' }}>Wear</Text></Text>;
+  if (brand === 'Kast Studio') return <Text style={s.brand} numberOfLines={1}>Kast <Text style={{ fontFamily: SERIF, fontStyle: 'italic', fontWeight: '700' }}>Studio</Text></Text>;
   return <Text style={[s.brand, BRAND_STYLE[brand]]} numberOfLines={1}>{brand}</Text>;
 }
 
@@ -367,6 +384,17 @@ function ModeHeader({ outfit, unlocked, filter, onFilter, onLook }: { outfit: Ou
   </View>;
 }
 
+/** Item tile image: the ChatGPT-style thumbnail (components/avatar/itemArt) when there is one, else the old render.
+ *  The art can't be recoloured, so a recolour of an art-backed item still shows the original colour. */
+function ItemThumb({ item, color, width, height }: { item: WardrobeItem; color?: string; width: number; height: number }) {
+  const src = ITEM_ART[item.id];
+  if (!src) return <ItemPreviewArt item={item} color={color} width={width} height={height}/>;
+  const side = Math.min(width, height);
+  return <View style={{ width, height, alignItems: 'center', justifyContent: 'center' }} testID={`item-art:${item.id}`}>
+    <Image source={src} style={{ width: side, height: side }} resizeMode="contain" accessibilityIgnoresInvertColors/>
+  </View>;
+}
+
 const LOOK_W = 116, LOOK_IMG = 138;
 const LookCard = React.memo(function LookCard({ look, selected, unlocked, onPress }: { look: CuratedLook; selected: boolean; unlocked: string[]; onPress: (l: CuratedLook) => void }) {
   const items = LOOK_ITEMS.get(look.id) ?? [];
@@ -376,7 +404,7 @@ const LookCard = React.memo(function LookCard({ look, selected, unlocked, onPres
     <View style={s.lookCard}>
       <View style={{ width: LOOK_W - 5, height: LOOK_IMG }}>
         <CardGlow width={LOOK_W - 5} height={LOOK_IMG}/>
-        <FigureArt outfit={LOOK_OUTFITS.get(look.id)!} width={LOOK_W - 5} height={LOOK_IMG} crop={[28, 8, 144, 352]}/>
+        <OutfitArt outfit={{ ...LOOK_OUTFITS.get(look.id)!, gender: useWardrobe.getState().gender }} width={LOOK_W - 5} height={LOOK_IMG - 6}/>
         {toBuy.length > 0 && <View style={s.euro}><Text style={s.euroText}>€</Text></View>}
       </View>
       <View style={s.lookText}>
@@ -387,68 +415,37 @@ const LookCard = React.memo(function LookCard({ look, selected, unlocked, onPres
   </Pressable>;
 });
 
-function AvatarPanel({ outfit, bottomPad, onApply }: { outfit: Outfit; bottomPad: number; onApply: (next: Outfit) => void }) {
-  const hair = outfit.colors.hair ?? null;
-  const skin = (outfit.colors.skin ?? DEFAULT_SKIN).toUpperCase();
-  const setHairColor = (color: string | null) => {
-    const colors = { ...outfit.colors };
-    if (color) colors.hair = color; else delete colors.hair;
-    onApply({ ...outfit, colors });
-  };
+function AvatarPanel({ outfit, bottomPad }: { outfit: Outfit; bottomPad: number }) {
+  // Character set (Man / Vrouw) + skin tone / hair colour / hairstyle (AppearancePicker: recoloured overlays of the
+  // same composited art; previewed like any kast change and saved with the outfit).
+  const pose = useAvatarPose(st => st.pose);
+  const gender = useWardrobe(st => st.gender);
+  const saved = useWardrobe(st => st.saved);
+  const savedAt = useWardrobe(st => st.savedAt);
+  // Preview = what wardrobe.setGender gives: the saved outfit on the other set, else that set's start look.
+  const asCharacter = (g: Gender): Outfit => savedAt ? { ...saved, gender: g } : defaultOutfitFor(g);
+  const [error, setError] = useState('');
+  const pick = (g: Gender) => { setError(''); void saveCharacter(g).then(e => { if (e) setError(friendlyError(e, 'Opslaan')); }); };
   return <ScrollView style={{ flex: 1 }} contentContainerStyle={[s.avatarPanel, { paddingBottom: bottomPad }]} showsVerticalScrollIndicator={false}>
-    <Text style={s.panelTitle}>Kapsel</Text>
+    <PosePicker outfit={outfit} value={pose} onChange={useAvatarPose.getState().setPose}/>
+    <Text style={s.panelTitle}>Karakter</Text>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.looksScroll} contentContainerStyle={s.looksRow}>
-      {HAIR_STYLES.map(style => <HairCard key={style} style={style} outfit={outfit} selected={outfit.hairStyle === style} onPress={() => onApply({ ...outfit, hairStyle: style })}/>)}
+      {(['male', 'female'] as const).map(g => <ArtTile key={g} outfit={g === gender ? outfit : asCharacter(g)} width={LOOK_W} imageHeight={LOOK_IMG}
+        label={CHARACTER_LABEL[g]} meta={g === gender ? 'Gekozen' : 'Tik om te wisselen'} selected={g === gender} onPress={() => pick(g)} testID={`kast-character:${g}`}/>)}
     </ScrollView>
+    {!!error && <Text style={s.panelHint}>{error}</Text>}
+    <AppearancePicker outfit={outfit} tileSize={LOOK_W} titleStyle={s.panelTitle} hintStyle={s.panelHint} onChange={next => useWardrobe.getState().apply(next)}/>
 
-    <Text style={s.panelTitle}>Haarkleur</Text>
-    <View style={s.swatchRow}>
-      <Pressable onPress={() => setHairColor(null)} style={[s.bigSwatchRing, !hair && s.bigSwatchRingActive]} accessibilityRole="button" accessibilityLabel="Standaard haarkleur met blonde punten" accessibilityState={{ selected: !hair }}>
-        <View style={[s.bigSwatch, { backgroundColor: DEFAULT_HAIR, overflow: 'hidden' }]}><View style={s.tipsHalf}/></View>
-      </Pressable>
-      {swatchesFor('hair').map(color => {
-        const active = hair?.toUpperCase() === color.toUpperCase();
-        return <Pressable key={color} onPress={() => setHairColor(color)} style={[s.bigSwatchRing, active && s.bigSwatchRingActive]} accessibilityRole="button" accessibilityLabel={`Haarkleur ${color}`} accessibilityState={{ selected: active }}>
-          <View style={[s.bigSwatch, { backgroundColor: color }]}/>
-        </Pressable>;
-      })}
-    </View>
-    <Text style={s.panelHint}>De eerste kleur is je standaard krullen met blonde punten.</Text>
-
-    <Text style={s.panelTitle}>Huidskleur</Text>
-    <View style={s.swatchRow}>
-      {SKIN_SWATCHES.map(color => {
-        const active = skin === color.toUpperCase();
-        return <Pressable key={color} onPress={() => onApply(recolor(outfit, 'skin', color))} style={[s.bigSwatchRing, active && s.bigSwatchRingActive]} accessibilityRole="button" accessibilityLabel={`Huidskleur ${color}`} accessibilityState={{ selected: active }}>
-          <View style={[s.bigSwatch, { backgroundColor: color }]}/>
-        </Pressable>;
-      })}
-    </View>
-
-    <Pressable onPress={() => router.push('/avatar-editor')} style={({ pressed }) => [s.editorLink, pressed && { opacity: 0.8 }]} accessibilityRole="link" accessibilityLabel="Klassieke avatar-editor openen">
+    <Pressable onPress={() => router.push('/avatar-editor')} style={({ pressed }) => [s.editorLink, pressed && { opacity: 0.8 }]} accessibilityRole="link" accessibilityLabel="Avatar-editor openen">
       <View style={s.editorIcon}><Ionicons name="color-wand-outline" size={20} color="#FFF"/></View>
       <View style={{ flex: 1 }}>
-        <Text style={s.editorTitle}>Klassieke avatar-editor</Text>
-        <Text style={s.editorSub}>Gezicht, kapsel en kleding van je Snapshot X-avatar</Text>
+        <Text style={s.editorTitle}>Avatar-editor</Text>
+        <Text style={s.editorSub}>Looks en karakter van je Snapshot X-avatar</Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color="#8E8E93"/>
     </Pressable>
   </ScrollView>;
 }
-
-const HAIR_W = 82, HAIR_IMG = 84;
-const HairCard = React.memo(function HairCard({ style, outfit, selected, onPress }: { style: HairStyle; outfit: Outfit; selected: boolean; onPress: () => void }) {
-  const preview = useMemo(() => ({ ...outfit, hairStyle: style }), [outfit, style]);
-  return <Pressable onPress={onPress} style={[s.lookRing, { width: HAIR_W }, selected && { borderColor: BLUE }]} accessibilityRole="button" accessibilityLabel={`Kapsel ${HAIR_STYLE_LABELS[style]}`} accessibilityState={{ selected }}>
-    <View style={s.lookCard}>
-      <View style={{ width: HAIR_W - 5, height: HAIR_IMG }}>
-        <CardGlow width={HAIR_W - 5} height={HAIR_IMG}/>
-        <HeadPreviewArt outfit={preview} width={HAIR_W - 5} height={HAIR_IMG}/>
-      </View>
-      <Text style={s.hairLabel} numberOfLines={1}>{HAIR_STYLE_LABELS[style]}</Text>
-    </View>
-  </Pressable>;
-});
 
 function PurchaseSheet({ pending, bottomInset, onBuy, onDismiss }: { pending: Pending | null; bottomInset: number; onBuy: () => void; onDismiss: () => void }) {
   const [y] = useState(() => new Animated.Value(220));
@@ -487,7 +484,7 @@ function SaveCheckSheet({ items, bottomInset, onBuyAndSave, onSaveWithout, onCan
       <Text style={s.buySub}>Deze items heb je nog niet gekocht. Zonder kopen worden ze niet in je outfit opgeslagen.</Text>
       <View style={s.checkList}>
         {items.map(i => <View key={i.id} style={s.checkItem}>
-          <View style={s.checkThumb}><ItemPreviewArt item={i} width={40} height={40}/></View>
+          <View style={s.checkThumb}><ItemThumb item={i} width={40} height={40}/></View>
           <Text style={s.checkName} numberOfLines={1}>{i.name}</Text>
           <Text style={s.buyPrice}>{priceText(i.priceCents ?? 0)}</Text>
         </View>)}
@@ -504,6 +501,7 @@ function SaveCheckSheet({ items, bottomInset, onBuyAndSave, onSaveWithout, onCan
 }
 
 const s = StyleSheet.create({
+  artShadow: { alignSelf: 'center', width: '70%', height: 10, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.45)', marginTop: -6, zIndex: -1 },
   root: { flex: 1, backgroundColor: '#000', overflow: 'hidden' },
   avatarWrap: { position: 'absolute' },
   topBar: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -545,16 +543,10 @@ const s = StyleSheet.create({
   avatarPanel: { paddingHorizontal: 12, paddingTop: 12 },
   panelTitle: { color: '#FFF', fontSize: 16, fontWeight: '800', marginTop: 6, marginBottom: 8 },
   panelHint: { color: '#8E8E93', fontSize: 12, marginTop: -2, marginBottom: 8 },
-  swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 },
-  bigSwatchRing: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
-  bigSwatchRingActive: { borderColor: BLUE },
-  bigSwatch: { width: 31, height: 31, borderRadius: 15.5, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.25)' },
-  tipsHalf: { position: 'absolute', left: 0, right: 0, top: 0, height: 13, backgroundColor: '#E2BF74' },
   editorLink: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, padding: 14, borderRadius: 14, backgroundColor: '#1C1C1E' },
   editorIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3A3A3C', alignItems: 'center', justifyContent: 'center' },
   editorTitle: { color: '#FFF', fontSize: 15, fontWeight: '800' },
   editorSub: { color: '#8E8E93', fontSize: 12, marginTop: 2 },
-  hairLabel: { color: '#D1D1D6', fontSize: 12, fontWeight: '700', textAlign: 'center', paddingVertical: 6 },
   modeHeader: { gap: 0, marginBottom: 2 },
   sectionHead: { marginBottom: 8 },
   sectionTitle: { color: '#FFF', fontSize: 17, fontWeight: '800' },
