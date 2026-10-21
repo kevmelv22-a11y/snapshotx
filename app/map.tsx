@@ -10,7 +10,6 @@ import {OwnAvatar} from '../components/avatar/OwnAvatar';
 import {FriendAvatar} from '../components/avatar/FriendAvatar';
 import {useWardrobeSync} from '../hooks/useWardrobeSync';
 import {useFriendOutfits} from '../hooks/useFriendOutfits';
-import {Media} from '../components/Media';
 import {useSession} from '../hooks/useSession';
 import {supabase} from '../lib/supabase';
 import {readAvatarAppearance} from '../lib/avatar';
@@ -19,7 +18,6 @@ import {DEFAULT_PRIVACY, ghostStatusText, isGhost, isSharing, lastSeenText, priv
 
 import {friendlyError} from '../lib/db-errors';
 type LocationRow = {user_id: string; latitude: number; longitude: number; sharing: boolean; home_confirmed?: boolean; updated_at: string; share_audience?: string; ghost_until?: string | null; ghost_forever?: boolean};
-type MemoryRow = {id: string; storage_path: string; media_type: 'photo' | 'video'; created_at: string};
 
 export default function MapScreen() {
   const {session} = useSession();
@@ -34,9 +32,9 @@ export default function MapScreen() {
   const [homeAvailable, setHomeAvailable] = useState(false);
   const [trail, setTrail] = useState<Point[]>([]);
   const [footsteps, setFootsteps] = useState(false);
-  const [memoriesOpen, setMemoriesOpen] = useState(false);
-  const [memories, setMemories] = useState<MemoryRow[]>([]);
-  const [memoriesError, setMemoriesError] = useState('');
+  // Measured heights of the floating header/footer: the web fallback list is padded to sit between them.
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [footerHeight, setFooterHeight] = useState(0);
   const [focused, setFocused] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusOwn, setFocusOwn] = useState(0);
@@ -270,22 +268,13 @@ export default function MapScreen() {
     setBusy(false);
   }
 
-  async function openMemories() {
-    if (!uid) return;
-    setMemoriesOpen(true);
-    setMemoriesError('');
-    const {data, error} = await supabase.from('memories').select('id,storage_path,media_type,created_at').eq('owner_id', uid).is('deleted_at', null).order('created_at', {ascending: false}).limit(30);
-    if (error) setMemoriesError(friendlyError(error, 'Herinneringen'));
-    else setMemories((data || []) as MemoryRow[]);
-  }
-
   // Friends' saved wardrobe outfits (batched + cached); friends without one keep the classic avatar art.
   const friendOutfits = useFriendOutfits(pins.map(pin => pin.id), {live: true});
   const filtered = pins.filter(pin => pin.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const selected = pins.find(pin => pin.id === selectedId);
   return <View style={styles.root}>
-    <FriendMap pins={filtered} own={own} ownAppearance={ownAppearance} friendOutfits={friendOutfits} trail={footsteps ? trail : []} selectedId={selectedId} focusOwn={focusOwn} focusNetherlands={focusNetherlands} onSelect={setSelectedId} onLocate={() => void locate()}/>
-    <View style={[styles.header, {top: insets.top + 8}]} pointerEvents="box-none">
+    <FriendMap pins={filtered} own={own} ownAppearance={ownAppearance} friendOutfits={friendOutfits} trail={footsteps ? trail : []} selectedId={selectedId} focusOwn={focusOwn} focusNetherlands={focusNetherlands} onSelect={setSelectedId} onLocate={() => void locate()} overlayInsets={{top: insets.top + 8 + headerHeight, bottom: footerHeight}}/>
+    <View style={[styles.header, {top: insets.top + 8}]} pointerEvents="box-none" onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)}>
       <View style={styles.titleRow}>
         <View style={styles.headerGroup}>
           <Pressable style={styles.round} onPress={() => router.push('/(tabs)/profile')} accessibilityLabel="Mijn profiel"><OwnAvatar userId={uid} size={42} appearance={ownAppearance}/></Pressable>
@@ -302,7 +291,7 @@ export default function MapScreen() {
       </ScrollView>
       {!!notice && <Pressable style={styles.notice} onPress={() => setNotice('')} accessibilityLabel="Melding sluiten"><Text style={styles.noticeText}>{notice}  ×</Text></Pressable>}
     </View>
-    <View style={styles.footer} pointerEvents="box-none">
+    <View style={styles.footer} pointerEvents="box-none" onLayout={e => setFooterHeight(e.nativeEvent.layout.height)}>
       <View style={styles.actions}>
         <Pressable style={styles.action} onPress={() => router.push('/memories')} accessibilityLabel="Herinneringen bekijken"><Ionicons name="albums-outline" size={17} color="#fff"/><Text style={styles.actionText}>Herinneringen</Text></Pressable>
         <Pressable style={styles.action} onPress={() => router.push('/discover')} accessibilityLabel="Trending verhalen bekijken"><Ionicons name="flame-outline" size={17} color="#fff"/><Text style={styles.actionText}>Trending</Text></Pressable>
@@ -320,18 +309,6 @@ export default function MapScreen() {
     </View>
     <Modal visible={privacyOpen} transparent animationType="slide" onRequestClose={() => setPrivacyOpen(false)}>
       <View style={styles.modalShade}><MapPrivacySheet privacy={privacy} friends={privacyFriends} now={clock} busy={busy} onChange={next => void savePrivacy(next)} onClose={() => setPrivacyOpen(false)} renderAvatar={f => <FriendAvatar id={f.id} outfit={friendOutfits.get(f.id)} size={34} name={f.name}/>}/></View>
-    </Modal>
-    <Modal visible={memoriesOpen} transparent animationType="slide" onRequestClose={() => setMemoriesOpen(false)}>
-      <View style={styles.modalShade}>
-        <View style={[styles.modalCard, {paddingBottom: Math.max(insets.bottom, 18)}]}>
-          <View style={styles.modalHeader}><Text style={styles.modalTitle}>Mijn herinneringen</Text><Pressable onPress={() => setMemoriesOpen(false)} accessibilityLabel="Herinneringen sluiten"><Ionicons name="close" color="#fff" size={25}/></Pressable></View>
-          {!!memoriesError && <Text style={styles.modalInfo}>{memoriesError}</Text>}
-          {!memoriesError && !memories.length && <Text style={styles.modalInfo}>Je hebt nog geen herinneringen opgeslagen.</Text>}
-          <ScrollView contentContainerStyle={styles.memoryList}>
-            {memories.map(item => <View key={item.id} style={styles.memoryTile}><Media path={item.storage_path} type={item.media_type} style={styles.memoryImage}/><Text style={styles.memoryDate}>{new Date(item.created_at).toLocaleDateString('nl-NL')}</Text></View>)}
-          </ScrollView>
-        </View>
-      </View>
     </Modal>
   </View>;
 }
@@ -370,12 +347,4 @@ const styles = StyleSheet.create({
   personName: {color: '#fff', fontSize: 11, fontWeight: '700', textAlign: 'center', maxWidth: 75},
   emptyPerson: {height: 75, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 15, backgroundColor: '#312347'},
   modalShade: {flex: 1, justifyContent: 'flex-end', backgroundColor: '#000A'},
-  modalCard: {height: '55%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#191323', padding: 18},
-  modalHeader: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12},
-  modalTitle: {color: '#fff', fontSize: 21, fontWeight: '800'},
-  modalInfo: {color: '#C8BDD1', fontSize: 14, paddingVertical: 14},
-  memoryList: {flexDirection: 'row', flexWrap: 'wrap', gap: 10},
-  memoryTile: {width: '30%', height: 144, borderRadius: 12, overflow: 'hidden', backgroundColor: '#34263F'},
-  memoryImage: {width: '100%', height: 112},
-  memoryDate: {color: '#fff', fontSize: 11, padding: 5},
 });

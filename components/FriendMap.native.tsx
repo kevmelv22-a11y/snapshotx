@@ -7,10 +7,11 @@ import {OwnAvatarFigure} from './avatar/OwnAvatar';
 import {useOwnOutfit} from '../hooks/useWardrobeSync';
 import type {AvatarAppearance} from '../lib/avatar';
 import type {FriendOutfitValue} from '../hooks/useFriendOutfits';
+import type {OverlayInsets} from '../lib/map-layout';
 
 export type Pin = {id: string; name: string; username?: string; homeConfirmed?: boolean; latitude: number; longitude: number; /** ISO time of the friend's last location update (for 'laatst gezien'). */ updatedAt?: string};
 export type Point = {latitude: number; longitude: number};
-export type FriendMapProps = {pins: Pin[]; own: Pin | null; ownAppearance?: AvatarAppearance; /** Friends' saved wardrobe outfits ('pending' = neutral placeholder, missing = classic art). */ friendOutfits?: ReadonlyMap<string, FriendOutfitValue>; trail: Point[]; selectedId: string | null; focusOwn: number; focusNetherlands: number; onSelect: (id: string | null) => void; onLocate: () => void};
+export type FriendMapProps = {pins: Pin[]; own: Pin | null; ownAppearance?: AvatarAppearance; /** Friends' saved wardrobe outfits ('pending' = neutral placeholder, missing = classic art). */ friendOutfits?: ReadonlyMap<string, FriendOutfitValue>; trail: Point[]; selectedId: string | null; focusOwn: number; focusNetherlands: number; onSelect: (id: string | null) => void; onLocate: () => void; /** Heights of the screen's floating header/footer (used by the web list fallback only). */ overlayInsets?: OverlayInsets};
 
 /*
  * Custom avatar markers (react-native-svg inside react-native-maps <Marker>):
