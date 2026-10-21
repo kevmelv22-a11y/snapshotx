@@ -2,7 +2,7 @@ import React from 'react';
 import {Pressable,StyleSheet,Text,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {C} from '../../lib/theme';
-import {APP_ICONS,FEATURES,PLANS,WALLPAPERS,formatPrice,monthlyEquivalentCents,periodLabel,yearlySavingPercent,type PlanId} from '../../lib/plus';
+import {APP_ICONS,WALLPAPERS,featuresFor,formatPrice,getPlan,monthlyEquivalentCents,periodLabel,plansFor,tierInfo,yearlySavingPercent,type PlanId,type Tier} from '../../lib/plus';
 
 /** Small "X+" badge next to a name. */
 export function PlusBadge({size=14}:{size?:number}){return <View accessibilityLabel="X+-abonnee" style={[s.badge,{paddingHorizontal:size*0.4,borderRadius:size}]}><Text style={[s.badgeText,{fontSize:size*0.8}]}>X+</Text></View>}
@@ -12,18 +12,25 @@ export function PriorityReplyBadge(){return <View style={s.prio}><Ionicons name=
 export function RewatchPill({label}:{label:string|null}){if(!label)return null;return <View style={s.rewatch}><Ionicons name="repeat" size={14} color={C.yellow}/><Text style={s.rewatchText}>{label}</Text></View>}
 export function NameWithBadge({name,plus}:{name:string;plus:boolean}){return <View style={s.row}><Text style={s.name}>{name}</Text>{plus&&<PlusBadge/>}</View>}
 
-export function Paywall({selected,onSelect,onBuy,onRestore,onTerms,onPrivacy,busy,notice}:{selected:PlanId;onSelect:(p:PlanId)=>void;onBuy:()=>void;onRestore:()=>void;onTerms:()=>void;onPrivacy:()=>void;busy?:boolean;notice?:string|null}){
-  const save=yearlySavingPercent();
+const TABS:Tier[]=['plus','lens','platinum','family'];
+/** Multi-tier paywall: tier tabs (X+, Lens+, Platinum, Gezin), plan options per tier, trial CTA, storage-only add-on link. */
+export function Paywall({tier,onTier,selected,onSelect,onBuy,onRestore,onTerms,onPrivacy,onStorage,busy,notice,trial,current}:{tier:Tier;onTier:(t:Tier)=>void;selected:PlanId;onSelect:(p:PlanId)=>void;onBuy:()=>void;onRestore:()=>void;onTerms:()=>void;onPrivacy:()=>void;onStorage?:()=>void;busy?:boolean;notice?:string|null;trial?:boolean;current?:PlanId|null}){
+  const info=tierInfo(tier),plans=plansFor(tier),save=yearlySavingPercent(tier),plan=getPlan(selected)!,showTrial=!!trial&&plan.trialDays>0,isCur=current===selected;
   return <View style={s.pw}>
-    <View style={s.hero}><Text style={s.heroLogo}>X+</Text><Text style={s.heroTitle}>Snapshot X+</Text><Text style={s.heroSub}>Meer uit je vrienden, chats en verhalen</Text></View>
-    {FEATURES.map(f=><View key={f.id} style={s.feat}><Ionicons name={f.icon as any} size={22} color={C.yellow}/><View style={{flex:1}}><Text style={s.featTitle}>{f.title}</Text><Text style={s.featDesc}>{f.description}</Text></View></View>)}
-    <View style={s.plans}>{PLANS.map(p=>{const on=p.id===selected;return <Pressable key={p.id} accessibilityRole="radio" accessibilityState={{checked:on}} onPress={()=>onSelect(p.id)} style={[s.plan,on&&s.planOn]}>
+    {tier!=='storage'&&<View style={s.tabs} accessibilityRole="tablist">{TABS.map(t=><Pressable key={t} accessibilityRole="tab" accessibilityState={{selected:t===tier}} onPress={()=>onTier(t)} style={[s.tab,t===tier&&s.tabOn]}><Text style={[s.tabText,t===tier&&s.tabTextOn]}>{tierInfo(t).name.replace('Snapshot ','')}</Text></Pressable>)}</View>}
+    <View style={s.hero}><Text style={[s.heroLogo,tier==='platinum'&&{backgroundColor:'#D9DCE3'},tier==='lens'&&{backgroundColor:C.pink,color:'white'}]}>{tier==='lens'?'L+':tier==='platinum'?'P':tier==='storage'?'☁':'X+'}</Text><Text style={s.heroTitle}>{info.name}</Text><Text style={s.heroSub}>{info.tagline}</Text></View>
+    {info.perks.map(p=><View key={p} style={s.perk}><Ionicons name="checkmark-circle" size={18} color={C.yellow}/><Text style={s.featTitle}>{p}</Text></View>)}
+    {tier!=='storage'&&featuresFor(tier).map(f=><View key={f.id} style={s.feat}><Ionicons name={f.icon as any} size={22} color={C.yellow}/><View style={{flex:1}}><Text style={s.featTitle}>{f.title}</Text><Text style={s.featDesc}>{f.description}</Text></View>{f.minTier!=='plus'&&<Text style={s.newTag}>{tierInfo(f.minTier).name.replace('Snapshot ','')}</Text>}</View>)}
+    <View style={s.plans}>{plans.map(p=>{const on=p.id===selected;return <Pressable key={p.id} accessibilityRole="radio" accessibilityState={{checked:on}} onPress={()=>onSelect(p.id)} style={[s.plan,on&&s.planOn]}>
       {p.period==='year'&&save>0&&<View style={s.save}><Text style={s.saveText}>Bespaar {save}%</Text></View>}
       <Text style={s.planTitle}>{p.title}</Text><Text style={s.planPrice}>{formatPrice(p.priceCents)}</Text><Text style={s.planPer}>{periodLabel(p)}</Text>
-      {p.period==='year'&&<Text style={s.planPer}>{formatPrice(monthlyEquivalentCents(p))} per maand</Text>}</Pressable>})}</View>
-    <Pressable disabled={busy} onPress={onBuy} style={[s.buy,busy&&{opacity:.5}]}><Text style={s.buyText}>{busy?'Bezig…':'Abonneren'}</Text></Pressable>
+      {p.period==='year'&&<Text style={s.planPer}>{formatPrice(monthlyEquivalentCents(p))} per maand</Text>}
+      {!!trial&&p.trialDays>0&&<Text style={s.trialTag}>{p.trialDays} dagen gratis</Text>}</Pressable>})}</View>
+    <Pressable disabled={busy||isCur} onPress={onBuy} style={[s.buy,(busy||isCur)&&{opacity:.5}]}><Text style={s.buyText}>{busy?'Bezig…':isCur?'Je huidige abonnement':current?'Overstappen':showTrial?`Probeer ${plan.trialDays} dagen gratis`:'Abonneren'}</Text></Pressable>
+    {showTrial&&<Text style={s.fine}>Na de proefperiode {formatPrice(plan.priceCents)} {periodLabel(plan)}. Zeg minstens 24 uur voor het einde op om niets te betalen.</Text>}
     {!!notice&&<Text style={s.notice}>{notice}</Text>}
-    <Text style={s.fine}>Wordt automatisch verlengd tot je opzegt. Opzeggen kan altijd via de instellingen van je app store, uiterlijk 24 uur voor de verlenging. Testversie: aankopen zijn gesimuleerd, er wordt niets afgeschreven.</Text>
+    <Text style={s.fine}>Wordt automatisch verlengd tot je opzegt. Opzeggen kan altijd via Abonnement beheren of de instellingen van je app store, uiterlijk 24 uur voor de verlenging. Testversie: aankopen zijn gesimuleerd, er wordt niets afgeschreven.</Text>
+    {onStorage&&tier!=='storage'&&<Pressable onPress={onStorage}><Text style={[s.link,{textAlign:'center'}]}>Alleen extra opslag? Herinneringen 100 GB</Text></Pressable>}
     <View style={s.links}><Pressable onPress={onRestore}><Text style={s.link}>Aankopen herstellen</Text></Pressable><Text style={s.dot}>·</Text><Pressable onPress={onTerms}><Text style={s.link}>Voorwaarden</Text></Pressable><Text style={s.dot}>·</Text><Pressable onPress={onPrivacy}><Text style={s.link}>Privacy</Text></Pressable></View>
   </View>;
 }
@@ -45,7 +52,8 @@ const s=StyleSheet.create({
   prio:{flexDirection:'row',alignItems:'center',gap:3,backgroundColor:C.yellow,borderRadius:8,paddingHorizontal:6,paddingVertical:2},prioText:{color:C.bg,fontSize:11,fontWeight:'800'},
   rewatch:{flexDirection:'row',alignItems:'center',gap:6,backgroundColor:'#0008',borderRadius:14,paddingHorizontal:10,paddingVertical:5,alignSelf:'flex-start'},rewatchText:{color:C.text,fontWeight:'700',fontSize:13},
   row:{flexDirection:'row',alignItems:'center'},name:{color:C.text,fontSize:16,fontWeight:'700'},
-  pw:{gap:12,padding:18},hero:{alignItems:'center',paddingVertical:14},heroLogo:{fontSize:44,fontWeight:'900',color:C.bg,backgroundColor:C.yellow,borderRadius:24,paddingHorizontal:18,overflow:'hidden'},heroTitle:{color:C.text,fontSize:26,fontWeight:'900',marginTop:10},heroSub:{color:C.muted,fontSize:15,marginTop:4},
+  pw:{gap:12,padding:18},tabs:{flexDirection:'row',backgroundColor:C.surface,borderRadius:20,padding:4,gap:4},tab:{flex:1,paddingVertical:8,borderRadius:16,alignItems:'center'},tabOn:{backgroundColor:C.yellow},tabText:{color:C.text,fontWeight:'700',fontSize:13},tabTextOn:{color:C.bg},
+  perk:{flexDirection:'row',gap:8,alignItems:'center'},newTag:{color:C.bg,backgroundColor:C.yellow,borderRadius:8,paddingHorizontal:6,fontSize:10,fontWeight:'800',overflow:'hidden'},trialTag:{color:C.yellow,fontSize:11,fontWeight:'800',marginTop:4},hero:{alignItems:'center',paddingVertical:14},heroLogo:{fontSize:44,fontWeight:'900',color:C.bg,backgroundColor:C.yellow,borderRadius:24,paddingHorizontal:18,overflow:'hidden'},heroTitle:{color:C.text,fontSize:26,fontWeight:'900',marginTop:10},heroSub:{color:C.muted,fontSize:15,marginTop:4},
   feat:{flexDirection:'row',gap:14,alignItems:'center',backgroundColor:C.cardBg,borderRadius:14,padding:12},featTitle:{color:C.text,fontWeight:'800',fontSize:15},featDesc:{color:C.muted,fontSize:13},
   plans:{flexDirection:'row',gap:10,marginTop:6},plan:{flex:1,borderWidth:2,borderColor:C.border,borderRadius:16,padding:14,alignItems:'center',backgroundColor:C.surface},planOn:{borderColor:C.yellow},
   save:{position:'absolute',top:-11,backgroundColor:C.pink,borderRadius:10,paddingHorizontal:8,paddingVertical:2},saveText:{color:'white',fontSize:11,fontWeight:'800'},

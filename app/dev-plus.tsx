@@ -3,7 +3,7 @@ import {Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {Stack,useLocalSearchParams} from 'expo-router';
 import {C} from '../lib/theme';
-import {WALLPAPERS,applyBffPin,isPinnedBff,rewatchCount,rewatchLabel,sortStoryReplies,wallpaperFor,type PlanId} from '../lib/plus';
+import {WALLPAPERS,applyBffPin,isPinnedBff,rewatchCount,rewatchLabel,sortStoryReplies,wallpaperFor,type PlanId,type Tier} from '../lib/plus';
 import {AppIconPicker,Locked,NameWithBadge,Paywall,PriorityReplyBadge,RewatchPill,WallpaperBackground,WallpaperPicker} from '../components/plus/PlusParts';
 
 /** Dev-only harness for Snapshot X+ with local mock data (no Supabase, no store).
@@ -12,9 +12,9 @@ const now=Date.parse('2026-10-13T12:00:00Z');
 export default function DevPlus(){
   const {scene='paywall',plus:pq}=useLocalSearchParams<{scene?:string;plus?:string}>();
   const plus=pq!=='0'&&!scene.endsWith('_free');
-  const [plan,setPlan]=useState<PlanId>('sx_plus_yearly');const [icon,setIcon]=useState('neon');const [wp,setWp]=useState<Record<string,string>>({t1:'aurora'});
+  const [plan,setPlan]=useState<PlanId>('sx_plus_yearly');const [tier,setTier]=useState<Tier>('plus');const [icon,setIcon]=useState('neon');const [wp,setWp]=useState<Record<string,string>>({t1:'aurora'});
   let body:React.ReactNode=null;
-  if(scene==='paywall')body=<Paywall selected={plan} onSelect={setPlan} onBuy={()=>{}} onRestore={()=>{}} onTerms={()=>{}} onPrivacy={()=>{}}/>;
+  if(scene==='paywall')body=<Paywall tier={tier} onTier={t=>{setTier(t);setPlan(t==='plus'?'sx_plus_yearly':t==='platinum'?'sx_platinum_yearly':t==='lens'?'sx_lens_monthly':'sx_family_monthly')}} trial selected={plan} onSelect={setPlan} onBuy={()=>{}} onRestore={()=>{}} onTerms={()=>{}} onPrivacy={()=>{}}/>;
   else if(scene.startsWith('icons'))body=<View style={s.p}><Text style={s.h}>App-icoon</Text>{!plus&&<Locked onUpgrade={()=>{}}/>}<AppIconPicker value={plus?icon:'default'} plus={plus} onChange={setIcon}/></View>;
   else if(scene==='rewatch'){const v=(id:string)=>({viewerId:id,storyId:'s1',at:''});const n=rewatchCount([v('a'),v('a'),v('b'),v('c'),v('c'),v('d'),v('me'),v('me')],'s1','me');
     body=<View style={s.story}><View style={s.storyImg}><Text style={{fontSize:80}}>🌅</Text></View><View style={s.storyBar}><Ionicons name="eye" size={16} color="white"/><Text style={s.w}>4 kijkers</Text><RewatchPill label={rewatchLabel(n,plus)}/></View></View>;}

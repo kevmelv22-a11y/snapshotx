@@ -1,5 +1,5 @@
 import React from 'react';
-import {ScrollView,StyleSheet,Text,View} from 'react-native';
+import {Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {Stack,router} from 'expo-router';
 import {C} from '../lib/theme';
 import {entitlementLabel} from '../lib/plus';
@@ -13,10 +13,11 @@ export default function PlusSettings(){
   return <ScrollView contentContainerStyle={s.c}><Stack.Screen options={{title:'X+-instellingen'}}/>
     <Text style={s.status}>{entitlementLabel(st.entitlements[0],now)}</Text>
     {!plus&&<Locked onUpgrade={()=>router.push('/plus')}/>}
+    <Pressable onPress={()=>router.push('/plus-manage')}><Text style={s.link}>Abonnement beheren of opzeggen</Text></Pressable>
     <Text style={s.h}>App-icoon</Text><AppIconPicker value={st.appIcon} plus={plus} onChange={st.setAppIcon}/>
     <Text style={s.note}>Het icoon op je beginscherm verandert pas in de volgende app-versie.</Text>
     <Text style={s.h}>Chat-achtergronden</Text><Text style={s.note}>Kies een achtergrond via het menu in een chat.</Text>
     <Text style={s.h}>Vaste #1 beste vriend</Text><Text style={s.note}>{st.bffPinId?'Je hebt een vriend vastgepind.':'Pin een vriend vanuit je vriendenlijst.'}</Text>
     <View style={{height:30}}/></ScrollView>;
 }
-const s=StyleSheet.create({c:{padding:18,gap:10},status:{color:C.yellow,fontWeight:'800',fontSize:16},h:{color:C.text,fontWeight:'800',fontSize:17,marginTop:12},note:{color:C.muted,fontSize:13}});
+const s=StyleSheet.create({c:{padding:18,gap:10},status:{color:C.yellow,fontWeight:'800',fontSize:16},h:{color:C.text,fontWeight:'800',fontSize:17,marginTop:12},note:{color:C.muted,fontSize:13},link:{color:C.blue,fontWeight:'700'}});
