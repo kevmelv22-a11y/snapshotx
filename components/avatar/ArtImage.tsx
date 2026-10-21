@@ -7,14 +7,14 @@ import { Image, View } from 'react-native';
 import { lookCardArt, nearestLookArt as near0, bustArtFor as bust0, lookArtFor as look0, poseArtFor as pose0, type ArtKey } from '../../lib/avatar/avatarArt';
 import { MODE_HERO_ITEMS, TRY_LOOKS } from '../../lib/avatar/modeLooks';
 import type { Outfit } from '../../lib/avatar/outfit';
-import type { PoseId } from '../../lib/avatar/poses';
+import type { PoseId, StickerArtPose } from '../../lib/avatar/poses';
 import { DEFAULT_FEMALE_OUTFIT, DEFAULT_OUTFIT } from '../../lib/avatar/outfit';
 import { friendArtFor, type FriendArtKey } from '../../lib/avatar/friendArt';
 
 // The default outfit (DEFAULT_OUTFIT) counts as the default character too, so new users get the art.
 const DATA = { hero: MODE_HERO_ITEMS, looks: TRY_LOOKS, alt: [DEFAULT_OUTFIT], female: DEFAULT_FEMALE_OUTFIT };
 export const lookArtFor = (o: Outfit) => look0(o, DATA);
-export const poseArtFor = (o: Outfit, p: PoseId | 'think') => pose0(o, p, DATA);
+export const poseArtFor = (o: Outfit, p: PoseId | 'think' | StickerArtPose) => pose0(o, p, DATA);
 export const bustArtFor = (o: Outfit) => bust0(o, DATA);
 export { lookCardArt };
 import { ITEMS_BY_ID } from '../../lib/avatar/wardrobeItems';
@@ -39,6 +39,7 @@ export const ART: Record<ArtKey, { src: number; w: number; h: number }> = {
   'pose-thinking': { src: require('../../assets/avatar-art/pose-thinking.png'), w: 259, h: 690 },
   'pose-thumbsup': { src: require('../../assets/avatar-art/pose-thumbsup.png'), w: 285, h: 696 },
   'pose-wave': { src: require('../../assets/avatar-art/pose-wave.png'), w: 324, h: 691 },
+  'pose-heart': { src: require('../../assets/avatar-art/pose-heart.png'), w: 293, h: 692 },
   'pose-wink': { src: require('../../assets/avatar-art/pose-wink.png'), w: 244, h: 690 },
   // Female set (src/girl/*.jpg → rembg cut → pngquant; see src/girl/cut.py, deswoosh.py)
   'girl/bust': { src: require('../../assets/avatar-art/girl/bust.png'), w: 501, h: 692 },
@@ -56,6 +57,7 @@ export const ART: Record<ArtKey, { src: number; w: number; h: number }> = {
   'girl/pose-thinking': { src: require('../../assets/avatar-art/girl/pose-thinking.png'), w: 242, h: 693 },
   'girl/pose-thumbsup': { src: require('../../assets/avatar-art/girl/pose-thumbsup.png'), w: 274, h: 698 },
   'girl/pose-wave': { src: require('../../assets/avatar-art/girl/pose-wave.png'), w: 316, h: 696 },
+  'girl/pose-heart': { src: require('../../assets/avatar-art/girl/pose-heart.png'), w: 276, h: 692 },
   'girl/pose-wink': { src: require('../../assets/avatar-art/girl/pose-wink.png'), w: 253, h: 696 },
 };
 export const FRIEND_ART: Record<FriendArtKey, number> = {

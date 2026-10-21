@@ -7,7 +7,7 @@
  * Pure (type-only imports) so it runs under `node --test`.
  */
 import type { Outfit, WardrobeCategory } from './outfit';
-import type { PoseId } from './poses';
+import type { PoseId, StickerArtPose } from './poses';
 
 /** Clothing of the default look + the Mode looks (passed in so this module stays import-free at runtime). */
 export type LookData = { hero: Partial<Record<WardrobeCategory, string>>; looks: readonly { id: string; items: Partial<Record<WardrobeCategory, string>> }[];
@@ -24,7 +24,7 @@ function forGender<K extends BaseArtKey>(o: Outfit, k: K | null): K | GirlArtKey
 }
 
 export type LookArtKey = 'look-default-hoodie' | 'look-green-jacket' | 'look-black-bomber' | 'look-tan-jacket' | 'look-denim-jacket' | 'look-cream-hoodie' | 'look-ripped-jeans';
-export type PoseArtKey = 'pose-thinking' | 'pose-wave' | 'pose-thumbsup' | 'pose-laugh' | 'pose-cheer' | 'pose-peace' | 'pose-shrug' | 'pose-wink' | 'pose-surprised';
+export type PoseArtKey = 'pose-thinking' | 'pose-wave' | 'pose-thumbsup' | 'pose-laugh' | 'pose-cheer' | 'pose-peace' | 'pose-shrug' | 'pose-wink' | 'pose-surprised' | 'pose-heart';
 type BaseArtKey = LookArtKey | PoseArtKey | 'bust';
 /** Female set (assets/avatar-art/girl/): same looks/poses; her start look has no standing image (uses pose-thinking). */
 export type GirlArtKey = `girl/${Exclude<BaseArtKey, 'look-default-hoodie'>}`;
@@ -37,9 +37,9 @@ export const LOOK_ART: Record<string, LookArtKey> = {
 };
 
 /** Pose → image of the default (hoodie + grey jeans) outfit. 'think' is the Mode hero pose. */
-export const POSE_ART: Record<PoseId | 'think', LookArtKey | PoseArtKey> = {
+export const POSE_ART: Record<PoseId | 'think' | StickerArtPose, LookArtKey | PoseArtKey> = {
   stand: 'look-default-hoodie', think: 'pose-thinking', wave: 'pose-wave', thumbs: 'pose-thumbsup', laugh: 'pose-laugh',
-  cheer: 'pose-cheer', peace: 'pose-peace', shrug: 'pose-shrug', wink: 'pose-wink', surprised: 'pose-surprised',
+  cheer: 'pose-cheer', peace: 'pose-peace', shrug: 'pose-shrug', wink: 'pose-wink', surprised: 'pose-surprised', heart: 'pose-heart',
 };
 
 const CLOTHES: WardrobeCategory[] = ['top', 'bottom', 'dress', 'shoes', 'socks', 'bag', 'outerwear', 'hat', 'accessory', 'glasses'];
@@ -72,7 +72,7 @@ export function lookCardArt(lookId: string, gender: Outfit['gender']): LookArtKe
 }
 
 /** Posed image (only the default outfit has pose art; standing works for every look). */
-export function poseArtFor(outfit: Outfit, pose: PoseId | 'think', d: LookData): ArtKey | null {
+export function poseArtFor(outfit: Outfit, pose: PoseId | 'think' | StickerArtPose, d: LookData): ArtKey | null {
   if (pose === 'stand') return lookArtFor(outfit, d);
   return isDefaultLook(outfit, d) ? forGender(outfit, POSE_ART[pose] ?? null) : null;
 }
@@ -80,9 +80,9 @@ export function poseArtFor(outfit: Outfit, pose: PoseId | 'think', d: LookData):
 /** Profile bust portrait (black hoodie): only for the default outfit. */
 export function bustArtFor(outfit: Outfit, d: LookData): 'bust' | 'girl/bust' | null { return isDefaultLook(outfit, d) ? forGender(outfit, 'bust') as 'bust' | 'girl/bust' : null; }
 
-/** Sticker → pose image (Hoi!=wave, Top!=thumbsup, Haha=laugh, Yes!=cheer, Peace=peace, Geen idee=shrug, Deal=wink, Wauw!=surprised). */
+/** Sticker → pose image (Hoi!=wave, Top!=thumbsup, Haha=laugh, Yes!=cheer, Peace=peace, Geen idee=shrug, Deal=wink, Wauw!=surprised, Hartje=heart hands). */
 export const STICKER_ART: Record<string, PoseArtKey> = {
-  hoi: 'pose-wave', top: 'pose-thumbsup', haha: 'pose-laugh', yes: 'pose-cheer', peace: 'pose-peace', 'geen-idee': 'pose-shrug', knipoog: 'pose-wink', wauw: 'pose-surprised',
+  hoi: 'pose-wave', top: 'pose-thumbsup', haha: 'pose-laugh', yes: 'pose-cheer', peace: 'pose-peace', 'geen-idee': 'pose-shrug', knipoog: 'pose-wink', wauw: 'pose-surprised', hartje: 'pose-heart',
 };
 
 /** Hex colour → [r,g,b] (0–255); null when unparsable. */

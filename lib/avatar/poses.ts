@@ -52,8 +52,10 @@ export function getPose(id: unknown): AvatarPose {
 
 // ------------------------------------------------------------------ stickers
 
-export type AvatarStickerId = 'hoi' | 'top' | 'haha' | 'yes' | 'peace' | 'geen-idee' | 'knipoog' | 'wauw';
-export type AvatarSticker = { id: AvatarStickerId; pose: PoseId; caption: string; /** Accent colour behind the caption. */ color: string; /** Caption at the top (pose uses the low hands area). */ captionTop?: boolean };
+export type AvatarStickerId = 'hoi' | 'top' | 'haha' | 'yes' | 'peace' | 'geen-idee' | 'knipoog' | 'wauw' | 'hartje';
+/** Sticker-only art poses (no profile pose, so no DB value): drawn from their own image, standing pose as fallback. */
+export type StickerArtPose = 'heart';
+export type AvatarSticker = { id: AvatarStickerId; pose: PoseId; /** Sticker-only pose image (overrides `pose` when the art exists). */ art?: StickerArtPose; caption: string; /** Accent colour behind the caption. */ color: string; /** Caption at the top (pose uses the low hands area). */ captionTop?: boolean };
 
 export const AVATAR_STICKERS: readonly AvatarSticker[] = [
   { id: 'hoi', pose: 'wave', caption: 'Hoi!', color: '#FFE436' },
@@ -64,6 +66,7 @@ export const AVATAR_STICKERS: readonly AvatarSticker[] = [
   { id: 'geen-idee', pose: 'shrug', caption: 'Geen idee', color: '#AE16C7' },
   { id: 'knipoog', pose: 'wink', caption: 'Deal', color: '#00C7BE', captionTop: true },
   { id: 'wauw', pose: 'surprised', caption: 'Wauw!', color: '#FF3B30' },
+  { id: 'hartje', pose: 'stand', art: 'heart', caption: 'Hartje', color: '#FF2D55' },
 ];
 export const STICKERS_BY_ID: ReadonlyMap<string, AvatarSticker> = new Map(AVATAR_STICKERS.map(s => [s.id, s]));
 
