@@ -118,6 +118,18 @@ export const WARDROBE_ITEMS: WardrobeItem[] = [
   item('top-besiktas-jersey', 'top', 'Beşiktaş', 'Zwart-wit gestreept voetbalshirt', null, ['#000000', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
   item('top-fenerbahce-jersey', 'top', 'Fenerbahçe', 'Geel-blauw gestreept voetbalshirt', null, ['#FFED00', '#163962'], { variant: 'tee', pattern: 'stripes' }),
   item('top-galatasaray-jersey', 'top', 'Galatasaray', 'Geel-rood gedeeld voetbalshirt', null, ['#FDB912', '#A90432'], { variant: 'tee' }),
+  item('top-groningen-jersey', 'top', 'FC Groningen', 'Groen-wit gestreept FC Groningen-thuisshirt', null, ['#00813E', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
+  item('top-sparta-jersey', 'top', 'Sparta Rotterdam', 'Rood-wit gestreept Sparta-thuisshirt', null, ['#D8141E', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
+  item('top-acmilan-jersey', 'top', 'AC Milan', 'Rood-zwart gestreept voetbalshirt', null, ['#D0102B', '#000000'], { variant: 'tee', pattern: 'stripes' }),
+  item('top-juventus-jersey', 'top', 'Juventus', 'Zwart-wit gestreept Juventus-shirt', null, ['#000000', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
+  item('top-inter-jersey', 'top', 'Inter', 'Blauw-zwart gestreept voetbalshirt', null, ['#0068A8', '#000000'], { variant: 'tee', pattern: 'stripes' }),
+  // Landenshirts (free, both character sets)
+  item('top-italie-jersey', 'top', 'Italië', 'Blauw Italië-shirt', null, ['#1F5BC6', '#FFFFFF'], { variant: 'tee' }),
+  item('top-nederland-jersey', 'top', 'Nederland', 'Oranje Nederland-shirt', null, ['#FF6A13', '#1B1B1E'], { variant: 'tee' }),
+  item('top-duitsland-jersey', 'top', 'Duitsland', 'Wit Duitsland-shirt', null, ['#FFFFFF', '#1B1B1E'], { variant: 'tee' }),
+  item('top-turkije-jersey', 'top', 'Turkije', 'Rood Turkije-shirt', null, ['#E30A17', '#FFFFFF'], { variant: 'tee' }),
+  item('top-spanje-jersey', 'top', 'Spanje', 'Rood Spanje-shirt', null, ['#C60B1E', '#FFC400'], { variant: 'tee' }),
+  item('top-marokko-jersey', 'top', 'Marokko', 'Rood Marokko-shirt', null, ['#C1272D', '#006233'], { variant: 'tee' }),
   item('bottom-trivo-shorts', 'bottom', 'trivo', 'Sportshort', null, ['#2851A3', '#FFFFFF'], { variant: 'shorts', graphic: 'stripes2' }),
   item('bottom-rossano-plaid-skirt', 'bottom', 'ROSSANO', 'Ruitrok', 229, ['#7C1E2C', '#1B1B1E'], { variant: 'skirt', pattern: 'plaid' }),
   item('bottom-strideon-black-cargo', 'bottom', 'Strideon', 'Zwarte cargobroek', 129, ['#1E1E22'], { variant: 'cargo' }),
@@ -183,7 +195,7 @@ export function swatchesFor(layer: Layer | null): string[] {
 }
 
 export const HAIR_STYLE_LABELS: Record<HairStyle, string> = {
-  curly: 'Krullen', short: 'Kort', wavy: 'Golvend', buzz: 'Buzzcut', long: 'Lang', afro: 'Afro', bun: 'Knot',
+  curly: 'Krullen', short: 'Kort', wavy: 'Golvend', buzz: 'Buzzcut', long: 'Lang', afro: 'Afro', bun: 'Knot', curtain: 'Curtain', 'curtain-short': 'Curtain kort',
 };
 
 export type CuratedLook = { id: string; name: string; tagline: string; items: Partial<Record<WardrobeCategory, string>> };

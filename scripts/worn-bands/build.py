@@ -15,7 +15,7 @@ OPEN={'male':{'outer-bf-grunge-rose':WT,'outer-blueberry-black-vest':WT,'outer-o
       'female':{k:BT for k in ['outer-basisbes-denim-jacket','outer-bf-fur-coat','outer-bf-grunge-rose','outer-blueberry-black-vest','outer-carhartt-black','outer-carhartt-camo','outer-dressx-green','outer-overtime-varsity','outer-ploeg-olive-jacket','outer-ploeg-tan-jacket','outer-strideon-black-jacket']}}
 meta={}
 def u8(x): return x.clip(0,255).astype(np.uint8)
-GREEN_OK=('green','olive','camo','mint','dressx','track-jacket','neon')   # items that really are green/olive
+GREEN_OK=('green','olive','camo','mint','dressx','track-jacket','neon','groningen')   # items that really are green/olive
 def unscreen(img):
     # green screen left between arms and body (opaque slivers) and its olive mix with skin: make it transparent
     R,G,Bc=img[...,0],img[...,1],img[...,2]
