@@ -26,8 +26,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#08090E",
-        "foregroundImage": "./assets/snapshotx-app-icon.png",
+        "backgroundColor": "#040404",
+        "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },

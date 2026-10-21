@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArtTile, KastStage } from '../components/avatar/ArtTile';
 import { AppearancePicker } from '../components/avatar/AppearancePicker';
 import { withAppearance } from '../lib/avatar/tones';
+import { BrandWordmark } from '../components/BrandWordmark';
 import { OutfitArt, outfitArtId } from '../components/avatar/OutfitArt';
 import { useConfirmDialog } from '../components/ConfirmDialog';
 import { useSession } from '../hooks/useSession';
@@ -104,7 +105,7 @@ export default function AvatarEditor() {
       <KastStage width={winW} height={stageH}/>
       <View style={[s.topBar, { top: insets.top + 8 }]}>
         <Pressable onPress={discard} style={s.roundBtn} accessibilityRole="button" accessibilityLabel="Editor sluiten" hitSlop={8}><Ionicons name="close" size={26} color="#FFF"/></Pressable>
-        <Text style={s.brand}>SnapShot X</Text>
+        <BrandWordmark height={24}/>
         <Pressable onPress={() => void save()} disabled={busy} style={({ pressed }) => [s.saveBtn, pressed && { opacity: 0.85 }]} accessibilityRole="button" accessibilityLabel="Avatar opslaan"><Text style={s.saveText}>{busy ? 'Opslaan…' : 'Opslaan'}</Text></Pressable>
       </View>
       <View style={[s.hero, { top: insets.top + 58 }]} pointerEvents="none" testID={`editor-hero-art:${outfitArtId(draft.outfit)}`}>
