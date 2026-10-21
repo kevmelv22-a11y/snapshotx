@@ -24,6 +24,8 @@ import {chatStickerBody,stickerFromChatBody} from '../../lib/avatar/poses';
 import {VOICE_MAX_MS,activeTypers,applyTyping,computeStreak,isMessageVisible,keepRecording,meterLevel,parseRetention,retentionChangeText,screenshotText,shouldReportScreenshot,shouldSendTyping,toggleReaction,typingText,type Reaction,type RetentionMode,type TypingMap} from '../../lib/chat-features';
 
 import {friendlyError} from '../../lib/db-errors';
+import {groupDisplayTitle,isGroupThread} from '../../lib/group-chat';
+import {GroupInfoSheet,type GroupMember} from '../../components/chat/GroupInfoSheet';
 import {isSilentSystemMessageError,systemMessageRow,threadIdFromParam} from '../../lib/chat-ids';
 export default function Chat(){
  const confirm=useConfirmDialog();
@@ -41,9 +43,12 @@ export default function Chat(){
   // Reactions need migration 20261013150000_chat_step4.sql; without it the query errors and reactions stay empty.
   const ids=list.map(m=>m.id);if(ids.length){const r=await supabase.from('sx_reactions').select('message_id,user_id,emoji').in('message_id',ids);if(!r.error)setReactions((r.data||[]).map(x=>({messageId:x.message_id,userId:x.user_id,emoji:x.emoji})))}
  },[id,uid]);
- // Thread meta: retention setting + peers (names for typing, streak partner).
- useEffect(()=>{if(!id||!uid)return;let alive=true;void (async()=>{const t=await supabase.from('sx_threads').select('retention_mode').eq('id',id).maybeSingle();if(alive&&!t.error)setRetention(parseRetention(t.data?.retention_mode));
-  const m=await supabase.from('sx_members').select('user_id').eq('thread_id',id);const ids=(m.data||[]).map(x=>x.user_id).filter(x=>x!==uid);if(!ids.length)return;const p=await supabase.from('profiles').select('id,display_name').in('id',ids);const names=new Map((p.data||[]).map(x=>[x.id,x.display_name]));if(alive)setPeers(ids.map(x=>({id:x,name:names.get(x)||'Vriend'})))})();return()=>{alive=false}},[id,uid]);
+ // Thread meta: retention setting, group name/creator + members (names for typing, streak partner, Groepsinfo).
+ const [threadTitle,setThreadTitle]=useState<string|null>(null),[creatorId,setCreatorId]=useState<string|null>(null),[members,setMembers]=useState<GroupMember[]>([]),[infoOpen,setInfoOpen]=useState(false);
+ const loadMeta=useCallback(async(alive:()=>boolean=()=>true)=>{if(!id||!uid)return;const t=await supabase.from('sx_threads').select('retention_mode,title,created_by').eq('id',id).maybeSingle();if(alive()&&!t.error){setRetention(parseRetention(t.data?.retention_mode));setThreadTitle(t.data?.title??null);setCreatorId(t.data?.created_by??null)}
+  const m=await supabase.from('sx_members').select('user_id').eq('thread_id',id);const all=[...new Set((m.data||[]).map(x=>x.user_id as string))];const ids=all.filter(x=>x!==uid);const p=all.length?await supabase.from('profiles').select('id,display_name').in('id',all):null;const names=new Map((p?.data||[]).map(x=>[x.id,x.display_name]));if(!alive())return;
+  setPeers(ids.map(x=>({id:x,name:names.get(x)||'Vriend'})));setMembers(all.map(x=>({id:x,name:x===uid?(names.get(x)||session?.user.user_metadata?.display_name||'Jij'):(names.get(x)||'Vriend')})))},[id,uid,session?.user.user_metadata?.display_name]);
+ useEffect(()=>{let alive=true;const timer=setTimeout(()=>void loadMeta(()=>alive),0);return()=>{alive=false;clearTimeout(timer)}},[loadMeta]);
  useEffect(()=>{if(!id)return;const timer=setTimeout(()=>void load(),0);
   const channel=supabase.channel(`sx-thread-${id}`)
    .on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_messages',filter:`thread_id=eq.${id}`},()=>void load())
@@ -70,7 +75,8 @@ export default function Chat(){
  // Avatars (step 8): header portrait for 1-op-1, sticker messages drawn with the sender's outfit.
  const ownOutfit=useOwnOutfit(uid),friendOutfits=useFriendOutfits(peers.map(p=>p.id)),[stickerOpen,setStickerOpen]=useState(false);
  const outfitOf=(sender:string)=>{if(sender===uid)return ownOutfit;const o=friendOutfits.get(sender);return o&&o!=='pending'?o:null};
- const title=peers.length===1?peers[0].name:peers.length>1?`${peers.length+1} personen`:'Chat';
+ const isGroup=isGroupThread({title:threadTitle,memberCount:members.length||peers.length+1});
+ const title=isGroup?groupDisplayTitle(threadTitle,peers.map(p=>p.name)):peers.length===1?peers[0].name:'Chat';
 
  async function createMessage(kind:Message['kind'],text:string|null,path:string|null){if(!session)return;if(!id)throw new Error('Deze chat kon niet worden geopend.');const {error}=await supabase.from('sx_messages').insert({thread_id:id,sender_id:uid,body:text,kind,media_path:path,expires_at:retention==='keep'?null:new Date(Date.now()+86400000).toISOString()});if(error)throw error;await load()}
  function onChangeBody(v:string){setBody(v);const t=Date.now();if(shouldSendTyping(lastTyping.current,t,v)){lastTyping.current=t;void channelRef.current?.send({type:'broadcast',event:'typing',payload:{user:uid,typing:true}})}}
@@ -87,13 +93,14 @@ export default function Chat(){
  const content=(item:Message,mine:boolean)=><>{item.kind==='snap'&&item.media_path?<Pressable onPress={()=>openSnap(item)}><Text style={s.text}>{opened[item.id]?'📷 Snap geopend':'📷 Tik om snap te openen'}</Text>{opened[item.id]&&<Media path={item.media_path} type={item.body==='video'?'video':'photo'} style={s.image} ttl={90}/>}</Pressable>:item.kind==='voice'&&item.media_path?<AudioClip path={item.media_path} seed={item.id} mine={mine}/>:item.media_path?<><Media path={item.media_path} type={item.kind==='video'?'video':'photo'} style={s.image}/><Text style={s.mediaHint}>Blijft zichtbaar in dit gesprek — geen eenmalige snap</Text></>:(()=>{const st=stickerFromChatBody(item.body);return st?<ChatAvatarSticker sticker={st} outfit={outfitOf(item.sender_id)}/>:<Text style={s.text}>{item.body}</Text>})()}{!mine&&<View style={{flexDirection:'row',gap:16}}><Pressable onPress={()=>router.push({pathname:'/report',params:{message_id:item.id}})}><Text style={s.report}>Meld bericht</Text></Pressable><Pressable onPress={()=>blockSender(item.sender_id)}><Text style={s.report}>Blokkeer gebruiker</Text></Pressable></View>}</>;
  return <KeyboardAvoidingView style={s.root} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={90}>
   <Stack.Screen options={{title}}/>
-  <ChatHeaderBar title={title} streak={streak} retention={retention} onRetention={()=>setRetentionOpen(true)} onCall={()=>router.push({pathname:'/call/[id]',params:{id:String(id),name:title}})} avatar={peers.length===1?<FriendAvatar id={peers[0].id} outfit={friendOutfits.get(peers[0].id)} size={34} name={peers[0].name}/>:undefined}/>
+  <ChatHeaderBar title={title} streak={streak} retention={retention} onRetention={()=>setRetentionOpen(true)} onCall={()=>router.push({pathname:'/call/[id]',params:{id:String(id),name:title}})} avatar={!isGroup&&peers.length===1?<FriendAvatar id={peers[0].id} outfit={friendOutfits.get(peers[0].id)} size={34} name={peers[0].name}/>:undefined} onInfo={isGroup?()=>setInfoOpen(true):undefined} memberCount={isGroup?members.length:undefined}/>
   <ChatView rows={visible} me={uid} reactions={reactions} retention={retention} viewedAt={viewedAt} now={now} streak={streak} typing={typing} renderContent={content} onReact={(m,e)=>void react(m,e)}/>
   {!!notice&&<Text style={s.notice}>{notice}</Text>}
   {recorderState.isRecording?<RecordingBar durationMs={recorderState.durationMillis} level={meterLevel(recorderState.metering)} onCancel={()=>void stopRecording(false)} onStop={()=>void stopRecording(true)}/>:
   <View style={s.inputRow}><Pressable onPress={pickMedia} disabled={busy}><Text style={s.action}>＋</Text></Pressable><TextInput style={s.input} placeholder="Bericht…" placeholderTextColor={C.muted} value={body} onChangeText={onChangeBody} onBlur={stopTyping} multiline/><Pressable onPress={()=>setStickerOpen(true)} disabled={busy} accessibilityLabel="Avatarsticker sturen"><Text style={s.action}>☺</Text></Pressable><Pressable onPress={startRecording} disabled={busy} accessibilityLabel="Spraakbericht opnemen"><Text style={s.action}>🎙</Text></Pressable><Pressable onPress={send} disabled={busy}><Text style={s.send}>➤</Text></Pressable></View>}
   <AvatarStickerSheet visible={stickerOpen} outfit={ownOutfit} onPick={st=>void sendSticker(st.id)} onClose={()=>setStickerOpen(false)}/>
   <RetentionSheet visible={retentionOpen} mode={retention} onPick={m=>void changeRetention(m)} onClose={()=>setRetentionOpen(false)}/>
+  {isGroup&&infoOpen&&<GroupInfoSheet visible threadId={id} me={uid} title={title} creatorId={creatorId} members={members} onClose={()=>setInfoOpen(false)} onChanged={()=>{void loadMeta();void load()}} onLeft={()=>{setInfoOpen(false);router.replace('/(tabs)/chats')}}/>}
   {confirm.dialog}</KeyboardAvoidingView>
 }
 function AudioClip({path,seed,mine}:{path:string;seed:string;mine:boolean}){const [url,setUrl]=useState<string|null>(null);useEffect(()=>{let alive=true;mediaUrl(path).then(v=>{if(alive)setUrl(v)}).catch(()=>{});return()=>{alive=false}},[path]);return url?<VoiceNotePlayer uri={url} seed={seed} mine={mine}/>:<Hint>Audio laden…</Hint>}

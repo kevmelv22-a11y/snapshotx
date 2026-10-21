@@ -5,6 +5,7 @@
  * mock owner "kevin"). Data lives in memory and resets on reload. Never makes a network request.
  */
 import { StaffMock, seedStaffMock, MOCK_IDS, type Row } from './staff-mock';
+import { GROUP_ERRORS, GROUP_MAX_MEMBERS, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, isGroupThread, normalizeGroupTitle } from './group-chat';
 
 type Err = { message: string; code?: string; details?: string };
 type Res = { data: unknown; error: Err | null; count?: number | null };
@@ -48,6 +49,8 @@ function seedDemo(m: StaffMock) {
   m.t.sx_friend_requests = [{ id: 'fr000000-0000-4000-8000-000000000001', sender_id: EXTRA.tim, recipient_id: ME, status: 'pending', created_at: iso(-2 * H) }];
   m.t.sx_threads.push({ id: T.aria, title: null, created_at: iso(-10 * D), member_count: 2, retention_mode: 'keep' }, { id: T.eva, title: null, created_at: iso(-4 * D), member_count: 2, retention_mode: 'keep' });
   m.t.sx_threads.forEach(t => { t.retention_mode ??= 'keep'; });
+  // Weekend crew = Kevin's group (he created it, so Groepsinfo shows the creator-only remove buttons).
+  Object.assign(m.t.sx_threads.find(t => t.id === T.crew) ?? {}, { created_by: ME, is_group: true });
   m.t.sx_members = [
     { thread_id: T.aria, user_id: ME }, { thread_id: T.aria, user_id: I.aria }, { thread_id: T.eva, user_id: ME }, { thread_id: T.eva, user_id: I.eva },
     ...[ME, EXTRA.noor, I.eva, I.cleo, I.aria].map(u => ({ thread_id: T.crew, user_id: u })),
@@ -228,7 +231,7 @@ export class DemoClient {
         const hit = mine.find(t => { const mem = this.m.table('sx_members').filter(x => x.thread_id === t); return mem.length === 2 && mem.some(x => x.user_id === ps[0]); });
         if (hit) return hit; }
       const id = newId();
-      this.m.table('sx_threads').push({ id, title: a.group_title ?? null, created_at: this.m.iso(), member_count: ps.length + 1, retention_mode: 'keep' });
+      this.m.table('sx_threads').push({ id, title: a.group_title ?? null, created_at: this.m.iso(), member_count: ps.length + 1, retention_mode: 'keep', created_by: ME, is_group: ps.length > 1 || a.group_title != null });
       [ME, ...ps].forEach(u => this.m.table('sx_members').push({ thread_id: id, user_id: u }));
       return id;
     },
@@ -243,6 +246,44 @@ export class DemoClient {
       const t = this.m.table('sx_threads').find(x => x.id === a.p_thread_id); if (t) t.retention_mode = a.p_mode;
       const row = { id: newId(), thread_id: a.p_thread_id, sender_id: ME, kind: 'system', body: a.p_text, created_at: this.m.iso(), expires_at: null };
       this.m.table('sx_messages').push(row); this.emit('sx_messages', 'INSERT', row); return null;
+    },
+    // Group management: mirrors supabase/migrations/20261021150000_group_chat_management.sql (same errors + lines).
+    sx_rename_group: a => {
+      const t = this.lockGroup(a.p_thread_id), title = normalizeGroupTitle(a.p_title);
+      if (!title) throw new Error(GROUP_ERRORS.badTitle);
+      if (t.title !== title) { Object.assign(t, { title, is_group: true }); this.groupLine(t.id, groupRenameText(this.nameOf(ME), title)); }
+      return title;
+    },
+    sx_add_group_members: a => {
+      const t = this.lockGroup(a.p_thread_id), members = this.memberIds(t.id);
+      const add = [...new Set(((a.p_user_ids as string[]) ?? []).filter(x => x && x !== ME && !members.includes(x)))];
+      if (!add.length) return 0;
+      if (members.length + add.length > GROUP_MAX_MEMBERS) throw new Error(GROUP_ERRORS.full);
+      const blocked = (u: string) => this.m.table('sx_blocks').some(b => (b.blocker_id === ME && b.blocked_id === u) || (b.blocker_id === u && b.blocked_id === ME));
+      if (add.some(u => !this.m.table('sx_friends').some(f => f.user_id === ME && f.friend_id === u) || blocked(u))) throw new Error(GROUP_ERRORS.notFriend);
+      add.forEach(u => this.m.table('sx_members').push({ thread_id: t.id, user_id: u, joined_at: this.m.iso() }));
+      Object.assign(t, { is_group: true, member_count: members.length + add.length });
+      this.groupLine(t.id, groupAddText(this.nameOf(ME), add.map(u => this.nameOf(u)).sort((x, y) => x.localeCompare(y))));
+      return add.length;
+    },
+    sx_remove_group_member: a => {
+      const t = this.lockGroup(a.p_thread_id), target = String(a.p_user_id ?? '');
+      if (t.created_by !== ME) throw new Error(GROUP_ERRORS.notCreator);
+      if (target === ME) throw new Error(GROUP_ERRORS.self);
+      if (!this.memberIds(t.id).includes(target)) throw new Error(GROUP_ERRORS.noTarget);
+      this.groupLine(t.id, groupRemoveText(this.nameOf(ME), this.nameOf(target)));
+      this.m.t.sx_members = this.m.table('sx_members').filter(x => !(x.thread_id === t.id && x.user_id === target));
+      Object.assign(t, { is_group: true, member_count: this.memberIds(t.id).length });
+      return null;
+    },
+    sx_leave_group: a => {
+      const t = this.lockGroup(a.p_thread_id);
+      this.groupLine(t.id, groupLeaveText(this.nameOf(ME)));
+      this.m.t.sx_members = this.m.table('sx_members').filter(x => !(x.thread_id === t.id && x.user_id === ME));
+      const rest = this.memberIds(t.id);
+      if (!rest.length) this.m.t.sx_threads = this.m.table('sx_threads').filter(x => x.id !== t.id);
+      else Object.assign(t, { is_group: true, member_count: rest.length, ...(t.created_by === ME ? { created_by: rest[0] } : {}) });
+      return null;
     },
     sx_hide_suggestion: () => null,
     sx_suggest_friends: a => {
@@ -266,6 +307,18 @@ export class DemoClient {
       return [{ id: p.id, username: p.username, display_name: p.display_name }];
     },
   };
+  private memberIds(threadId: unknown) { return this.m.table('sx_members').filter(x => x.thread_id === threadId).map(x => String(x.user_id)); }
+  private nameOf(u: string) { const p = this.m.profile(u); return String(p?.display_name || p?.username || 'Iemand'); }
+  private lockGroup(threadId: unknown): Row {
+    const t = this.m.table('sx_threads').find(x => x.id === threadId), members = this.memberIds(threadId);
+    if (!t || !members.includes(ME)) throw new Error(GROUP_ERRORS.notMember);
+    if (!isGroupThread({ title: t.title as string | null, isGroup: t.is_group as boolean, memberCount: members.length })) throw new Error(GROUP_ERRORS.notGroup);
+    return t;
+  }
+  private groupLine(threadId: unknown, body: string) {
+    const row = { id: newId(), thread_id: threadId, sender_id: ME, kind: 'system', body, media_path: null, created_at: this.m.iso(), expires_at: null };
+    this.m.table('sx_messages').push(row); this.emit('sx_messages', 'INSERT', row);
+  }
   async rpc(name: string, args: Row = {}): Promise<Res> {
     await new Promise(r => setTimeout(r, 30));
     const fn = name === 'sx_ensure_profile' && this.faults.noEnsure ? undefined : this.appRpcs[name] ?? this.m.rpcs[name];

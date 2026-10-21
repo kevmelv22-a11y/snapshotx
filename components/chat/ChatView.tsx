@@ -1,20 +1,23 @@
 import React,{useState} from 'react';
 import {FlatList,Pressable,StyleSheet,Text,View} from 'react-native';
+import {Ionicons} from '@expo/vector-icons';
 import {C} from '../../lib/theme';
+import {isGroupChangeText} from '../../lib/group-chat';
 import {Hint} from '../UI';
 import type {Message} from '../../lib/types';
 import {RETENTION_SHORT,retentionHint,summarizeReactions,type Reaction,type RetentionMode,type StreakState} from '../../lib/chat-features';
 import {ReactionChips,ReactionPicker,StreakBadge,StreakWarning,SystemLine,TypingIndicator} from './ChatParts';
 
 /** Header row: title, streak, retention toggle, video call. Shared by the real chat and the dev harness. */
-export function ChatHeaderBar({title,streak,retention,onRetention,onCall,avatar}:{title:string;streak:StreakState;retention:RetentionMode;onRetention:()=>void;onCall:()=>void;/** Optional avatar shown left of the title (step 8). */avatar?:React.ReactNode}){
+export function ChatHeaderBar({title,streak,retention,onRetention,onCall,avatar,onInfo,memberCount}:{title:string;streak:StreakState;retention:RetentionMode;onRetention:()=>void;onCall:()=>void;/** Optional avatar shown left of the title (step 8). */avatar?:React.ReactNode;/** Group chats: opens "Groepsinfo" (title tap + 👥 button). */onInfo?:()=>void;memberCount?:number}){
   return <View style={s.header}>
     {avatar}
-    <Text style={s.title} numberOfLines={1}>{title}</Text>
+    {onInfo?<Pressable onPress={onInfo} accessibilityLabel={`Groepsinfo van ${title}`} style={{flexShrink:1}}><Text style={s.title} numberOfLines={1}>{title}</Text>{!!memberCount&&<Text style={s.sub}>{memberCount} leden · tik voor info</Text>}</Pressable>:<Text style={s.title} numberOfLines={1}>{title}</Text>}
     <StreakBadge streak={streak}/>
     <View style={{flex:1}}/>
     <Pressable onPress={onRetention} accessibilityLabel="Verwijderinstelling" style={s.pill}><Text style={s.pillText}>⏱ {RETENTION_SHORT[retention]}</Text></Pressable>
     <Pressable onPress={onCall} accessibilityLabel="Videobellen" style={s.callBtn}><Text style={{fontSize:20}}>📹</Text></Pressable>
+    {onInfo&&<Pressable onPress={onInfo} accessibilityLabel="Groepsinfo" testID="group-info-button" style={s.infoBtn}><Ionicons name="people" size={19} color={C.text}/></Pressable>}
   </View>;
 }
 
@@ -36,7 +39,7 @@ export function ChatView(p:ChatViewProps){
     <FlatList data={p.rows} inverted keyExtractor={x=>x.id} contentContainerStyle={{padding:15}}
       ListHeaderComponent={<TypingIndicator text={p.typing}/>} ListHeaderComponentStyle={{marginHorizontal:-15}}
       renderItem={({item})=>{
-        if(item.kind==='system')return <SystemLine text={item.body??''} icon={item.body?.includes('screenshot')?'📸':item.body?.includes('gesprek')?'📹':'⏱'}/>;
+        if(item.kind==='system')return <SystemLine text={item.body??''} icon={isGroupChangeText(item.body)?'👥':item.body?.includes('screenshot')?'📸':item.body?.includes('gesprek')?'📹':'⏱'}/>;
         const mine=item.sender_id===p.me;
         const hint=retentionHint(p.retention,mine?null:p.viewedAt[item.id]??null,p.now,!!item.saved);
         return <View>
@@ -54,7 +57,7 @@ export function ChatView(p:ChatViewProps){
 }
 const s=StyleSheet.create({
   header:{flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:14,paddingVertical:10,backgroundColor:C.surface,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:C.border},
-  title:{color:C.text,fontSize:17,fontWeight:'700',maxWidth:150},pill:{backgroundColor:C.elevated,borderRadius:14,paddingHorizontal:10,paddingVertical:5},pillText:{color:C.text,fontSize:12},callBtn:{padding:4},
+  title:{color:C.text,fontSize:17,fontWeight:'700',maxWidth:150},pill:{backgroundColor:C.elevated,borderRadius:14,paddingHorizontal:10,paddingVertical:5},pillText:{color:C.text,fontSize:12},callBtn:{padding:4},infoBtn:{width:34,height:34,borderRadius:17,backgroundColor:'#51427980',alignItems:'center',justifyContent:'center'},sub:{color:C.muted,fontSize:11,marginTop:1},
   bubble:{maxWidth:'83%',borderRadius:18,padding:12,marginVertical:5},mine:{alignSelf:'flex-end',backgroundColor:'#273A7B'},theirs:{alignSelf:'flex-start',backgroundColor:C.elevated},
   empty:{position:'absolute',left:0,right:0,top:0,bottom:0,alignItems:'center',justifyContent:'center',padding:15},
   time:{color:C.muted,fontSize:10,alignSelf:'flex-end',marginTop:6},
