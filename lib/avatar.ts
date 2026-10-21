@@ -12,14 +12,14 @@ export const avatarOptions = {
   skin: ['Licht', 'Warm', 'Getint', 'Bruin', 'Donker'],
   hair: ['Nachtzwart', 'Donkerbruin', 'Kastanje', 'Goudblond', 'Koper'],
   hairstyle: ['Kort', 'Golvend', 'Krullen', 'Pet'],
-  top: ['Paarse trui', 'Koraal jas', 'Nachtblauw pak', 'Gouden hoodie', 'Zwarte blazer', 'Mint trui'],
+  top: ['Paarse trui', 'Olijfgroene overshirt', 'Nachtblauw pak', 'Gouden hoodie', 'Zwarte smoking', 'Mint trui'],
   bottoms: ['Donkere broek', 'Lichte broek', 'Paarse broek', 'Rok'],
   shoes: ['Witte sneakers', 'Zwarte schoenen', 'Gele sneakers'],
-  accessory: ['Geen', 'Ster', 'Ruimtevleugels', 'Bril'],
+  accessory: ['Geen', 'Ster', 'Bril', 'Ketting', 'Pet'],
 } as const;
 
 export const defaultAvatar: AvatarAppearance = {
-  skin: 0, hair: 0, hairstyle: 0, top: 0, bottoms: 0, shoes: 0, accessory: 0,
+  skin: 1, hair: 3, hairstyle: 1, top: 1, bottoms: 0, shoes: 0, accessory: 0,
 };
 
 export function readAvatarAppearance(value: unknown): AvatarAppearance {
@@ -31,3 +31,4 @@ export function readAvatarAppearance(value: unknown): AvatarAppearance {
   }
   return result;
 }
+

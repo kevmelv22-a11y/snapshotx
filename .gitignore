@@ -4,3 +4,15 @@ dist/
 .env
 *.log
 credentials.json
+
+# secrets / signing / junk
+.env*
+*.p12
+*.p8
+*.pem
+*.key
+*.jks
+*.keystore
+*.mobileprovision
+*.pid
+__pycache__/
