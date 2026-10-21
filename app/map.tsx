@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import {router, useFocusEffect} from 'expo-router';
@@ -11,13 +11,16 @@ import {FriendAvatar} from '../components/avatar/FriendAvatar';
 import {useWardrobeSync} from '../hooks/useWardrobeSync';
 import {useFriendOutfits} from '../hooks/useFriendOutfits';
 import {useSession} from '../hooks/useSession';
-import {supabase} from '../lib/supabase';
+import {DEMO_MODE, supabase} from '../lib/supabase';
 import {readAvatarAppearance} from '../lib/avatar';
 import {MapPrivacySheet, type PrivacyFriend} from '../components/map/MapPrivacySheet';
 import {DEFAULT_PRIVACY, ghostStatusText, isGhost, isSharing, lastSeenText, privacyFromRow, privacyToRow, type MapPrivacy} from '../lib/map-privacy';
 
 import {friendlyError} from '../lib/db-errors';
 type LocationRow = {user_id: string; latitude: number; longitude: number; sharing: boolean; home_confirmed?: boolean; updated_at: string; share_audience?: string; ghost_until?: string | null; ghost_forever?: boolean};
+
+/** Web demo (EXPO_PUBLIC_DEMO_MODE=1): no geolocation prompt, you stand in Arnhem like the iOS demo shots. */
+const DEMO_WEB_POSITION = Platform.OS === 'web' && DEMO_MODE ? {latitude: 51.984, longitude: 5.905} : null;
 
 export default function MapScreen() {
   const {session} = useSession();
@@ -27,6 +30,7 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const [pins, setPins] = useState<Pin[]>([]);
   const [own, setOwn] = useState<Pin | null>(null);
+  const ownPin = React.useMemo<Pin | null>(() => own ?? (DEMO_WEB_POSITION && uid ? {id: uid, name: 'Ik nu', ...DEMO_WEB_POSITION} : null), [own, uid]);
   const [sharing, setSharing] = useState(false);
   const [homeConfirmed, setHomeConfirmed] = useState(false);
   const [homeAvailable, setHomeAvailable] = useState(false);
@@ -97,6 +101,7 @@ export default function MapScreen() {
     if (!uid || !focused) return;
     let cancelled = false;
     let subscription: Location.LocationSubscription | undefined;
+    if (DEMO_WEB_POSITION) return; // demo position is derived below (ownPin)
     void (async () => {
       try {
         let permission = await Location.getForegroundPermissionsAsync();
@@ -148,6 +153,7 @@ export default function MapScreen() {
 
   async function locate() {
     if (!uid) return;
+    if (DEMO_WEB_POSITION) { setOwn({id: uid, name: 'Ik nu', ...DEMO_WEB_POSITION}); setFocusOwn(value => value + 1); return; }
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (!permission.granted) throw new Error('Geef locatietoegang om jezelf op de kaart te zien.');
@@ -273,7 +279,7 @@ export default function MapScreen() {
   const filtered = pins.filter(pin => pin.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const selected = pins.find(pin => pin.id === selectedId);
   return <View style={styles.root}>
-    <FriendMap pins={filtered} own={own} ownAppearance={ownAppearance} friendOutfits={friendOutfits} trail={footsteps ? trail : []} selectedId={selectedId} focusOwn={focusOwn} focusNetherlands={focusNetherlands} onSelect={setSelectedId} onLocate={() => void locate()} overlayInsets={{top: insets.top + 8 + headerHeight, bottom: footerHeight}}/>
+    <FriendMap pins={filtered} own={ownPin} ownAppearance={ownAppearance} friendOutfits={friendOutfits} trail={footsteps ? trail : []} selectedId={selectedId} focusOwn={focusOwn} focusNetherlands={focusNetherlands} onSelect={setSelectedId} onLocate={() => void locate()} overlayInsets={{top: insets.top + 8 + headerHeight, bottom: footerHeight}}/>
     <View style={[styles.header, {top: insets.top + 8}]} pointerEvents="box-none" onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)}>
       <View style={styles.titleRow}>
         <View style={styles.headerGroup}>
@@ -301,7 +307,7 @@ export default function MapScreen() {
         <View style={styles.hint}><Ionicons name="sparkles" size={17} color="#FFE436"/><Text style={styles.hintText}>{pins.length ? `${pins.length} vriend${pins.length === 1 ? '' : 'en'} op de kaart` : 'Nog geen vrienden die locatie delen'}</Text></View>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.people}>
         <Pressable style={styles.dockControl} onPress={() => setSearchOpen(true)} accessibilityLabel="Vrienden op kaart zoeken"><Ionicons name="search" size={27} color="#fff"/></Pressable>
-        {own && <Pressable style={styles.person} onPress={() => router.push('/avatar-editor')} accessibilityLabel="Mijn personage aanpassen"><OwnAvatar userId={own.id} size={58} selected appearance={ownAppearance}/><Text style={styles.personName}>Ik nu</Text></Pressable>}
+        {ownPin && <Pressable style={styles.person} onPress={() => router.push('/avatar-editor')} accessibilityLabel="Mijn personage aanpassen"><OwnAvatar userId={ownPin.id} size={58} selected appearance={ownAppearance}/><Text style={styles.personName}>Ik nu</Text></Pressable>}
         {filtered.map(pin => <Pressable key={pin.id} style={styles.person} onPress={() => setSelectedId(pin.id)} accessibilityLabel={`Locatie van ${pin.name} bekijken`}><FriendAvatar id={pin.id} outfit={friendOutfits.get(pin.id)} size={58} selected={pin.id === selectedId} name={pin.name}/><Text numberOfLines={1} style={styles.personName}>{pin.name}</Text></Pressable>)}
         {!filtered.length && <Pressable style={styles.emptyPerson} onPress={() => router.push('/(tabs)/friends')}><Ionicons name="person-add" size={22} color="#FFE436"/><Text style={styles.personName}>{query ? 'Geen resultaat' : 'Voeg vrienden toe'}</Text></Pressable>}
         <Pressable style={styles.dockControl} onPress={() => setFocusNetherlands(value => value + 1)} accessibilityLabel="Heel Nederland bekijken"><Ionicons name="map-outline" size={26} color="#fff"/></Pressable>
