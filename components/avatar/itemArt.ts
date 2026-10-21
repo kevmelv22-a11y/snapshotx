@@ -107,6 +107,9 @@ export const ITEM_ART: Record<string, number> = {
   'bottom-kast-cream-joggers': require('../../assets/avatar-art/items/bottom-kast-cream-joggers.png'),
   'bottom-basisbes-grey-jeans': require('../../assets/avatar-art/items/bottom-basisbes-grey-jeans.png'),
   'shoes-strideon-panda': require('../../assets/avatar-art/items/shoes-strideon-panda.png'),
+  'shoes-royaums-kilian-black': require('../../assets/avatar-art/items/shoes-royaums-kilian-black.png'),
+  'shoes-royaums-kilian-grey': require('../../assets/avatar-art/items/shoes-royaums-kilian-grey.png'),
+  'shoes-royaums-luisa-white': require('../../assets/avatar-art/items/shoes-royaums-luisa-white.png'),
   'glasses-trivo-sport': require('../../assets/avatar-art/items/glasses-trivo-sport.png'),
 };
 /* eslint-enable @typescript-eslint/no-require-imports */

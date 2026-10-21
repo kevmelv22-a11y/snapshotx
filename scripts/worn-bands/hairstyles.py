@@ -11,9 +11,12 @@ BANDS=sys.argv[1] if len(sys.argv)>1 else 'assets/avatar-art/worn-bands'; OUT=sy
 M=json.load(open(f'{HERE}/meta.json')); EYES=json.load(open(f'{SRC}/eyes.json'))
 REF={'male':('top-blueberry-white-tee',[(46,92),(92,99)],147),'female':('top-nike-black-tee',[(77.5,93),(126,90)],146)}
 STYLES={'male':{'short':'m-short','wavy':'m-wavy','buzz':'m-fade','afro':'m-afro'},
-        # female: dropped. The female art bakes long wavy hair into every top's torso band (shoulders, back), so it stays
-        # visible under any new style. Kept for experiments: FEMALE=1.
-        'female':{'long':'f-straight','bun':'f-bun','curly':'f-curly','short':'f-bob'} if os.environ.get('FEMALE') else {}}
+        # female: the reference composite re-drawn with the new hair (scripts/worn-bands/female/edits, keyed + registered
+        # on the body: f-*-e). The long art hair baked into the torso bands is removed per item by female/clean.py; only
+        # those items (female/allow.json) get a keep band, the app shows the art hair with any other top.
+        'female':{'bun':'f-bun-e','short':'f-bob-e','long':'f-long-e'}}
+FEMALE_ALLOW=json.load(open(f'{HERE}/female/allow.json'))
+GENDER=os.environ.get('GENDER')  # only regenerate this set (the other one is kept from styles.json)
 ONLY=os.environ.get('ONLY')
 def ramp(x,a,b): return np.clip((x-a)/(b-a),0,1)
 KR=float(os.environ.get('KR','4')); JAW=float(os.environ.get('JAW','0.4'))
@@ -61,6 +64,29 @@ def style_layer(g,key):
     hw=(out[...,3]>8)*(1-np.clip(sw*2,0,1))*(1-ramp(L,62,72))*(1-ramp(np.hypot(Aa,Bc),45,55))*ramp(np.hypot(Aa,Bc),4,9)
     yy=np.mgrid[:CH,:CW][0]
     ED=np.hypot(A[0,0],A[1,0])*np.hypot(se[1][0]-se[0][0],se[1][1]-se[0][1])
+    BLONDE=key.endswith('-e')  # hair-edited reference art (blonde like the art): hair/skin by nearest centroid, not by hue
+    if BLONDE:
+        F=np.dstack([Aa,Bc,L*0.2]); al_=out[...,3]>200; ch_=np.hypot(Aa,Bc)
+        hseed=al_&(L>25)&(((yy<ey-0.95*ED)&(abs(xx-cx)<1.6*ED))|((abs(xx-cx)>1.15*ED)&(yy>ey-0.3*ED)&(yy<ey+0.9*ED)))
+        cs_=np.median(F[cheek],0); chh=np.median(F[hseed],0)
+        ds=np.linalg.norm(F-cs_,axis=2); dh=np.linalg.norm(F-chh,axis=2); sep=max(np.linalg.norm(cs_-chh),4)
+        fr=np.sqrt(((xx-cx)/(1.08*ED))**2+((yy-(ey+0.3*ED))/(1.25*ED))**2)  # face ellipse: <1 skin-ish, >1 hair-ish
+        hp=1/(1+np.exp(-((ds-dh)/(0.12*sep+0.5)+8.0*np.clip(fr-1,-0.6,0.6))))
+        eyes_=sum(((((xx-ex_)/(0.32*ED))**2+((yy-ey_)/(0.18*ED))**2)<1) for ex_,ey_ in dst)>0
+        iris_=(sum((((xx-ex_)**2+(yy-ey_)**2)<(0.2*ED)**2) for ex_,ey_ in dst)>0)&(L<58)
+        white_=cv2.dilate((eyes_&(L>74)&(ch_<9)).astype(np.uint8),np.ones((3,3),np.uint8))>0
+        brow=np.zeros((CH,CW),bool)
+        for ex_,ey_ in dst: brow|=(abs(xx-ex_)<0.5*ED)&(yy>ey_-0.6*ED)&(yy<ey_-0.12*ED)
+        brow=brow&(L<36)  # brow strokes keep their drawn brown
+        noface=iris_|white_|brow
+        # no hair inside the face (forehead highlights), except strands that clearly are hair falling over the face's
+        # sides (beside the eyes / cheeks): left out they stayed the art blonde, or turned skin-coloured, next to the cheek
+        side=(abs(xx-cx)>0.6*ED)&(yy>ey-1.3*ED)
+        strong=np.clip(((ds-dh)/sep-0.3)/0.4,0,1)*side
+        hw_e=hp*(out[...,3]>8)*ramp(L,10,16)*(1-ramp(dh,22,30))*(~noface)*np.maximum(ramp(fr,0.9,0.96),strong)
+        hw_e=np.where(cv2.morphologyEx((hw_e>0.5).astype(np.uint8),cv2.MORPH_OPEN,np.ones((3,3),np.uint8))>0,hw_e,hw_e*0.3)
+        sw_e=(out[...,3]>8)*(1-hw_e)*(~noface)
+        hw=hw_e
     cut=chinY-JAW*ED*((xx-cx)/(0.75*ED))**2
     above=(1-ramp(yy,cut-1.5,cut+1.5))*(1-ramp(abs(xx-cx),ED*1.9,ED*2.0))
     above=above*np.where(yy>chinY-24,1-ramp(abs(xx-cx),ED*1.0,ED*1.1),1)*np.where(yy>chinY-9,1-ramp(abs(xx-cx),ED*0.7,ED*0.8),1)
@@ -109,6 +135,9 @@ def style_layer(g,key):
         white=eyes&(L>74)&(np.hypot(Aa,Bc)<9)
         white=cv2.dilate(white.astype(np.uint8),np.ones((3,3),np.uint8))>0
         sw=(out[...,3]>8)*(1-hw)*~(iris|white)
+    if BLONDE: sw,hw=sw_e,cv2.GaussianBlur(hw_e.astype(np.float32),(3,3),0)
+    # female edits: the drawn brows and the eyes, for the overlays in __main__ (brows follow the skin tone, eyes never)
+    style_layer.marks=(brow[sl].astype(np.float32),(iris_|white_)[sl]) if BLONDE else None
     return out[sl],[int(x0),int(y0),int(x1-x0),int(y1-y0)],sw[sl],(hw*(out[...,3]>4))[sl],chinY
 TONES=json.load(open(f'{HERE}/tones.json')); TDIR=os.environ.get('TDIR','assets/avatar-art/worn-tones')
 def keep_band(g,item,extra=()):
@@ -141,6 +170,10 @@ def keep_band(g,item,extra=()):
         if len(xs):  # a little wider: the torso band's neck top must stay covered
             l0,r0=row[min(xs[0]+2,W-1)].copy(),row[max(xs[-1]-2,0)].copy()
             for d in (0,1,2,3): row[max(xs[0]-d,0)]=l0; row[min(xs[-1]+d,W-1)]=r0
+        if g=='female':  # no neck extension: the hair-free torso band (worn-clean) has the neck up behind the new chin
+            out[:max(src-2,0)]=0
+            for j in range(4): out[src-2+j,:,3]=(out[src-2+j,:,3]*(j+1)/5).astype(np.uint8)
+            res.append(out); continue
         out[max(top,0):src]=row[None]; out[:max(top,0)]=0
         for j in range(6):  # soft top of the neck extension
             if top+j>=0: out[top+j,:,3]=(out[top+j,:,3]*(j+1)/7).astype(np.uint8)
@@ -153,12 +186,13 @@ def crop_save(path,arr):
     q=T.kq(arr[y0:y1,x0:x1]); q.save(path,optimize=True,transparency=q.info['transparency'])
     return [int(x0),int(y0),int(x1-x0),int(y1-y0)]
 if __name__=='__main__':
-    meta={}
+    meta=json.load(open(f'{HERE}/styles.json')) if GENDER else {}
     for g in STYLES:
-        if not STYLES[g]: continue
+        if not STYLES[g] or (GENDER and g!=GENDER): continue
         os.makedirs(f'{OUT}/{g}',exist_ok=True); meta[g]={'styles':{},'keep':{}}
         for item,P in M[g]['pieces'].items():
             if 'head' not in P or P['cat']=='hat' or (ONLY and ONLY!=item): continue
+            if g=='female' and item not in FEMALE_ALLOW: continue
             if not os.path.exists(f'{BANDS}/{g}/{item}-head.png'): continue
             im=np.array(Image.open(f'{BANDS}/{g}/{item}-head.png')); H,W=im.shape[:2]
             ent=dict(next((f[1] for f in TONES[g]['files'] if f[0]==f'{item}-head'),[]))
@@ -176,15 +210,27 @@ if __name__=='__main__':
             im,rect,sw,hw,chinY=style_layer(g,key)
             q=T.kq(im); q.save(f'{OUT}/{g}/style-{sid}.png',optimize=True,transparency=q.info['transparency'])
             l=T.lab(im); ov={}
-            for t,dstc in T.SKIN.items():
-                rr=T.write(f'{OUT}/{g}/style-{sid}--s-{t}.png',im,np.clip((sw-0.15)/0.45,0,1),T.rgb(T.recolour(l,T.SKIN_SRC,dstc,dstc[0]/T.SKIN_SRC[0])))
-                if rr: ov['s-'+t]=rr
             hwf=np.clip((hw-0.15)/0.45,0,1); hs=np.median(l[hwf>0.6],0)
+            swf=np.clip((sw-0.15)/0.45,0,1)
+            if g=='female' and style_layer.marks is not None:
+                # skin-light pixels at the hairline / beside the cheeks that the colour split left half hair, half skin:
+                # recoloured they showed as a grey patch (Knot, dark hair) or a light streak (Lang stijl): they are skin
+                brow,eyes=style_layer.marks
+                inner=cv2.erode((im[...,3]>250).astype(np.uint8),np.ones((5,5),np.uint8))>0
+                nearskin=(cv2.dilate(((swf>0.6)&inner).astype(np.uint8),np.ones((7,7),np.uint8))>0)&inner&~eyes
+                fix=nearskin*np.clip((l[...,0]-hs[0]-10)/10,0,1)*np.clip((sw-0.15)/0.15,0,1)   # some skin evidence: no hair highlights
+                hwf=hwf*(1-fix); swf=np.maximum(swf,fix)
+                # the drawn brows darken with the skin (a mid-brown brow looked orange on dark skin); soft edge
+                swf=np.maximum(swf,cv2.GaussianBlur(cv2.dilate(brow,np.ones((3,3),np.uint8)),(3,3),0)*(~eyes))
             if g=="male":  # skin-light pixels at the hairline: no hair overlay there (recoloured they turn into a light line)
                 inner=cv2.erode((im[...,3]>250).astype(np.uint8),np.ones((9,9),np.uint8))>0  # not at the outer silhouette
                 nearskin=(cv2.dilate(((sw>0.5)&inner).astype(np.uint8),np.ones((5,5),np.uint8))>0)&inner
                 hwf=np.where(nearskin&(np.hypot(l[...,1],l[...,2])>14),hwf*(1-np.clip((l[...,0]-hs[0]-8)/12,0,1)),hwf)
+            for t,dstc in T.SKIN.items():
+                rr=T.write(f'{OUT}/{g}/style-{sid}--s-{t}.png',im,swf,T.rgb(T.recolour(l,T.SKIN_SRC,dstc,dstc[0]/T.SKIN_SRC[0])))
+                if rr: ov['s-'+t]=rr
             for t,dstc in T.HAIR.items():
+                if g=='female' and t==T.orig_hair(g): continue  # the edits keep the art's own blonde: drawn as is
                 c=float(np.clip((dstc[0]+8)/(hs[0]+8),0.4,1.8))
                 rr=T.write(f'{OUT}/{g}/style-{sid}--h-{t}.png',im,hwf,T.rgb(T.recolour(l,hs,dstc,c)))
                 if rr: ov['h-'+t]=rr

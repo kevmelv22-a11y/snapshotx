@@ -61,6 +61,15 @@ def clean_edges(o):
     _,(iy,ix)=distance_transform_edt(inner==0,return_indices=True)
     edge=(a>0)&(inner==0)
     o[...,:3]=np.where(edge[...,None],o[iy,ix,:3],o[...,:3]); return o
+def edge_recolor(o):
+    # soft silhouette edge takes the colour of the solid shoe just inside it: no light/green cut-out halo, alpha untouched
+    from scipy.ndimage import distance_transform_edt
+    a=o[...,3]; inner=cv2.erode((a>=250).astype(np.uint8),np.ones((5,5),np.uint8))
+    if inner.sum()<50: return o
+    _,(iy,ix)=distance_transform_edt(inner==0,return_indices=True)
+    rows=np.where((a>0).any(1))[0]; upper=np.zeros_like(a,bool)
+    if len(rows): upper[:rows.min()+int(0.45*(rows.max()-rows.min()))]=True   # collar/top only: the sole keeps its dark floor-shadow edge
+    edge=(a>0)&(inner==0)&upper; o[...,:3]=np.where(edge[...,None],o[iy,ix,:3],o[...,:3]); return o
 for g in ['male','female']:
     RW,RH=reg[g]['ref']; PX,PT,PB=70,60,70; CW,CH=RW+2*PX,RH+PT+PB
     B=BANDS[g]; meta[g]={'canvas':[CW,CH],'pieces':{}}; os.makedirs(OUT+g,exist_ok=True)
@@ -118,7 +127,7 @@ for g in ['male','female']:
         hb,bb,fb=B['h'],B['b'],B['f']
         if cat in('shoes','socks'):  # stand on the reference floor, centred on the reference feet
             m=(img[...,3]>128)&(yy>=fb); ys,xs=np.where(m)
-            img,_=warp_item(i,dx=ref_feet_cx-xs.mean(),dy=rb-ys.max()); al=img[...,3]/255.
+            img,SA=warp_item(i,dx=ref_feet_cx-xs.mean(),dy=rb-ys.max()); al=img[...,3]/255.
         hsv=cv2.cvtColor(u8(img[...,:3]),cv2.COLOR_RGB2HSV)
         long_=i in LONG; M={}; RGB={}; hem_=False
         HD=0.05 if g=='female' else D
@@ -324,27 +333,34 @@ for g in ['male','female']:
             samp=lab3[Y(fb-0.11):Y(fb-0.07)][img[Y(fb-0.11):Y(fb-0.07),:,3]>230]
             mu=samp.mean(0); C=np.cov(samp.T)+np.eye(3)*4; Ci=np.linalg.inv(C)
             dd=lab3-mu; md=np.einsum('...i,ij,...j->...',dd,Ci,dd)
-            win=(yy>=fb-2*D)&(yy<fb+(0.04 if g=='female' else 0.025))
+            FT=fb-(0.06 if g=='female' else 0.03)   # look higher than the band line: the shoe beside the source trouser leg reaches up to its hem
+            win=(yy>=FT)&(yy<fb+(0.04 if g=='female' else 0.025))
             grey=((md<9)&(img[...,3]>40)&win).astype(np.uint8)
             grey=cv2.morphologyEx(grey,cv2.MORPH_OPEN,np.ones((3,3),np.uint8))
-            n,lab=cv2.connectedComponents(grey); top=Y(fb-2*D)+1
+            n,lab=cv2.connectedComponents(grey); top=Y(FT)+1
             ids=set(np.unique(lab[top:top+6][grey[top:top+6]>0]))-{0}
             pants=(cv2.dilate(np.isin(lab,list(ids)).astype(np.uint8),np.ones((5,5),np.uint8))*win).astype(np.uint8)
             ring=cv2.dilate(pants,np.ones((9,9),np.uint8))
             darkedge=(ring>0)&(hsv[...,2]<75)&(hsv[...,1]<70)&(yy<fb+(0.02 if g=='female' else 0.006))
             pants=np.maximum(pants,darkedge.astype(np.uint8))
             soft=(img[...,3]<110)&(hsv[...,2]<80)   # semi-transparent dark floor shadow
-            keep=((1-pants)*(1-soft)*(yy>=fb-2*D)*(img[...,3]>40)).astype(np.uint8)
+            keep=((1-pants)*(1-soft)*(yy>=FT)*(img[...,3]>40)).astype(np.uint8)
             n,cl,st,_=cv2.connectedComponentsWithStats(keep,8)
             big=st[1:,4].max() if n>1 else 0
             keep=np.isin(cl,[k for k in range(1,n) if st[k,4]>=0.08*big]).astype(np.uint8)
-            M['feet']=np.clip((yy-(fb-2*D))/0.012,0,1)*cv2.GaussianBlur(keep.astype(np.float32),(3,3),0)   # soft top edge: no hard boot-shaft/cuff line over the trousers
+            SM=os.path.join(os.path.dirname(os.path.abspath(__file__)),'shoe-masks',g,i+'.png')
+            if os.path.exists(SM):
+                # hand-made shoe outline for this item: keep exactly the shoe, never the source trouser hem
+                sm=cv2.warpAffine(np.array(Image.open(SM).convert('L')),SA,(CW,CH),flags=cv2.INTER_LINEAR,borderValue=0)
+                keep=((sm>127)&(img[...,3]>40)).astype(np.uint8)
+            M['feet']=cv2.GaussianBlur(keep.astype(np.float32),(3,3),0)   # top edge = the real shoe outline / the source trouser hem (no flat faded cut)
         meta[g]['pieces'][i]={'cat':cat,'long':bool(long_ or cat=='dress')}
         if hem_: meta[g]['pieces'][i]['hem']=True   # shirt hangs to its own hem: bottoms use their 'legsn' band under it
         for nme,m in M.items():
             src=RGB.get(nme,img); o=src.copy(); o[...,3]=src[...,3]*m
             o=u8(o)
             if g=='male' and cat=='bottom' and nme in('legs','legsn'): o=clean_edges(o)
+            if nme=='feet': o=edge_recolor(o)
             ys,xs=np.where(o[...,3]>3)
             if not len(ys): continue
             x0,y0,x1,y1=xs.min(),ys.min(),xs.max()+1,ys.max()+1

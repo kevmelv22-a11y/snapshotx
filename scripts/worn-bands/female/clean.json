@@ -1,0 +1,38 @@
+{
+ "top-nike-black-tee": [
+  "torso",
+  "under"
+ ],
+ "outer-bf-fur-coat": [
+  "torso",
+  "jacket"
+ ],
+ "outer-blueberry-blue-hoodie": [
+  "torso",
+  "jacket"
+ ],
+ "outer-basisbes-denim-jacket": [
+  "torso",
+  "jacket"
+ ],
+ "outer-carhartt-black": [
+  "torso",
+  "jacket"
+ ],
+ "outer-carhartt-camo": [
+  "torso",
+  "jacket"
+ ],
+ "outer-nike-swoosh-hoodie": [
+  "torso",
+  "jacket"
+ ],
+ "outer-ploeg-olive-jacket": [
+  "torso",
+  "jacket"
+ ],
+ "outer-strideon-black-jacket": [
+  "torso",
+  "jacket"
+ ]
+}

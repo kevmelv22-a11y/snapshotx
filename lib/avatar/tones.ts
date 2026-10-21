@@ -31,10 +31,11 @@ export const ART_HAIR: Record<Gender, HairColor> = { male: 'darkbrown', female: 
 export const ART_HAIRSTYLE: Record<Gender, { id: 'curly' | 'wavy'; label: string }> = { male: { id: 'curly', label: 'Krullen' }, female: { id: 'wavy', label: 'Lang golvend' } };
 /** Kapsel options per character set, art style first. The others are generated head + hair layers registered on the
  *  reference head (scripts/worn-bands/hairstyles.py → lib/avatar/wornStyleInfo), stored in Outfit.hairStyle.
- *  Female: only the art style (its long hair is baked into every top's torso band, so other styles can't be clean yet). */
+ *  Female: the reference art re-drawn with the new hair; its long art hair is baked into the top bands, so a style shows
+ *  with the clothes that have hair-free bands (scripts/worn-bands/female, lib/avatar/combo comboStyle `supports`). */
 export const HAIRSTYLES: Record<Gender, readonly { id: HairStyle; label: string }[]> = {
   male: [ART_HAIRSTYLE.male, { id: 'short', label: 'Kort' }, { id: 'wavy', label: 'Golvend' }, { id: 'buzz', label: 'Fade' }, { id: 'afro', label: 'Afro' }],
-  female: [ART_HAIRSTYLE.female],
+  female: [ART_HAIRSTYLE.female, { id: 'long', label: 'Lang stijl' }, { id: 'bun', label: 'Knot' }, { id: 'short', label: 'Bob' }],
 };
 
 const genderOf = (o: Pick<Outfit, 'gender'>): Gender => (o.gender === 'female' ? 'female' : 'male');
