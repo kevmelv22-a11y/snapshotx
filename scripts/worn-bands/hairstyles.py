@@ -26,7 +26,53 @@ def sim(src,dst,k=1.0):
     (a,b),(c,d)=src; (e,f),(g,h)=dst
     s=complex(g-e,h-f)/complex(c-a,d-b)*k; t=complex((e+g)/2,(f+h)/2)-s*complex((a+c)/2,(b+d)/2)
     return np.array([[s.real,-s.imag,t.real],[s.imag,s.real,t.imag]],np.float32)
-def style_layer(g,key):
+TONES=json.load(open(f'{HERE}/tones.json')); TDIR=os.environ.get('TDIR','assets/avatar-art/worn-tones')
+REF_FACE={'m-curtain','m-curtain-short'}
+def face_mask(im):
+    l=T.lab(im); sw=T.skin_w(l[...,0],l[...,1],l[...,2],im[...,3])
+    sk=cv2.morphologyEx((sw>0.35).astype(np.uint8),cv2.MORPH_CLOSE,np.ones((7,7),np.uint8))
+    n,lb,st,_=cv2.connectedComponentsWithStats(sk,8)
+    if n>1: sk=(lb==1+np.argmax(st[1:,4])).astype(np.uint8)
+    ff=sk.copy(); m=np.zeros((sk.shape[0]+2,sk.shape[1]+2),np.uint8); cv2.floodFill(ff,m,(0,0),1)
+    return ((sk>0)|(ff==0))&(im[...,3]>8)
+def ref_face(g,key,out,refb,chin):
+    """Keep the default boy's own face (shape, eyes, smile, ears); from the generated head only the hair and the
+    forehead above the brows (the default forehead is under its curls) are used."""
+    rb,r=refb; CH,CW=out.shape[:2]
+    base=np.zeros_like(out); h,w=rb.shape[:2]; base[r[1]:r[1]+h,r[0]:r[0]+w]=rb
+    ref=REF[g][0]; ent=dict(next((f[1] for f in TONES[g]['files'] if f[0]==f'{ref}-head'),[])); hm=np.zeros((CH,CW),np.float32)
+    x,y,w2,h2=ent['h-black']; hm[r[1]+y:r[1]+y+h2,r[0]+x:r[0]+x+w2]=np.array(Image.open(f'{TDIR}/{g}/{ref}-head--h-black.png').convert('RGBA'))[...,3]/255.
+    hm=cv2.dilate((hm>0.3).astype(np.uint8),np.ones((3,3),np.uint8))>0
+    re=REF[g][1]; ey0=r[1]+(re[0][1]+re[1][1])/2; ed0=abs(re[1][0]-re[0][0])
+    yy=np.mgrid[:CH,:CW][0]
+    xb=np.mgrid[:CH,:CW][1]; bcx=r[0]+(re[0][0]+re[1][0])/2
+    bz=(yy>ey0-0.6*ed0)&(yy<ey0-0.1*ed0)&(abs(xb-bcx)<0.95*ed0)   # the brows share the hair tone mask: keep them
+    bf=(base[...,3]>128)&(~hm|bz)&(yy<r[1]+chin+5)&(yy>ey0-0.75*ed0)
+    n,lb,st,_=cv2.connectedComponentsWithStats(bf.astype(np.uint8),8); bf=lb==1+np.argmax(st[1:,4])
+    # hair = the plain (generated-face) layer's own hair weight
+    _,pr,_,phw,_=style_layer(g,key,plain=True); hw=np.zeros((CH,CW),np.float32)
+    hw[pr[1]:pr[1]+pr[3],pr[0]:pr[0]+pr[2]]=phw
+    xx=np.mgrid[:CH,:CW][1]; ecx=r[0]+(re[0][0]+re[1][0])/2
+    brows=(yy>ey0-0.6*ed0)&(abs(xx-ecx)<1.05*ed0)          # the default face's own brows, not the generated ones
+    Lg=T.lab(out)[...,0]; hw=hw*~brows*(1-ramp(Lg,52,62))   # light pixels (skin / halo the plain split left in) are no hair
+    hair=hw>0.5
+    wy=ramp(yy,ey0-0.62*ed0,ey0-0.42*ed0)              # 0: generated forehead, 1: default face
+    fore=(out[...,3]>128)&~hair&(yy<ey0-0.42*ed0)        # generated forehead (skin-matched already)
+    fa_b=cv2.GaussianBlur(bf.astype(np.float32),(3,3),0)*base[...,3]/255.*wy*(1-ramp(yy,r[1]+chin-3,r[1]+chin+5))  # soft chin edge onto the neck
+    fa_g=fore*(out[...,3]/255.)*(1-wy)
+    fa=np.clip(fa_b+fa_g,0,1); fc=(base[...,:3]*fa_b[...,None]+out[...,:3]*fa_g[...,None])/np.maximum(fa_b+fa_g,1e-3)[...,None]
+    ha=np.clip(hw,0,1)*out[...,3]/255.
+    A=ha+fa*(1-ha)
+    C=(out[...,:3]*ha[...,None]+fc*(fa*(1-ha))[...,None])/np.maximum(A,1e-3)[...,None]
+    # pockets between the new hair and the default face (where its curls were, e.g. the temples): generated pixels
+    U=(A>0.5).astype(np.uint8); Uc=cv2.morphologyEx(U,cv2.MORPH_CLOSE,np.ones((11,11),np.uint8))
+    ff=Uc.copy(); m=np.zeros((CH+2,CW+2),np.uint8); cv2.floodFill(ff,m,(0,0),1)
+    tz=(yy>ey0-0.7*ed0)&(yy<ey0+0.15*ed0)&(abs(xb-bcx)>0.8*ed0)&(abs(xb-bcx)<1.5*ed0)   # temples
+    gap=cv2.GaussianBlur(((((Uc>0)|(ff==0))|tz)&(U==0)&(yy<r[1]+chin)).astype(np.float32),(3,3),0)*out[...,3]/255.*(1-A)
+    C=(C*A[...,None]+out[...,:3]*gap[...,None])/np.maximum(A+gap,1e-3)[...,None]; A=A+gap
+    ref_face.mask=bf
+    return np.dstack([C.clip(0,255),A*255]).astype(np.uint8)
+def style_layer(g,key,plain=False):
     ref,reyes,chin=REF[g]; r=M[g]['pieces'][ref]['head']; CW,CH=M[g]['canvas']
     dst=[(r[0]+x,r[1]+y) for x,y in reyes]; chinY=r[1]+chin
     im=np.array(Image.open(f'{SRC}/{key}.png').convert('RGBA')).astype(np.float32)
@@ -52,6 +98,8 @@ def style_layer(g,key):
     skl=ramp(l[...,0],cs[0]-25,cs[0]-12)*ramp(ch0,8,14)*ramp(hh0,30,40)*(1-ramp(hh0,72,80))
     l=l+skl[...,None]*(cr-cs)[None,None,:]
     out[...,:3]=T.rgb(l)
+    if key in REF_FACE and not plain:  # keep the default boy's own face (shape, eyes, smile); only the generated hair is used
+        out=ref_face(g,key,out,(rb,r),chin); l=T.lab(out)
     # chin: the strongest light->dark step under the mouth along the face's centre column (shadow under the chin)
     ED0=np.hypot(A[0,0],A[1,0])*np.hypot(se[1][0]-se[0][0],se[1][1]-se[0][1])
     col=cv2.GaussianBlur(l[...,0],(5,5),0)[:,int(cx)-3:int(cx)+4].mean(1); y0c,y1c=int(ey+ED0*0.9),int(ey+ED0*1.9)
@@ -92,6 +140,7 @@ def style_layer(g,key):
     above=above*np.where(yy>chinY-24,1-ramp(abs(xx-cx),ED*1.0,ED*1.1),1)*np.where(yy>chinY-9,1-ramp(abs(xx-cx),ED*0.7,ED*0.8),1)
     neck=(1-ramp(yy,chinY+14,chinY+26))*(1-ramp(abs(xx-cx),ED*0.8,ED*0.9))*(yy>=chinY-6)*ramp(np.hypot(Aa,Bc),6,10)*ramp(np.degrees(np.arctan2(Bc,Aa)),28,34)*ramp(L,22,30)
     above=np.maximum(above,neck*NECK)
+    if key in REF_FACE and not plain: above=np.maximum(above,ref_face.mask*(yy<=r[1]+chin+2))  # the default face's own chin/cheeks
     hm=cv2.morphologyEx((hw>0.4).astype(np.uint8),cv2.MORPH_OPEN,np.ones((5,5),np.uint8))
     hm=hm*(abs(xx-cx)<ED*2.6)
     if g=='female':  # hair falling below the chin: hair pixels connected to the hair above it
@@ -139,7 +188,6 @@ def style_layer(g,key):
     # female edits: the drawn brows and the eyes, for the overlays in __main__ (brows follow the skin tone, eyes never)
     style_layer.marks=(brow[sl].astype(np.float32),(iris_|white_)[sl]) if BLONDE else None
     return out[sl],[int(x0),int(y0),int(x1-x0),int(y1-y0)],sw[sl],(hw*(out[...,3]>4))[sl],chinY
-TONES=json.load(open(f'{HERE}/tones.json')); TDIR=os.environ.get('TDIR','assets/avatar-art/worn-tones')
 def keep_band(g,item,extra=()):
     """The item's head band without the old face + hair: the neck under the chin extended straight up behind the new
     face (male). extra: band-sized RGBA arrays (tone overlays) that get the same treatment."""
