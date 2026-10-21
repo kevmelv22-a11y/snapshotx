@@ -12,15 +12,15 @@ export function PriorityReplyBadge(){return <View style={s.prio}><Ionicons name=
 export function RewatchPill({label}:{label:string|null}){if(!label)return null;return <View style={s.rewatch}><Ionicons name="repeat" size={14} color={C.yellow}/><Text style={s.rewatchText}>{label}</Text></View>}
 export function NameWithBadge({name,plus}:{name:string;plus:boolean}){return <View style={s.row}><Text style={s.name}>{name}</Text>{plus&&<PlusBadge/>}</View>}
 
-const TABS:Tier[]=['plus','lens','platinum','family'];
+const TABS:Tier[]=['plus','lens','platinum','family'];const TAB_LABEL:Record<Tier,string>={plus:'X+',lens:'Lens+',platinum:'Platinum',family:'Gezin',storage:'Opslag'};
 /** Multi-tier paywall: tier tabs (X+, Lens+, Platinum, Gezin), plan options per tier, trial CTA, storage-only add-on link. */
 export function Paywall({tier,onTier,selected,onSelect,onBuy,onRestore,onTerms,onPrivacy,onStorage,busy,notice,trial,current}:{tier:Tier;onTier:(t:Tier)=>void;selected:PlanId;onSelect:(p:PlanId)=>void;onBuy:()=>void;onRestore:()=>void;onTerms:()=>void;onPrivacy:()=>void;onStorage?:()=>void;busy?:boolean;notice?:string|null;trial?:boolean;current?:PlanId|null}){
   const info=tierInfo(tier),plans=plansFor(tier),save=yearlySavingPercent(tier),plan=getPlan(selected)!,showTrial=!!trial&&plan.trialDays>0,isCur=current===selected;
   return <View style={s.pw}>
-    {tier!=='storage'&&<View style={s.tabs} accessibilityRole="tablist">{TABS.map(t=><Pressable key={t} accessibilityRole="tab" accessibilityState={{selected:t===tier}} onPress={()=>onTier(t)} style={[s.tab,t===tier&&s.tabOn]}><Text style={[s.tabText,t===tier&&s.tabTextOn]}>{tierInfo(t).name.replace('Snapshot ','')}</Text></Pressable>)}</View>}
+    {tier!=='storage'&&<View style={s.tabs} accessibilityRole="tablist">{TABS.map(t=><Pressable key={t} accessibilityRole="tab" accessibilityState={{selected:t===tier}} onPress={()=>onTier(t)} style={[s.tab,t===tier&&s.tabOn]}><Text style={[s.tabText,t===tier&&s.tabTextOn]}>{TAB_LABEL[t]}</Text></Pressable>)}</View>}
     <View style={s.hero}><Text style={[s.heroLogo,tier==='platinum'&&{backgroundColor:'#D9DCE3'},tier==='lens'&&{backgroundColor:C.pink,color:'white'}]}>{tier==='lens'?'L+':tier==='platinum'?'P':tier==='storage'?'☁':'X+'}</Text><Text style={s.heroTitle}>{info.name}</Text><Text style={s.heroSub}>{info.tagline}</Text></View>
     {info.perks.map(p=><View key={p} style={s.perk}><Ionicons name="checkmark-circle" size={18} color={C.yellow}/><Text style={s.featTitle}>{p}</Text></View>)}
-    {tier!=='storage'&&featuresFor(tier).map(f=><View key={f.id} style={s.feat}><Ionicons name={f.icon as any} size={22} color={C.yellow}/><View style={{flex:1}}><Text style={s.featTitle}>{f.title}</Text><Text style={s.featDesc}>{f.description}</Text></View>{f.minTier!=='plus'&&<Text style={s.newTag}>{tierInfo(f.minTier).name.replace('Snapshot ','')}</Text>}</View>)}
+    {tier!=='storage'&&[...featuresFor(tier)].reverse().map(f=><View key={f.id} style={s.feat}><Ionicons name={f.icon as any} size={22} color={C.yellow}/><View style={{flex:1}}><Text style={s.featTitle}>{f.title}</Text><Text style={s.featDesc}>{f.description}</Text></View>{f.minTier!=='plus'&&<Text style={s.newTag}>{TAB_LABEL[f.minTier]}</Text>}</View>)}
     <View style={s.plans}>{plans.map(p=>{const on=p.id===selected;return <Pressable key={p.id} accessibilityRole="radio" accessibilityState={{checked:on}} onPress={()=>onSelect(p.id)} style={[s.plan,on&&s.planOn]}>
       {p.period==='year'&&save>0&&<View style={s.save}><Text style={s.saveText}>Bespaar {save}%</Text></View>}
       <Text style={s.planTitle}>{p.title}</Text><Text style={s.planPrice}>{formatPrice(p.priceCents)}</Text><Text style={s.planPer}>{periodLabel(p)}</Text>
