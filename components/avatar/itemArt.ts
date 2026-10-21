@@ -1,7 +1,7 @@
 /**
  * ChatGPT-style item thumbnails for the Kast tiles (assets/avatar-art/items/<id>.png, cropped from item sheets by
  * assets/avatar-art/items/src/{segment,crop,fixups}.py). Items without an entry keep the old ItemPreviewArt render.
- * TODO: outer-strideon-black-jacket reuses the black work-jacket crop until it has its own art.
+ * outer-strideon-black-jacket is cut from the boy's worn jacket art by assets/avatar-art/items/src/strideon_jacket.py.
  */
 /* eslint-disable @typescript-eslint/no-require-imports */
 export const ITEM_ART: Record<string, number> = {

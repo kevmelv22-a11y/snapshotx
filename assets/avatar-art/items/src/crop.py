@@ -15,7 +15,7 @@ MAP = {
   'sheet10': [81, 82, 83, 85, 86, 87, None, 88, 89],
   'sheet11': [90, 91],
 }
-REUSE = {84: 51}  # TODO: outer-strideon-black-jacket has no own art yet -> black work jacket
+REUSE = {}  # outer-strideon-black-jacket (84) has its own art now: strideon_jacket.py (run after this script)
 SIZE, PAD = 384, 0.08
 items = json.load(open('/workspace/sx-shots/kast/needed-thumbnails.json'))['items']
 OUT = os.path.normpath(f'{HERE}/..')
