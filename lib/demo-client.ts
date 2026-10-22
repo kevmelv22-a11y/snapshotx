@@ -6,6 +6,7 @@
  */
 import { StaffMock, seedStaffMock, MOCK_IDS, type Row } from './staff-mock';
 import { parseReply, replyBody } from './chat-replies';
+import { mentionLabel, mentionedIds } from './chat-mentions';
 import { SAVE_ERRORS, canSave, unsaveExpiry } from './chat-saves';
 import { parseRetention } from './chat-features';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, isGroupThread, normalizeGroupTitle } from './group-chat';
@@ -68,7 +69,9 @@ function seedDemo(m: StaffMock) {
     msg(T.crew, I.cleo, 'Wie neemt de bal mee?', 3.5 * H), msg(T.crew, EXTRA.noor, 'Ik! ⚽', 3.4 * H),
     msg(T.crew, EXTRA.noor, 'En ik neem ook de pomp mee', 3.39 * H), msg(T.crew, ME, 'Top! Ik regel de muziekbox 🔊', 3.3 * H),
     msg(T.crew, ME, 'Zaterdag 14:00 bij het strandpaviljoen?', 3.29 * H), msg(T.crew, I.eva, 'Ik ben erbij 🙌', 3.1 * H),
-    msg(T.crew, I.aria, 'Ik kom iets later, rond 15:00', 2.8 * H));
+    msg(T.crew, I.aria, 'Ik kom iets later, rond 15:00', 2.8 * H),
+    // @vermeldingen: Kevin thanks Noor, Cleo asks Kevin something (unread → "@ Je bent vermeld" in the chat list).
+    msg(T.crew, ME, '@Noor jij bent de beste 🙌', 3.38 * H), msg(T.crew, I.cleo, '@Kevin kun jij de route naar het paviljoen sturen? 📍', 2.5 * H));
   // Staff-mock seed has a Daan snap without media in Weekend crew (Daan is no member here): it rendered as an empty
   // first bubble. In the demo it becomes Aria's beach snap with real demo media.
   Object.assign(m.t.sx_messages.find(x => x.id === 'e0000000-0000-4000-8000-000000000003') ?? {}, { sender_id: I.aria, media_path: 'demo/strand.svg', body: 'photo', view_once: true });
@@ -258,16 +261,20 @@ export class DemoClient {
     const peers = this.m.table('sx_members').filter(x => x.thread_id === threadId && x.user_id !== ME).map(x => String(x.user_id));
     if (!peers.length) return;
     setTimeout(() => {
-      const sender = peers[Math.floor(Math.random() * peers.length)];
+      const last = this.m.table('sx_messages').filter(x => x.thread_id === threadId && x.sender_id === ME && x.kind === 'text').sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
+      // @vermeldingen: in a group the mentioned friend answers (and mentions Kevin back).
+      const members = [ME, ...peers].map(id => ({ id, name: (this.m.profile(id)?.display_name as string | undefined) ?? null }));
+      const mentioned = peers.length > 1 && last ? mentionedIds(parseReply(String(last.body))?.text ?? String(last.body), members).filter(id => id !== ME) : [];
+      const sender = mentioned[0] ?? peers[Math.floor(Math.random() * peers.length)];
       // The friend opens Kevin's messages first (➤ Bezorgd → ▷ Geopend), then replies.
       const receipts = this.m.table('sx_receipts');
       for (const x of this.m.table('sx_messages').filter(x => x.thread_id === threadId && x.sender_id === ME && x.kind !== 'system'))
         if (!receipts.some(r => r.message_id === x.id && r.user_id === sender)) { const r = { message_id: x.id, user_id: sender, opened_at: this.m.iso(), replay_count: 0 }; receipts.push(r); this.emit('sx_receipts', 'INSERT', r); }
       // A question from Kevin gets a quoted reply (swipe-reply style), anything else a plain answer.
-      const last = this.m.table('sx_messages').filter(x => x.thread_id === threadId && x.sender_id === ME && x.kind === 'text').sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
-      const text = REPLIES[Math.floor(Math.random() * REPLIES.length)];
+      const back = mentioned.length ? `@${mentionLabel(members[0], members)} ` : '';
+      const text = back + REPLIES[Math.floor(Math.random() * REPLIES.length)];
       const asked = !!last && (parseReply(String(last.body))?.text ?? String(last.body)).trim().endsWith('?');
-      const body = asked ? replyBody(last as never, QUESTION_REPLIES[Math.floor(Math.random() * QUESTION_REPLIES.length)]) : text;
+      const body = asked ? replyBody(last as never, back + QUESTION_REPLIES[Math.floor(Math.random() * QUESTION_REPLIES.length)]) : text;
       const row = { id: newId(), thread_id: threadId, sender_id: sender, kind: 'text', body, media_path: null, created_at: this.m.iso(), expires_at: null };
       this.m.table('sx_messages').push(row); this.emit('sx_messages', 'INSERT', row);
     }, 1800);

@@ -1,6 +1,7 @@
 import {supabase} from './supabase';
 import {chatPreviewText} from './avatar/poses';
 import {replyText} from './chat-replies';
+import {hasUnreadMention} from './chat-mentions';
 import {threadStatus,threadStreak,type ChatStatus} from './chat-status';
 import type {StreakState} from './chat-features';
 
@@ -13,6 +14,8 @@ export type ChatRow = {
   peerIds:string[];
   isGroup:boolean;
   unread:boolean;
+  /** Group chats: an unread message @mentions me (Snapchat "@ Je bent vermeld"). */
+  mentioned?:boolean;
   /** Snapchat status glyph + label (Nieuwe snap / Bezorgd / Geopend / Ontvangen …). */
   chatStatus?:ChatStatus;
   /** 1-on-1 snap streak (🔥 count, ⌛ when about to expire). */
@@ -28,7 +31,7 @@ export const DEMO_CHATS:ChatRow[] = [
 ];
 export const AI_DEMO:ChatRow = {id:'local-ai',title:'Nova · lokale demo',preview:'Probeer een voorbeeldgesprek',status:'Geen AI-verbinding',createdAt:null,peerIds:[],isGroup:false,unread:false,demo:true};
 
-export async function loadChatRows(uid:string):Promise<ChatRow[]> {
+export async function loadChatRows(uid:string,myName?:string|null):Promise<ChatRow[]> {
   const members=await supabase.from('sx_members').select('thread_id').eq('user_id',uid);
   if(members.error)throw members.error;
   const ids=[...new Set((members.data||[]).map(x=>x.thread_id))];
@@ -43,7 +46,8 @@ export async function loadChatRows(uid:string):Promise<ChatRow[]> {
   if(messages.error)throw messages.error;
   const peers=(participants.data||[]).filter(x=>x.user_id!==uid);
   const peerIds=[...new Set(peers.map(x=>x.user_id))];
-  const profiles=peerIds.length?await supabase.from('profiles').select('id,display_name').in('id',peerIds):null;
+  // My own name is needed too: @mentions of me are matched by name.
+  const profiles=peerIds.length?await supabase.from('profiles').select('id,display_name').in('id',[...peerIds,uid]):null;
   // Names/read marks are extras: an unavailable table must not hide the chat list itself.
   if(profiles?.error)console.warn('[chat-list] profiles',profiles.error.code,profiles.error.message);
   const names=new Map((profiles?.data||[]).map(x=>[x.id,x.display_name]));
@@ -71,7 +75,9 @@ export async function loadChatRows(uid:string):Promise<ChatRow[]> {
     // Without receipts (error) an incoming message counts as opened, so nothing looks falsely "new".
     const chatStatus=threadStatus(list,uid,peerOpened,receipts?.error?new Set(list.map(x=>x.id)):read);
     const streak=isGroup?null:threadStreak(list,uid,people[0]??null,now,offset);
+    const members=(participants.data||[]).filter(x=>x.thread_id===thread.id).map(x=>({id:x.user_id as string,name:names.get(x.user_id)??(x.user_id===uid?myName:null)}));
+    const mentioned=isGroup&&!receipts?.error&&hasUnreadMention(list,uid,read,members);
     const preview=!last?'Nieuw gesprek':last.kind==='system'?(last.body||'Melding'):last.kind==='text'?(chatPreviewText(replyText(last.body))||'Bericht'):last.kind==='snap'?'Snap ontvangen':last.kind==='voice'?'Spraakbericht':last.kind==='video'?'Video':'Foto';
-    return {id:thread.id,title:thread.title||people.map(id=>names.get(id)||'Vriend').join(', ')||'Chat',preview,status:chatStatus.label,chatStatus,streak:streak&&streak.count>0?streak:null,createdAt:last?.created_at||null,peerIds:people,isGroup,unread};
+    return {id:thread.id,title:thread.title||people.map(id=>names.get(id)||'Vriend').join(', ')||'Chat',preview,status:chatStatus.label,chatStatus,streak:streak&&streak.count>0?streak:null,createdAt:last?.created_at||null,peerIds:people,isGroup,unread,mentioned};
   }).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
 }
