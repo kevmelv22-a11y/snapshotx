@@ -1,7 +1,7 @@
 import {create} from 'zustand';
 import {createJSONStorage,persist} from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {activeTier,getPlan,isPlus,type Entitlement,type PlanId} from '../lib/plus';
+import {activeTier,effectiveAppIcon,getPlan,isPlus,type Entitlement,type PlanId} from '../lib/plus';
 import {useNow} from '../hooks/useNow';
 import {createMockProvider,type PurchaseProvider} from '../lib/plus-purchases';
 
@@ -22,3 +22,5 @@ export const usePlusStore=create<PlusState>()(persist((set)=>({
 }),{name:'sx-plus',storage:createJSONStorage(()=>AsyncStorage),partialize:s=>({entitlements:s.entitlements,appIcon:s.appIcon,wallpapers:s.wallpapers,bffPinId:s.bffPinId})}));
 export function useIsPlus(){const e=usePlusStore(s=>s.entitlements);const now=useNow();return isPlus(e,now)}
 export function useTier(){const e=usePlusStore(s=>s.entitlements);const now=useNow();return activeTier(e,now)}
+/** Icon actually in effect (plus-only choices fall back to Standaard without X+). */
+export function useEffectiveAppIcon(){const c=usePlusStore(s=>s.appIcon);return effectiveAppIcon(c,useIsPlus())}

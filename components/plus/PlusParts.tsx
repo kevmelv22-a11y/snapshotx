@@ -1,10 +1,11 @@
 import React from 'react';
-import {Pressable,StyleSheet,Text,View} from 'react-native';
+import {Image,Pressable,StyleSheet,Text,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {C} from '../../lib/theme';
 import {TierIcon,TierWordmark} from './TierBrand';
 import {TIER_BRAND,isBrandTier} from '../../lib/tier-brand';
-import {APP_ICONS,WALLPAPERS,featuresFor,formatPrice,getPlan,monthlyEquivalentCents,periodLabel,plansFor,tierInfo,yearlySavingPercent,type PlanId,type Tier} from '../../lib/plus';
+import {APP_ICON_PREVIEW} from '../../lib/app-icon-assets';
+import {APP_ICONS,appIconInfo,type AppIconId,WALLPAPERS,featuresFor,formatPrice,getPlan,monthlyEquivalentCents,periodLabel,plansFor,tierInfo,yearlySavingPercent,type PlanId,type Tier} from '../../lib/plus';
 
 /** Tier logo badge next to a name (Snapshot X icon by default). */
 export function PlusBadge({size=18,tier='plus'}:{size?:number;tier?:Tier}){const t=isBrandTier(tier)?tier:'plus';return <View accessibilityLabel={`${TIER_BRAND[t].label}-abonnee`} style={s.badge}><TierIcon tier={t} size={size}/></View>}
@@ -40,9 +41,11 @@ export function Paywall({tier,onTier,selected,onSelect,onBuy,onRestore,onTerms,o
 export function Locked({onUpgrade}:{onUpgrade:()=>void}){return <Pressable onPress={onUpgrade} style={s.locked}><Ionicons name="lock-closed" size={16} color={C.yellow}/><Text style={s.lockedText}>Alleen met Snapshot X+ · Bekijk abonnement</Text></Pressable>}
 
 export function AppIconPicker({value,plus,onChange}:{value:string;plus:boolean;onChange:(id:string)=>void}){
-  return <View style={s.grid}>{APP_ICONS.map(i=>{const lock=i.plusOnly&&!plus,on=value===i.id;return <Pressable key={i.id} disabled={lock} onPress={()=>onChange(i.id)} style={[s.iconCell,lock&&{opacity:.45}]} accessibilityLabel={`App-icoon ${i.label}`}>
-    <View style={[s.icon,{backgroundColor:i.colors[0]},on&&s.iconOn]}><View style={[s.iconHalf,{backgroundColor:i.colors[1]}]}/><Text style={s.iconGlyph}>X</Text>{lock&&<Ionicons name="lock-closed" size={14} color="white" style={s.lockIco}/>}</View><Text style={s.iconLabel}>{i.label}</Text></Pressable>})}</View>;
+  return <View style={s.grid}>{APP_ICONS.map(i=>{const lock=i.plusOnly&&!plus,on=value===i.id;return <Pressable key={i.id} disabled={lock} onPress={()=>onChange(i.id)} style={[s.iconCell,lock&&{opacity:.45}]} accessibilityLabel={`App-icoon ${i.label}${lock?' (alleen Snapshot X+)':''}`} accessibilityState={{selected:on,disabled:lock}}>
+    <View style={[s.icon,on&&s.iconOn]}><Image source={APP_ICON_PREVIEW[i.id]} style={s.iconImg}/>{lock&&<Ionicons name="lock-closed" size={14} color="white" style={s.lockIco}/>}{on&&<Ionicons name="checkmark-circle" size={18} color={C.yellow} style={s.checkIco}/>}</View><Text style={[s.iconLabel,on&&{color:C.yellow,fontWeight:'800'}]}>{i.label}</Text></Pressable>})}</View>;
 }
+/** The chosen app icon as a small rounded badge. */
+export function AppIconBadge({id,size=28}:{id:AppIconId;size?:number}){return <Image source={APP_ICON_PREVIEW[id]} style={{width:size,height:size,borderRadius:size*.24}} accessibilityLabel={`App-icoon ${appIconInfo(id).label}`}/>}
 export function WallpaperPicker({value,onChange}:{value:string;onChange:(id:string)=>void}){
   return <View style={s.grid}>{WALLPAPERS.map(w=><Pressable key={w.id} onPress={()=>onChange(w.id)} style={s.iconCell} accessibilityLabel={`Achtergrond ${w.label}`}><View style={[s.wp,{backgroundColor:w.colors[0]},value===w.id&&s.iconOn]}><View style={[s.wpHalf,{backgroundColor:w.colors[1]}]}/>{w.id==='sterren'&&<Text style={s.stars}>✦ · ✧</Text>}</View><Text style={s.iconLabel}>{w.label}</Text></Pressable>)}</View>;
 }
@@ -63,7 +66,7 @@ const s=StyleSheet.create({
   buy:{backgroundColor:C.yellow,borderRadius:26,paddingVertical:15,alignItems:'center',marginTop:4},buyText:{color:C.bg,fontWeight:'900',fontSize:17},
   notice:{color:C.yellow,textAlign:'center'},fine:{color:C.muted,fontSize:11,textAlign:'center'},links:{flexDirection:'row',justifyContent:'center',gap:8},link:{color:C.blue,fontSize:13,fontWeight:'600'},dot:{color:C.muted},
   locked:{flexDirection:'row',gap:8,alignItems:'center',backgroundColor:C.cardBg,borderRadius:12,padding:12},lockedText:{color:C.text,fontWeight:'600'},
-  grid:{flexDirection:'row',flexWrap:'wrap',gap:12},iconCell:{alignItems:'center',width:76},icon:{width:64,height:64,borderRadius:16,overflow:'hidden',alignItems:'center',justifyContent:'center'},iconHalf:{position:'absolute',right:0,bottom:0,width:64,height:32,transform:[{skewY:'-20deg'}]},
-  iconGlyph:{color:'white',fontSize:28,fontWeight:'900'},iconOn:{borderWidth:3,borderColor:C.yellow},lockIco:{position:'absolute',top:4,right:4},iconLabel:{color:C.text,fontSize:12,marginTop:4,textAlign:'center'},
+  grid:{flexDirection:'row',flexWrap:'wrap',gap:12},iconCell:{alignItems:'center',width:76},icon:{width:64,height:64,borderRadius:16,overflow:'hidden',alignItems:'center',justifyContent:'center',backgroundColor:'#000'},iconImg:{width:'100%',height:'100%'},checkIco:{position:'absolute',bottom:2,right:2},
+  iconOn:{borderWidth:3,borderColor:C.yellow},lockIco:{position:'absolute',top:4,right:4},iconLabel:{color:C.text,fontSize:12,marginTop:4,textAlign:'center'},
   wp:{width:64,height:96,borderRadius:12,borderWidth:1,borderColor:C.border,overflow:'hidden',alignItems:'center',justifyContent:'center'},wpHalf:{position:'absolute',bottom:0,left:0,right:0,height:48},stars:{color:'white',fontSize:14},
 });

@@ -117,14 +117,22 @@ export function canUse(f: PlusFeature, who: Tier | null | boolean): boolean {
 export const featuresFor = (t: Tier) => FEATURES.filter(f => canUse(f.id, t));
 
 // --- App icons -----------------------------------------------------------------------------------
-export type AppIconId = 'default' | 'galaxy' | 'neon' | 'zon' | 'nacht';
-export const APP_ICONS: readonly { id: AppIconId; label: string; colors: [string, string]; plusOnly: boolean }[] = [
-  { id: 'default', label: 'Standaard', colors: ['#AE16C7', '#4298FF'], plusOnly: false },
-  { id: 'galaxy', label: 'Galaxy', colors: ['#0D0618', '#B713D5'], plusOnly: true },
-  { id: 'neon', label: 'Neon', colors: ['#00F5D4', '#FF5B95'], plusOnly: true },
-  { id: 'zon', label: 'Zon', colors: ['#FFE436', '#FF6B6B'], plusOnly: true },
-  { id: 'nacht', label: 'Nacht', colors: ['#161820', '#30333D'], plusOnly: true },
+export type AppIconId = 'default' | 'bliksem' | 'vuurijs' | 'ringen' | 'lens' | 'schild' | 'neonspook' | 'glas' | 'gloed' | 'snapx' | 'boog';
+/** native = PascalCase name registered with expo-alternate-app-icons in app.json (null = primary icon). */
+export const APP_ICONS: readonly { id: AppIconId; label: string; native: string | null; plusOnly: boolean }[] = [
+  { id: 'default', label: 'Standaard', native: null, plusOnly: false },
+  { id: 'bliksem', label: 'Bliksem X', native: 'Bliksem', plusOnly: true },
+  { id: 'vuurijs', label: 'Vuur & IJs', native: 'VuurIjs', plusOnly: true },
+  { id: 'ringen', label: 'Ringen', native: 'Ringen', plusOnly: true },
+  { id: 'lens', label: 'Lens', native: 'Lens', plusOnly: true },
+  { id: 'schild', label: 'Schild', native: 'Schild', plusOnly: true },
+  { id: 'neonspook', label: 'Neon Spook', native: 'NeonSpook', plusOnly: true },
+  { id: 'glas', label: 'Glas', native: 'Glas', plusOnly: true },
+  { id: 'gloed', label: 'Gloed', native: 'Gloed', plusOnly: true },
+  { id: 'snapx', label: 'Snap X', native: 'SnapX', plusOnly: true },
+  { id: 'boog', label: 'Boog', native: 'Boog', plusOnly: true },
 ];
+export function appIconInfo(id: string) { return APP_ICONS.find(x => x.id === id) ?? APP_ICONS[0]; }
 /** Icon actually shown: a plus-only choice falls back to default once X+ lapses. */
 export function effectiveAppIcon(choice: string | null | undefined, plus: boolean): AppIconId {
   const i = APP_ICONS.find(x => x.id === choice);

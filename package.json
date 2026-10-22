@@ -8,6 +8,7 @@
     "@supabase/supabase-js": "2.117.1",
     "base64-arraybuffer": "1.0.2",
     "expo": "~57.0.28",
+    "expo-alternate-app-icons": "^8.0.0",
     "expo-asset": "~57.0.19",
     "expo-audio": "~57.0.5",
     "expo-camera": "~57.0.6",
