@@ -111,7 +111,21 @@ function seedDemo(m: StaffMock) {
   opened(noorHi.id, ME, 29 * H); opened(noorSnap.id, EXTRA.noor, 8 * H);
   // Kevin already read Eva's chats (Ontvangen), Eva read his (Geopend).
   m.t.sx_messages.filter(x => x.thread_id === T.eva && x.kind === 'text').forEach(x => opened(x.id, x.sender_id === ME ? I.eva : ME, 19 * H));
-  m.t.sx_highlight_likes = []; m.t.sx_highlight_shares = []; m.t.sx_location_allowed = []; m.t.sx_push_tokens = [];
+  m.t.sx_highlight_likes = []; m.t.sx_highlight_shares = [];
+  // Spotlight social (Snapchat): comments with likes on the public snaps + Kevin is subscribed to Eva.
+  const pub = (owner: string) => m.t.sx_stories.find(s => s.owner_id === owner && s.visibility === 'everyone')?.id;
+  const cm = (story: unknown, user_id: string, body: string, ago: number) => ({ id: newId(), story_id: story, user_id, body, created_at: iso(-ago) });
+  const beach = pub(I.aria), dog = pub(I.eva), sunset = pub(EXTRA.noor);
+  m.t.sx_highlight_comments = [
+    cm(beach, I.bram, 'Waar is dit? Ziet er heerlijk uit 😍', 90 * 60e3), cm(beach, I.eva, 'Volgende keer ga ik mee!! 🏖️', 70 * 60e3),
+    cm(beach, I.daan, 'Die zon 🔥🔥', 40 * 60e3), cm(beach, I.aria, 'Scheveningen! Echt een aanrader ☀️', 30 * 60e3),
+    cm(dog, I.cleo, 'Gefeliciteerd Max!! 🎉🐶', 2 * H), cm(dog, I.bram, 'Hoe oud is hij geworden?', 100 * 60e3), cm(dog, I.eva, '3 jaar al 🥹', 95 * 60e3),
+    cm(sunset, I.aria, 'Wat een kleuren 🌅', 5 * H),
+  ];
+  const cl = (comment: Row | undefined, users: string[]) => users.map(user_id => ({ comment_id: comment?.id, user_id }));
+  const [cB0, cB1, cB2, cB3, cD0] = m.t.sx_highlight_comments;
+  m.t.sx_highlight_comment_likes = [...cl(cB0, [I.eva, I.cleo]), ...cl(cB1, [I.aria]), ...cl(cB2, [I.bram, I.eva, I.cleo, EXTRA.noor]), ...cl(cB3, [I.bram, I.daan, I.eva]), ...cl(cD0, [I.eva, ME])];
+  m.t.sx_creator_subscriptions = [{ subscriber_id: ME, creator_id: I.eva, created_at: iso(-6 * D) }, { subscriber_id: I.bram, creator_id: I.aria, created_at: iso(-2 * D) }]; m.t.sx_location_allowed = []; m.t.sx_push_tokens = [];
   m.t.sx_preferences = [{ user_id: ME, language: 'nl', find_me: true }];
   const loc = (user_id: string, lat: number, lng: number, ago: number) => ({ user_id, latitude: lat, longitude: lng, sharing: true, home_confirmed: false, updated_at: iso(-ago), share_audience: 'friends', ghost_until: null, ghost_forever: false });
   m.t.sx_locations = [loc(ME, 52.3676, 4.9041, 5 * 60e3), loc(I.aria, 52.3731, 4.8922, 10 * 60e3), loc(I.eva, 52.3584, 4.8811, 40 * 60e3), loc(I.cleo, 52.3600, 4.9200, 2 * H), loc(EXTRA.noor, 52.3791, 4.9003, 15 * 60e3)];
@@ -122,7 +136,7 @@ function seedDemo(m: StaffMock) {
 
 const PK: Record<string, string[]> = {
   sx_story_views: ['story_id', 'viewer_id'], sx_preferences: ['user_id'], sx_locations: ['user_id'], sx_reactions: ['message_id', 'user_id'],
-  sx_story_reactions: ['story_id', 'user_id'], sx_highlight_likes: ['story_id', 'user_id'], sx_push_tokens: ['user_id'], sx_avatar_outfits: ['user_id'],
+  sx_story_reactions: ['story_id', 'user_id'], sx_highlight_likes: ['story_id', 'user_id'], sx_highlight_comment_likes: ['comment_id', 'user_id'], sx_creator_subscriptions: ['subscriber_id', 'creator_id'], sx_push_tokens: ['user_id'], sx_avatar_outfits: ['user_id'],
   sx_memory_vault: ['user_id'], sx_receipts: ['message_id', 'user_id'], sx_location_allowed: ['owner_id', 'friend_id'], sx_members: ['thread_id', 'user_id'],
 };
 type Listener = { table: string; event: string; filter?: string; cb: (p: unknown) => void };
@@ -370,6 +384,7 @@ export class DemoClient {
     sx_highlight_feed: () => this.m.table('sx_stories').filter(s => s.visibility === 'everyone' && String(s.expires_at) > this.m.iso()).map(s => ({
       id: s.id, owner_id: s.owner_id, created_at: s.created_at, caption: s.caption ?? null, media_path: s.media_path, media_type: s.media_type,
       likes: this.m.table('sx_highlight_likes').filter(l => l.story_id === s.id).length + 12, shares: 3, views: 240,
+      subscribers: this.m.table('sx_creator_subscriptions').filter(x => x.creator_id === s.owner_id).length + (String(s.owner_id).charCodeAt(String(s.owner_id).length - 1) % 7) * 180 + 1200,
       liked: this.m.table('sx_highlight_likes').some(l => l.story_id === s.id && l.user_id === ME) })),
     sx_friend_avatar_outfits: () => [],
     // Mirrors public.sx_ensure_profile() (migration 20261019120000): create the own row from the sign-up metadata.
