@@ -10,6 +10,7 @@ import {dayDivider,dividerStarts,type ChatStatus} from '../../lib/chat-status';
 import {StatusIcon} from './StatusIcon';
 import {colorFor,runStarts,senderColors,senderLabel} from '../../lib/chat-senders';
 import {QuoteBlock,SwipeToReply} from './ChatReply';
+import {savedLabel} from '../../lib/chat-saves';
 import {QUOTE_GONE,canReply,parseReply,quotedIndex,type ReplyRef} from '../../lib/chat-replies';
 import {ReactionChips,ReactionPicker,StreakBadge,StreakWarning,SystemLine,TypingIndicator} from './ChatParts';
 
@@ -60,7 +61,9 @@ export function ChatView(p:ChatViewProps){
       renderItem={({item})=>{
         if(item.kind==='system')return <View>{divider(item)}<SystemLine text={item.body??''} icon={isGroupChangeText(item.body)?'👥':item.body?.includes('screenshot')?'📸':item.body?.includes('gesprek')?'📹':'⏱'}/></View>;
         const mine=item.sender_id===p.me,color=colorFor(item.sender_id,colors),start=starts.has(item.id)||days.has(item.id);
-        const hint=retentionHint(p.retention,mine?null:p.viewedAt[item.id]??null,p.now,!!item.saved);
+        // Opslaan in chat: saved messages get Snapchat's grey highlight + "Opgeslagen (door …)" instead of a timer.
+        const saved=savedLabel(item,p.me,id=>p.nameOf?.(id));
+        const hint=saved?null:retentionHint(p.retention,mine?null:p.viewedAt[item.id]??null,p.now,!!item.saved);
         const time=new Date(item.created_at).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
         const open=()=>setPicker(item.id);
         // Web: right-click opens the same menu as a long-press (mobile).
@@ -70,9 +73,10 @@ export function ChatView(p:ChatViewProps){
           {divider(item)}
           {start&&<View style={s.senderRow}>{p.avatarOf?.(item.sender_id)}<Text style={[s.sender,{color}]} testID="sender-label">{senderLabel(item.sender_id,p.me,p.nameOf?.(item.sender_id))}</Text><Text style={s.runTime}>{time}</Text></View>}
           <SwipeToReply enabled={!!p.onReply&&canReply(item)} onReply={()=>p.onReply?.(item)}>
-          <Pressable onLongPress={open} delayLongPress={300} {...web} accessibilityHint="Veeg naar rechts om te antwoorden; lang indrukken voor reacties, melden en blokkeren" style={[s.msg,{borderLeftColor:color},flash===item.id&&s.flash]} testID={mine?'msg-mine':'msg-theirs'}>
+          <Pressable onLongPress={open} delayLongPress={300} {...web} accessibilityHint="Veeg naar rechts om te antwoorden; lang indrukken voor reacties, opslaan, melden en blokkeren" style={[s.msg,{borderLeftColor:color},!!saved&&s.saved,flash===item.id&&s.flash]} testID={mine?'msg-mine':'msg-theirs'} accessibilityState={{selected:!!saved}}>
             {reply&&<QuoteBlock label={senderLabel(reply.ref.senderId,p.me,p.nameOf?.(reply.ref.senderId))} color={colorFor(reply.ref.senderId,colors)} excerpt={reply.ref.excerpt} onPress={()=>jump(reply.ref)}/>}
             {p.renderContent(shown,mine)}
+            {!!saved&&<View style={s.savedRow} testID="msg-saved"><Ionicons name="bookmark" size={10} color={C.muted}/><Text style={s.savedText}>{saved}</Text></View>}
             {!!hint&&<Text style={s.time}>{hint}</Text>}
           </Pressable>
           </SwipeToReply>
@@ -92,7 +96,7 @@ const s=StyleSheet.create({
   runStart:{marginTop:12},senderRow:{flexDirection:'row',alignItems:'center',gap:6,marginBottom:3},sender:{fontSize:12,fontWeight:'800',letterSpacing:.6},runTime:{color:C.muted,fontSize:10,marginLeft:2},
   msg:{borderLeftWidth:3,paddingLeft:10,paddingVertical:3,marginLeft:2,alignSelf:'stretch'},
   empty:{position:'absolute',left:0,right:0,top:0,bottom:0,alignItems:'center',justifyContent:'center',padding:15},
-  time:{color:C.muted,fontSize:10,marginTop:2},flash:{backgroundColor:'#ffffff1f',borderRadius:6},
+  time:{color:C.muted,fontSize:10,marginTop:2},saved:{backgroundColor:'#ffffff17',borderTopRightRadius:8,borderBottomRightRadius:8,paddingRight:8},savedRow:{flexDirection:'row',alignItems:'center',gap:4,marginTop:3},savedText:{color:C.muted,fontSize:10,fontWeight:'700'},flash:{backgroundColor:'#ffffff1f',borderRadius:6},
   toast:{position:'absolute',top:12,alignSelf:'center',backgroundColor:C.elevated,borderRadius:14,paddingHorizontal:14,paddingVertical:8},toastText:{color:C.text,fontSize:13},
   day:{color:C.muted,fontSize:11,fontWeight:'800',letterSpacing:1,textAlign:'center',marginTop:16,marginBottom:2},
   receipt:{flexDirection:'row',alignItems:'center',gap:5,alignSelf:'flex-end',marginTop:4},receiptText:{color:C.muted,fontSize:11,fontWeight:'700'},

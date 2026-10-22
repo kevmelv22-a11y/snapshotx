@@ -12,6 +12,8 @@ import {useConfirmDialog} from '../../components/ConfirmDialog';
 import {friendlyError} from '../../lib/db-errors';
 import {threadStreak} from '../../lib/chat-status';
 import type {StreakState} from '../../lib/chat-features';
+import {savedCount,savedPreviews,savedSectionTitle,type SaveableMessage,type SavedPreview} from '../../lib/chat-saves';
+import {quoteOf} from '../../lib/chat-replies';
 import {formatScore,friendsSinceLabel,groupLine,sharedChats,sharedGroupsTitle,streakChip,type SharedChats} from '../../lib/friend-profile';
 
 type FriendProfile={id:string;display_name:string;username:string;activity_score:number;gender?:string|null};
@@ -22,6 +24,7 @@ export default function FriendProfileScreen(){
  const {session}=useSession(),me=session?.user.id??'',insets=useSafeAreaInsets(),confirm=useConfirmDialog();
  const [p,setP]=useState<FriendProfile|null>(null),[since,setSince]=useState<string|null>(null),[isFriend,setIsFriend]=useState(true);
  const [shared,setShared]=useState<SharedChats>({directId:null,groups:[]}),[streak,setStreak]=useState<StreakState|null>(null),[stories,setStories]=useState(0);
+ const [savedRows,setSavedRows]=useState<{total:number;items:SavedPreview[]}>({total:0,items:[]});
  const [notice,setNotice]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const outfits=useFriendOutfits(useMemo(()=>[id],[id]));
  const load=useCallback(async(alive:()=>boolean)=>{if(!id||!me)return;
@@ -43,7 +46,10 @@ export default function FriendProfileScreen(){
    if(!alive())return;
    const sc=mem.error?{directId:null,groups:[]}:sharedChats(mem.data||[],th.data||[],me,id,u=>nm.get(u)||'Vriend');setShared(sc);
    if(sc.directId){const m=await supabase.from('sx_messages').select('sender_id,kind,created_at').eq('thread_id',sc.directId).eq('kind','snap').order('created_at',{ascending:false}).limit(200);
-    if(alive()&&!m.error)setStreak(threadStreak(m.data||[],me,id,Date.now(),-new Date().getTimezoneOffset()))}
+    if(alive()&&!m.error)setStreak(threadStreak(m.data||[],me,id,Date.now(),-new Date().getTimezoneOffset()))
+    // Opslaan in chat: newest saved messages of the 1:1 chat (missing column on an old DB → section stays hidden).
+    const sv=await supabase.from('sx_messages').select('id,sender_id,kind,body,saved,created_at').eq('thread_id',sc.directId).eq('saved',true).order('created_at',{ascending:false}).limit(50);
+    if(alive()&&!sv.error){const list=(sv.data||[]) as (SaveableMessage&{body:string|null})[];const first=(pr.data?.display_name??'').trim().split(/\s+/)[0];setSavedRows({total:savedCount(list),items:savedPreviews(list,me,first,3,m=>quoteOf({...m,body:m.body}).excerpt)})}}
   }
   if(alive())setLoading(false);
  },[id,me]);
@@ -52,6 +58,8 @@ export default function FriendProfileScreen(){
  async function thread():Promise<string|null>{if(shared.directId)return shared.directId;const {data,error}=await supabase.rpc('sx_open_thread',{participants:[id],group_title:null});if(error){setNotice(friendlyError(error,'Chat openen'));return null}return data as string}
  async function openChat(){if(busy)return;setBusy(true);try{const t=await thread();if(t)router.push({pathname:'/chat/[id]',params:{id:t}})}finally{setBusy(false)}}
  async function call(){if(busy||!p)return;setBusy(true);try{const t=await thread();if(t)router.push({pathname:'/call/[id]',params:{id:t,name:p.display_name}})}finally{setBusy(false)}}
+ // Back to the chat if we came from it (no second copy of the chat on the stack), else open it.
+ function openSavedChat(){if(shared.directId)router.dismissTo({pathname:'/chat/[id]',params:{id:shared.directId}})}
  function block(){if(!p)return;confirm.ask({title:`${p.display_name} blokkeren?`,message:'Jullie kunnen elkaar dan niet meer berichten of snaps sturen. In groepschats worden berichten van deze persoon verborgen.',confirmLabel:'Blokkeren',destructive:true},async()=>{const {error}=await supabase.from('sx_blocks').insert({blocker_id:me,blocked_id:id});if(error)return friendlyError(error);router.back();return null})}
  const chips=[streakChip(streak),since].filter((x):x is string=>!!x);
  const groupsTitle=sharedGroupsTitle(shared.groups.length);
@@ -72,6 +80,9 @@ export default function FriendProfileScreen(){
    {!!notice&&<Text style={s.notice}>{notice}</Text>}
    {groupsTitle&&<><Text style={s.section}>{groupsTitle}</Text>
     <View style={s.card}>{shared.groups.map((g,i)=><Pressable key={g.id} onPress={()=>router.push({pathname:'/chat/[id]',params:{id:g.id}})} style={[s.row,i>0&&s.rowLine]} accessibilityLabel={`Open groep ${g.title}`} testID="shared-group"><View style={s.groupIcon}><Ionicons name="people" size={18} color="white"/></View><Text style={s.rowText} numberOfLines={1}>{groupLine(g)}</Text><Ionicons name="chevron-forward" size={18} color="#C7C0CD"/></Pressable>)}</View></>}
+   {savedRows.total>0&&shared.directId&&<><Text style={s.section} testID="saved-section">Opgeslagen in chat</Text>
+    <View style={s.card}>{savedRows.items.map((x,i)=><Pressable key={x.id} onPress={()=>openSavedChat()} style={[s.row,i>0&&s.rowLine]} accessibilityLabel={`Opgeslagen bericht van ${x.who}`} testID="saved-preview"><Ionicons name="bookmark" size={18} color="#C7C0CD"/><Text style={s.rowText} numberOfLines={1}><Text style={{fontWeight:'800'}}>{x.who}: </Text>{x.excerpt}</Text></Pressable>)}
+     <Pressable onPress={()=>openSavedChat()} style={[s.row,s.rowLine]} accessibilityLabel="Bekijk opgeslagen berichten in de chat" testID="saved-open-chat"><Text style={[s.rowText,{color:'#C7C0CD'}]}>{savedSectionTitle(savedRows.total)} · bekijk in chat</Text><Ionicons name="chevron-forward" size={18} color="#C7C0CD"/></Pressable></View></>}
    <Text style={s.section}>Privacy</Text>
    <View style={s.card}><Pressable onPress={block} style={s.row} accessibilityLabel={`${p.display_name} blokkeren`} testID="friend-block"><Ionicons name="ban" size={20} color="#FF6B6B"/><Text style={[s.rowText,{color:'#FF6B6B'}]}>Blokkeren</Text></Pressable></View>
   </ScrollView>}

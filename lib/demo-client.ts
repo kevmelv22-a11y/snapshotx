@@ -6,6 +6,8 @@
  */
 import { StaffMock, seedStaffMock, MOCK_IDS, type Row } from './staff-mock';
 import { parseReply, replyBody } from './chat-replies';
+import { SAVE_ERRORS, canSave, unsaveExpiry } from './chat-saves';
+import { parseRetention } from './chat-features';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, isGroupThread, normalizeGroupTitle } from './group-chat';
 
 type Err = { message: string; code?: string; details?: string };
@@ -79,6 +81,13 @@ function seedDemo(m: StaffMock) {
   };
   quote(T.crew, I.eva, 'Zaterdag 14:00', 'Ik ben erbij 🙌');
   quote(T.aria, I.aria, 'Ja zeker, om 8 uur', 'Top, tot dan! 🙌');
+  // Opslaan in chat: Aria saved Kevin's meeting point, Kevin saved Eva's question (grey highlight + label).
+  const save = (thread: string, startsWith: string, by: string) => {
+    const x = m.t.sx_messages.find(r => r.thread_id === thread && (parseReply(String(r.body))?.text ?? String(r.body)).startsWith(startsWith));
+    if (x) Object.assign(x, { saved: true, saved_by: by, saved_at: x.created_at });
+  };
+  save(T.aria, 'Ja zeker, om 8 uur', I.aria);
+  save(T.eva, 'Heb je de foto', ME);
   const st = (owner_id: string, path: string, caption: string | null, ago: number, visibility = 'friends') =>
     ({ id: newId(), owner_id, media_path: path, media_type: 'photo', caption, visibility, created_at: iso(-ago), expires_at: iso(24 * H - ago) });
   m.t.sx_stories.forEach((s, i) => { s.media_path = i ? 'demo/stad.svg' : 'demo/pizza.svg'; s.media_type = 'photo'; s.expires_at = m.iso(16 * H); });
@@ -294,6 +303,19 @@ export class DemoClient {
       const t = this.m.table('sx_threads').find(x => x.id === a.p_thread_id); if (t) t.retention_mode = a.p_mode;
       const row = { id: newId(), thread_id: a.p_thread_id, sender_id: ME, kind: 'system', body: a.p_text, created_at: this.m.iso(), expires_at: null };
       this.m.table('sx_messages').push(row); this.emit('sx_messages', 'INSERT', row); return null;
+    },
+    // Mirrors public.sx_set_message_saved (migration 20261022150000_chat_saves.sql, same rules + Dutch errors).
+    sx_set_message_saved: a => {
+      const msg = this.m.table('sx_messages').find(x => x.id === a.p_message_id);
+      if (!msg) throw new Error(SAVE_ERRORS.notFound);
+      if (!this.memberIds(msg.thread_id).includes(ME)) throw new Error(SAVE_ERRORS.notMember);
+      if (!canSave({ kind: String(msg.kind) })) throw new Error(SAVE_ERRORS.notSaveable);
+      if (a.p_saved) { if (!msg.saved) { Object.assign(msg, { saved: true, saved_by: ME, saved_at: this.m.iso(), expires_at: null }); this.emit('sx_messages', 'UPDATE', msg); } return true; }
+      if (!msg.saved) return false;
+      if (msg.saved_by && msg.saved_by !== ME && msg.sender_id !== ME) throw new Error(SAVE_ERRORS.notYours);
+      const mode = parseRetention(this.m.table('sx_threads').find(t => t.id === msg.thread_id)?.retention_mode);
+      Object.assign(msg, { saved: false, saved_by: null, saved_at: null, expires_at: unsaveExpiry(mode, Date.now()) }); this.emit('sx_messages', 'UPDATE', msg);
+      return false;
     },
     // Group management: mirrors supabase/migrations/20261021150000_group_chat_management.sql (same errors + lines).
     sx_rename_group: a => {
