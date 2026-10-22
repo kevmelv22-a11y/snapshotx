@@ -6,6 +6,8 @@ import {isGroupChangeText} from '../../lib/group-chat';
 import {Hint} from '../UI';
 import type {Message} from '../../lib/types';
 import {RETENTION_SHORT,retentionHint,summarizeReactions,type Reaction,type RetentionMode,type StreakState} from '../../lib/chat-features';
+import {dayDivider,dividerStarts,type ChatStatus} from '../../lib/chat-status';
+import {StatusIcon} from './StatusIcon';
 import {colorFor,runStarts,senderColors,senderLabel} from '../../lib/chat-senders';
 import {ReactionChips,ReactionPicker,StreakBadge,StreakWarning,SystemLine,TypingIndicator} from './ChatParts';
 
@@ -32,32 +34,38 @@ export type ChatViewProps={
   /** Snapchat-style sender identity: display name + small avatar per sender id, and the thread's member ids (for stable colours). */
   nameOf?:(senderId:string)=>string|null;avatarOf?:(senderId:string)=>React.ReactNode;memberIds?:string[];
   pickerFor?:string|null;
+  /** Snapchat read receipt under my newest message: ➤ Bezorgd / ▷ Geopend. */
+  receipt?:{messageId:string;status:ChatStatus}|null;
 };
 /** Message list (inverted, newest first): bubbles, system lines, reaction chips, retention hints, typing row. */
 export function ChatView(p:ChatViewProps){
   const [picker,setPicker]=useState<string|null>(p.pickerFor??null);
   const target=p.rows.find(m=>m.id===picker);
   const colors=senderColors(p.memberIds??p.rows.map(m=>m.sender_id),p.me),starts=runStarts(p.rows);
+  const offset=-new Date(p.now).getTimezoneOffset(),days=dividerStarts(p.rows,offset);
+  const divider=(m:Message)=>days.has(m.id)?<Text style={s.day} testID="day-divider">{dayDivider(Date.parse(m.created_at),p.now,offset)}</Text>:null;
   const current=target?p.reactions.find(r=>r.messageId===target.id&&r.userId===p.me)?.emoji:null;
   return <View style={{flex:1}}>
     <StreakWarning streak={p.streak}/>
     <FlatList data={p.rows} inverted keyExtractor={x=>x.id} contentContainerStyle={{padding:15}}
       ListHeaderComponent={<TypingIndicator text={p.typing}/>} ListHeaderComponentStyle={{marginHorizontal:-15}}
       renderItem={({item})=>{
-        if(item.kind==='system')return <SystemLine text={item.body??''} icon={isGroupChangeText(item.body)?'👥':item.body?.includes('screenshot')?'📸':item.body?.includes('gesprek')?'📹':'⏱'}/>;
-        const mine=item.sender_id===p.me,color=colorFor(item.sender_id,colors),start=starts.has(item.id);
+        if(item.kind==='system')return <View>{divider(item)}<SystemLine text={item.body??''} icon={isGroupChangeText(item.body)?'👥':item.body?.includes('screenshot')?'📸':item.body?.includes('gesprek')?'📹':'⏱'}/></View>;
+        const mine=item.sender_id===p.me,color=colorFor(item.sender_id,colors),start=starts.has(item.id)||days.has(item.id);
         const hint=retentionHint(p.retention,mine?null:p.viewedAt[item.id]??null,p.now,!!item.saved);
         const time=new Date(item.created_at).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
         const open=()=>setPicker(item.id);
         // Web: right-click opens the same menu as a long-press (mobile).
         const web=Platform.OS==='web'?{onContextMenu:(e:{preventDefault:()=>void})=>{e.preventDefault();open()}}:{};
         return <View style={start?s.runStart:undefined} testID={start?`run-${item.sender_id===p.me?'me':item.sender_id}`:undefined}>
+          {divider(item)}
           {start&&<View style={s.senderRow}>{p.avatarOf?.(item.sender_id)}<Text style={[s.sender,{color}]} testID="sender-label">{senderLabel(item.sender_id,p.me,p.nameOf?.(item.sender_id))}</Text><Text style={s.runTime}>{time}</Text></View>}
           <Pressable onLongPress={open} delayLongPress={300} {...web} accessibilityHint="Lang indrukken voor reacties, melden en blokkeren" style={[s.msg,{borderLeftColor:color}]} testID={mine?'msg-mine':'msg-theirs'}>
             {p.renderContent(item,mine)}
             {!!hint&&<Text style={s.time}>{hint}</Text>}
           </Pressable>
           <ReactionChips mine={false} items={summarizeReactions(p.reactions,item.id,p.me)}/>
+          {p.receipt?.messageId===item.id&&<View style={s.receipt} testID="chat-receipt"><StatusIcon status={p.receipt.status} size={11}/><Text style={s.receiptText}>{p.receipt.status.label}</Text></View>}
         </View>;
       }}/>
     {/* Empty state lives OUTSIDE the inverted list: an inverted FlatList renders ListEmptyComponent upside down on iOS. */}
@@ -72,4 +80,6 @@ const s=StyleSheet.create({
   msg:{borderLeftWidth:3,paddingLeft:10,paddingVertical:3,marginLeft:2,alignSelf:'stretch'},
   empty:{position:'absolute',left:0,right:0,top:0,bottom:0,alignItems:'center',justifyContent:'center',padding:15},
   time:{color:C.muted,fontSize:10,marginTop:2},
+  day:{color:C.muted,fontSize:11,fontWeight:'800',letterSpacing:1,textAlign:'center',marginTop:16,marginBottom:2},
+  receipt:{flexDirection:'row',alignItems:'center',gap:5,alignSelf:'flex-end',marginTop:4},receiptText:{color:C.muted,fontSize:11,fontWeight:'700'},
 });

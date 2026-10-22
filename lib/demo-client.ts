@@ -30,7 +30,7 @@ function artUrl(path: string) {
 }
 
 const EXTRA = { noor: '0b000000-0000-4000-8000-000000000016', tim: '0b000000-0000-4000-8000-000000000017' };
-const T = { aria: 'c0000000-0000-4000-8000-0000000000a1', eva: 'c0000000-0000-4000-8000-0000000000a2', crew: 'c0000000-0000-4000-8000-000000000002' };
+const T = { aria: 'c0000000-0000-4000-8000-0000000000a1', eva: 'c0000000-0000-4000-8000-0000000000a2', noor: 'c0000000-0000-4000-8000-0000000000a3', crew: 'c0000000-0000-4000-8000-000000000002' };
 
 function seedDemo(m: StaffMock) {
   seedStaffMock(m);
@@ -57,7 +57,7 @@ function seedDemo(m: StaffMock) {
     { thread_id: 'c0000000-0000-4000-8000-000000000001', user_id: I.aria }, { thread_id: 'c0000000-0000-4000-8000-000000000001', user_id: I.bram },
   ];
   const msg = (thread_id: string, sender_id: string, body: string, ago: number, kind = 'text', media_path: string | null = null) =>
-    ({ id: newId(), thread_id, sender_id, body, kind, media_path, view_once: kind === 'snap', created_at: iso(-ago), expires_at: null });
+    ({ id: newId(), thread_id, sender_id, body, kind, media_path, view_once: kind === 'snap', view_seconds: kind === 'snap' ? 10 : null, created_at: iso(-ago), expires_at: null });
   m.t.sx_messages.push(
     msg(T.aria, I.aria, 'Hé Kevin! Kom je vanavond ook naar het concert? 🎸', 5 * H), msg(T.aria, ME, 'Ja zeker, om 8 uur bij de ingang?', 4.8 * H),
     msg(T.aria, I.aria, 'Top, tot dan! 🙌', 4.7 * H), msg(T.aria, I.aria, 'photo', 1.2 * H, 'snap', 'demo/concert.svg'),
@@ -77,6 +77,19 @@ function seedDemo(m: StaffMock) {
     st(I.eva, 'demo/hond.svg', 'Max is jarig! 🎂', 3 * H, 'everyone'), st(I.cleo, 'demo/fiets.svg', 'Rondje Vondelpark', 5 * H),
     st(EXTRA.noor, 'demo/zonsondergang.svg', 'Wat een avond', 7 * H, 'everyone'));
   m.t.sx_story_views = []; m.t.sx_story_reactions = []; m.t.sx_reactions = []; m.t.sx_receipts = []; m.t.sx_blocks = [];
+  // Snapchat chat status + streaks: snap history (expired media) both ways, read marks and an opened snap of Kevin.
+  m.t.sx_threads.push({ id: T.noor, title: null, created_at: iso(-6 * D), member_count: 2, retention_mode: 'keep' });
+  m.t.sx_members.push({ thread_id: T.noor, user_id: ME }, { thread_id: T.noor, user_id: EXTRA.noor });
+  const opened = (message_id: unknown, user_id: string, ago: number) => m.t.sx_receipts.push({ message_id, user_id, opened_at: iso(-ago), replay_count: 0 });
+  const history: Row[] = [];
+  for (let d = 5; d >= 1; d--) history.push(msg(T.aria, I.aria, 'photo', d * D, 'snap'), msg(T.aria, ME, 'photo', d * D - 60e3, 'snap'));
+  for (let d = 3; d >= 1; d--) history.push(msg(T.eva, ME, 'photo', d * D + 30 * 60e3, 'snap'), msg(T.eva, I.eva, 'video', d * D + 20 * 60e3, 'snap'));
+  const noorHi = msg(T.noor, EXTRA.noor, 'Leuk je gisteren te zien!', 30 * H), noorSnap = msg(T.noor, ME, 'photo', 9 * H, 'snap', 'demo/fiets.svg');
+  m.t.sx_messages.push(...history, noorHi, noorSnap);
+  history.forEach(x => m.t.sx_receipts.push({ message_id: x.id, user_id: x.sender_id === ME ? (x.thread_id === T.aria ? I.aria : I.eva) : ME, opened_at: x.created_at, replay_count: 0 }));
+  opened(noorHi.id, ME, 29 * H); opened(noorSnap.id, EXTRA.noor, 8 * H);
+  // Kevin already read Eva's chats (Ontvangen), Eva read his (Geopend).
+  m.t.sx_messages.filter(x => x.thread_id === T.eva && x.kind === 'text').forEach(x => opened(x.id, x.sender_id === ME ? I.eva : ME, 19 * H));
   m.t.sx_highlight_likes = []; m.t.sx_highlight_shares = []; m.t.sx_location_allowed = []; m.t.sx_push_tokens = [];
   m.t.sx_preferences = [{ user_id: ME, language: 'nl', find_me: true }];
   const loc = (user_id: string, lat: number, lng: number, ago: number) => ({ user_id, latitude: lat, longitude: lng, sharing: true, home_confirmed: false, updated_at: iso(-ago), share_audience: 'friends', ghost_until: null, ghost_forever: false });
@@ -226,7 +239,12 @@ export class DemoClient {
     const peers = this.m.table('sx_members').filter(x => x.thread_id === threadId && x.user_id !== ME).map(x => String(x.user_id));
     if (!peers.length) return;
     setTimeout(() => {
-      const row = { id: newId(), thread_id: threadId, sender_id: peers[Math.floor(Math.random() * peers.length)], kind: 'text', body: REPLIES[Math.floor(Math.random() * REPLIES.length)], media_path: null, created_at: this.m.iso(), expires_at: null };
+      const sender = peers[Math.floor(Math.random() * peers.length)];
+      // The friend opens Kevin's messages first (➤ Bezorgd → ▷ Geopend), then replies.
+      const receipts = this.m.table('sx_receipts');
+      for (const x of this.m.table('sx_messages').filter(x => x.thread_id === threadId && x.sender_id === ME && x.kind !== 'system'))
+        if (!receipts.some(r => r.message_id === x.id && r.user_id === sender)) { const r = { message_id: x.id, user_id: sender, opened_at: this.m.iso(), replay_count: 0 }; receipts.push(r); this.emit('sx_receipts', 'INSERT', r); }
+      const row = { id: newId(), thread_id: threadId, sender_id: sender, kind: 'text', body: REPLIES[Math.floor(Math.random() * REPLIES.length)], media_path: null, created_at: this.m.iso(), expires_at: null };
       this.m.table('sx_messages').push(row); this.emit('sx_messages', 'INSERT', row);
     }, 1800);
   }
@@ -248,7 +266,15 @@ export class DemoClient {
       this.m.table('sx_friends').push({ user_id: r.sender_id, friend_id: r.recipient_id, created_at: now }, { user_id: r.recipient_id, friend_id: r.sender_id, created_at: now });
       return null;
     },
-    sx_claim_snap: () => true,
+    // Mirrors sx_claim_snap: first open + one replay, recorded as the viewer's receipt (opened_at + replay_count).
+    sx_claim_snap: a => {
+      const msg = this.m.table('sx_messages').find(x => x.id === a.p_message_id);
+      if (!msg || !msg.media_path || msg.sender_id === ME) return false;
+      const r = this.m.table('sx_receipts').find(x => x.message_id === msg.id && x.user_id === ME);
+      if (r) { if (Number(r.replay_count) >= 1) return false; r.replay_count = Number(r.replay_count) + 1; r.opened_at = this.m.iso(); return true; }
+      const row = { message_id: msg.id, user_id: ME, opened_at: this.m.iso(), replay_count: 0 };
+      this.m.table('sx_receipts').push(row); this.emit('sx_receipts', 'INSERT', row); return true;
+    },
     sx_set_retention: a => {
       const t = this.m.table('sx_threads').find(x => x.id === a.p_thread_id); if (t) t.retention_mode = a.p_mode;
       const row = { id: newId(), thread_id: a.p_thread_id, sender_id: ME, kind: 'system', body: a.p_text, created_at: this.m.iso(), expires_at: null };

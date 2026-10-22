@@ -1,5 +1,7 @@
 import {supabase} from './supabase';
 import {chatPreviewText} from './avatar/poses';
+import {threadStatus,threadStreak,type ChatStatus} from './chat-status';
+import type {StreakState} from './chat-features';
 
 export type ChatRow = {
   id:string;
@@ -10,14 +12,18 @@ export type ChatRow = {
   peerIds:string[];
   isGroup:boolean;
   unread:boolean;
+  /** Snapchat status glyph + label (Nieuwe snap / Bezorgd / Geopend / Ontvangen …). */
+  chatStatus?:ChatStatus;
+  /** 1-on-1 snap streak (🔥 count, ⌛ when about to expire). */
+  streak?:StreakState|null;
   demo?:boolean;
 };
 
 // Preview-only content: it never gets uploaded or mixed with Supabase rows.
 export const DEMO_CHATS:ChatRow[] = [
-  {id:'demo-aria',title:'Aria Nova',preview:'Die foto van gister was geweldig ✨',status:'Nieuw bericht',createdAt:new Date(Date.now()-12*60000).toISOString(),peerIds:[],isGroup:false,unread:true,demo:true},
-  {id:'demo-crew',title:'De Nachtrit',preview:'Milan: We spreken om acht uur af',status:'Groepschat',createdAt:new Date(Date.now()-2*3600000).toISOString(),peerIds:[],isGroup:true,unread:false,demo:true},
-  {id:'demo-jules',title:'Jules',preview:'Foto verstuurd',status:'Verzonden',createdAt:new Date(Date.now()-86400000).toISOString(),peerIds:[],isGroup:false,unread:false,demo:true},
+  {id:'demo-aria',title:'Aria Nova',preview:'Die foto van gister was geweldig ✨',status:'Nieuwe snap',createdAt:new Date(Date.now()-12*60000).toISOString(),peerIds:[],isGroup:false,unread:true,demo:true,chatStatus:{tone:'snap',shape:'square',filled:true,label:'Nieuwe snap',mine:false,unopened:true},streak:{count:12,atRisk:false,hoursLeft:null,todayMe:false,todayThem:true}},
+  {id:'demo-crew',title:'De Nachtrit',preview:'Milan: We spreken om acht uur af',status:'Ontvangen',createdAt:new Date(Date.now()-2*3600000).toISOString(),peerIds:[],isGroup:true,unread:false,demo:true,chatStatus:{tone:'chat',shape:'square',filled:false,label:'Ontvangen',mine:false,unopened:false}},
+  {id:'demo-jules',title:'Jules',preview:'Foto verstuurd',status:'Geopend',createdAt:new Date(Date.now()-86400000).toISOString(),peerIds:[],isGroup:false,unread:false,demo:true,chatStatus:{tone:'snap',shape:'arrow',filled:false,label:'Geopend',mine:true,unopened:false}},
 ];
 export const AI_DEMO:ChatRow = {id:'local-ai',title:'Nova · lokale demo',preview:'Probeer een voorbeeldgesprek',status:'Geen AI-verbinding',createdAt:null,peerIds:[],isGroup:false,unread:false,demo:true};
 
@@ -47,11 +53,24 @@ export async function loadChatRows(uid:string):Promise<ChatRow[]> {
   if(receipts?.error)console.warn('[chat-list] receipts',receipts.error.code,receipts.error.message);
   const read=new Set((receipts?.data||[]).map(x=>x.message_id));
   const unreadThreads=receipts?.error?new Set<string>():new Set((messages.data||[]).filter(x=>x.sender_id!==uid&&!read.has(x.id)).map(x=>x.thread_id));
+  // Opened-by-friend marks for my newest message per thread (Bezorgd ➤ vs Geopend ▷). Optional like the read marks.
+  const mineLatest=[...latest.values()].filter(x=>x.sender_id===uid&&x.kind!=='system').map(x=>x.id);
+  const peerReceipts=mineLatest.length?await supabase.from('sx_receipts').select('message_id,user_id,opened_at').in('message_id',mineLatest).neq('user_id',uid):null;
+  if(peerReceipts?.error)console.warn('[chat-list] peer receipts',peerReceipts.error.code,peerReceipts.error.message);
+  const peerOpened=new Set((peerReceipts?.data||[]).filter(x=>x.opened_at!==null).map(x=>x.message_id));
+  const byThread=new Map<string,NonNullable<typeof messages.data>>();
+  for(const message of messages.data||[])(byThread.get(message.thread_id)??byThread.set(message.thread_id,[]).get(message.thread_id)!).push(message);
+  const now=Date.now(),offset=-new Date().getTimezoneOffset();
   return (threads.data||[]).map(thread=>{
     const people=peers.filter(x=>x.thread_id===thread.id).map(x=>x.user_id);
     const last=latest.get(thread.id);
     const unread=unreadThreads.has(thread.id);
+    const isGroup=people.length>1||!!thread.title;
+    const list=byThread.get(thread.id)||[];
+    // Without receipts (error) an incoming message counts as opened, so nothing looks falsely "new".
+    const chatStatus=threadStatus(list,uid,peerOpened,receipts?.error?new Set(list.map(x=>x.id)):read);
+    const streak=isGroup?null:threadStreak(list,uid,people[0]??null,now,offset);
     const preview=!last?'Nieuw gesprek':last.kind==='system'?(last.body||'Melding'):last.kind==='text'?(chatPreviewText(last.body)||'Bericht'):last.kind==='snap'?'Snap ontvangen':last.kind==='voice'?'Spraakbericht':last.kind==='video'?'Video':'Foto';
-    return {id:thread.id,title:thread.title||people.map(id=>names.get(id)||'Vriend').join(', ')||'Chat',preview,status:!last?'Begin een gesprek':last.sender_id===uid?(unread?'Eerder ongelezen':'Verzonden'):unread?'Nieuw bericht':'Ontvangen',createdAt:last?.created_at||null,peerIds:people,isGroup:people.length>1||!!thread.title,unread};
+    return {id:thread.id,title:thread.title||people.map(id=>names.get(id)||'Vriend').join(', ')||'Chat',preview,status:chatStatus.label,chatStatus,streak:streak&&streak.count>0?streak:null,createdAt:last?.created_at||null,peerIds:people,isGroup,unread};
   }).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
 }
