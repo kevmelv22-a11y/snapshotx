@@ -1,5 +1,5 @@
-import React,{useMemo,useState} from 'react';
-import {Animated,PanResponder,Pressable,StyleSheet,Text,View} from 'react-native';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {Animated,type GestureResponderEvent,PanResponder,Pressable,StyleSheet,Text,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {C} from '../../lib/theme';
 import {SWIPE_REPLY_PX,isReplySwipe,startsReplySwipe} from '../../lib/chat-replies';
@@ -24,21 +24,36 @@ export function ReplyBar({title,color,excerpt,onCancel}:{title:string;color:stri
 /** Swipe a message to the right to reply (Snapchat). Only clear horizontal right-drags are captured, so vertical
  *  scrolling and long-press keep working. The row follows the finger (max 80 px) and a reply arrow fades in. */
 export function SwipeToReply({onReply,enabled=true,children}:{onReply:()=>void;enabled?:boolean;children:React.ReactNode}){
-  const [x]=useState(()=>new Animated.Value(0));
-  const pan=useMemo(()=>PanResponder.create({
-    onMoveShouldSetPanResponder:(_,g)=>startsReplySwipe(g.dx,g.dy),
-    onMoveShouldSetPanResponderCapture:(_,g)=>startsReplySwipe(g.dx,g.dy),
-    onPanResponderMove:(_,g)=>x.setValue(Math.max(0,Math.min(80,g.dx))),
-    onPanResponderRelease:(_,g)=>{if(isReplySwipe(g.dx,g.dy))onReply();Animated.spring(x,{toValue:0,useNativeDriver:false,bounciness:6}).start()},
-    onPanResponderTerminate:()=>Animated.spring(x,{toValue:0,useNativeDriver:false}).start(),
-    onPanResponderTerminationRequest:()=>false,
-  }),[x,onReply]);
+  // One PanResponder per row for its whole life: recreating it on every parent render (the chat re-renders while
+  // you drag) would drop the gesture. The latest onReply is read from a ref updated after each render.
+  const [x]=useState(()=>new Animated.Value(0)),latest=useRef(onReply);
+  useEffect(()=>{latest.current=onReply});
+  // react-hooks/refs false positive: latest.current is only read inside the gesture-release handler, never during render.
+  // eslint-disable-next-line react-hooks/refs
+  const pan=useMemo(()=>createReplyPan(x,()=>latest.current()),[x]);
   if(!enabled)return <>{children}</>;
   const opacity=x.interpolate({inputRange:[0,SWIPE_REPLY_PX],outputRange:[0,1],extrapolate:'clamp'});
   return <View>
     <Animated.View pointerEvents="none" style={[s.arrow,{opacity}]}><Ionicons name="arrow-undo" size={18} color={C.text}/></Animated.View>
     <Animated.View {...pan.panHandlers} style={{transform:[{translateX:x}]}}>{children}</Animated.View>
   </View>;
+}
+
+/** Distances come from the events' own pageX/pageY relative to where the drag was claimed (+ the claim slop), not
+ *  from gestureState.dx: on react-native-web the touch history is stale from the 2nd gesture on (dx jumps to minus
+ *  the previous drag), which made every swipe after the first one fail. */
+function createReplyPan(x:Animated.Value,reply:()=>void){
+  const d={gx:0,gy:0,slop:0,dx:0,dy:0};
+  const track=(e:GestureResponderEvent)=>{d.dx=e.nativeEvent.pageX-d.gx+d.slop;d.dy=e.nativeEvent.pageY-d.gy};
+  return PanResponder.create({
+    onMoveShouldSetPanResponder:(_,g)=>startsReplySwipe(g.dx,g.dy),
+    onMoveShouldSetPanResponderCapture:(_,g)=>startsReplySwipe(g.dx,g.dy),
+    onPanResponderGrant:(e,g)=>{d.gx=e.nativeEvent.pageX;d.gy=e.nativeEvent.pageY;d.slop=Math.max(0,g.dx);d.dx=d.slop;d.dy=0},
+    onPanResponderMove:e=>{track(e);x.setValue(Math.max(0,Math.min(80,d.dx)))},
+    onPanResponderRelease:e=>{track(e);if(isReplySwipe(d.dx,d.dy))reply();Animated.spring(x,{toValue:0,useNativeDriver:false,bounciness:6}).start()},
+    onPanResponderTerminate:()=>Animated.spring(x,{toValue:0,useNativeDriver:false}).start(),
+    onPanResponderTerminationRequest:()=>false,
+  });
 }
 
 const s=StyleSheet.create({
