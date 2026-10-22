@@ -120,6 +120,7 @@ export const WARDROBE_ITEMS: WardrobeItem[] = [
   item('top-galatasaray-jersey', 'top', 'Galatasaray', 'Geel-rood gedeeld voetbalshirt', null, ['#FDB912', '#A90432'], { variant: 'tee' }),
   item('top-groningen-jersey', 'top', 'FC Groningen', 'Groen-wit gestreept FC Groningen-thuisshirt', null, ['#00813E', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
   item('top-sparta-jersey', 'top', 'Sparta Rotterdam', 'Rood-wit gestreept Sparta-thuisshirt', null, ['#D8141E', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
+  item('top-heerenveen-jersey', 'top', 'sc Heerenveen', 'Blauw-wit gestreept Heerenveen-thuisshirt', null, ['#0055A4', '#FFFFFF', '#E1061B'], { variant: 'tee', pattern: 'stripes' }),
   item('top-acmilan-jersey', 'top', 'AC Milan', 'Rood-zwart gestreept voetbalshirt', null, ['#D0102B', '#000000'], { variant: 'tee', pattern: 'stripes' }),
   item('top-juventus-jersey', 'top', 'Juventus', 'Zwart-wit gestreept Juventus-shirt', null, ['#000000', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
   item('top-inter-jersey', 'top', 'Inter', 'Blauw-zwart gestreept voetbalshirt', null, ['#0068A8', '#000000'], { variant: 'tee', pattern: 'stripes' }),
@@ -153,6 +154,8 @@ export const WARDROBE_ITEMS: WardrobeItem[] = [
   item('shoes-royaums-kilian-black', 'shoes', 'Royaums', 'Kilian zwart met studs', 179, ['#1C1C1E', '#F4F4F6'], { variant: 'sneaker' }, true),
   item('shoes-royaums-kilian-grey', 'shoes', 'Royaums', 'Kilian grijs met studs', 179, ['#5F6166', '#F4F4F6'], { variant: 'sneaker' }),
   item('shoes-royaums-luisa-white', 'shoes', 'Royaums', 'Luisa wit met driehoekstuds', 159, ['#F4F4F6', '#C41822'], { variant: 'sneaker' }),
+  item('top-ploeg-burgundy-knit', 'top', 'Ploeg & Co', 'Bordeaux kabeltrui', null, ['#6E1A24', '#4A1018'], { variant: 'crew' }),
+  item('outer-trivo-windbreaker', 'outerwear', 'trivo', 'Retro windjack', null, ['#1E2B4F', '#F07A1E', '#FFFFFF'], { variant: 'zip' }),
   item('glasses-trivo-sport', 'glasses', 'trivo', 'Sportzonnebril', 99, ['#FF5B95'], { variant: 'shades' }),
 ];
 
