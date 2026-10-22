@@ -27,7 +27,7 @@ export const HAIR_NODES: Record<HairStyle, string[]> = {
   curly: ['Hair_curly'], afro: ['Hair_afro'], short: ['Hair_short'], buzz: ['Hair_buzz'], wavy: ['Hair_wavy'],
   long: ['Hair_long', 'Hair_longBack'], bun: ['Hair_bun', 'Hair_bunTop'],
   // 2D-art-only styles (worn-styles layers): the 3D fallback uses the closest mesh
-  curtain: ['Hair_wavy'], 'curtain-short': ['Hair_short'],
+  curtain: ['Hair_wavy'], 'curtain-short': ['Hair_short'], kuif: ['Hair_short'], twists: ['Hair_curly'],
 };
 export const ALL_HAIR_NODES = Object.values(HAIR_NODES).flat();
 

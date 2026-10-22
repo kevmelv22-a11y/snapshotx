@@ -5,8 +5,8 @@
 
 export type WardrobeCategory = 'top' | 'bottom' | 'dress' | 'shoes' | 'socks' | 'bag' | 'outerwear' | 'hat' | 'accessory' | 'glasses';
 export type Layer = WardrobeCategory | 'hair' | 'skin' | 'eyes';
-export type HairStyle = 'curly' | 'short' | 'wavy' | 'buzz' | 'long' | 'afro' | 'bun' | 'curtain' | 'curtain-short';
-export const HAIR_STYLES: HairStyle[] = ['curly', 'short', 'wavy', 'buzz', 'long', 'afro', 'bun', 'curtain', 'curtain-short'];
+export type HairStyle = 'curly' | 'short' | 'wavy' | 'buzz' | 'long' | 'afro' | 'bun' | 'curtain' | 'curtain-short' | 'kuif' | 'twists';
+export const HAIR_STYLES: HairStyle[] = ['curly', 'short', 'wavy', 'buzz', 'long', 'afro', 'bun', 'curtain', 'curtain-short', 'kuif', 'twists'];
 export type CategoryTab = 'featured' | 'all' | WardrobeCategory;
 export type Pattern = 'plain' | 'plaid' | 'stripes' | 'roses' | 'camo' | 'baroque' | 'quilt' | 'hearts' | 'wrap' | 'swirl' | 'patches';
 
