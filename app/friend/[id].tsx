@@ -14,6 +14,8 @@ import {threadStreak} from '../../lib/chat-status';
 import type {StreakState} from '../../lib/chat-features';
 import {savedCount,savedPreviews,savedSectionTitle,type SaveableMessage,type SavedPreview} from '../../lib/chat-saves';
 import {quoteOf} from '../../lib/chat-replies';
+import {useFriendEmojis} from '../../stores/friendEmojis';
+import {emojiFor,NEW_FRIEND_MS,relationLabel} from '../../lib/friend-emojis';
 import {formatScore,friendsSinceLabel,groupLine,sharedChats,sharedGroupsTitle,streakChip,type SharedChats} from '../../lib/friend-profile';
 
 type FriendProfile={id:string;display_name:string;username:string;activity_score:number;gender?:string|null};
@@ -22,7 +24,7 @@ const purple='#7A3CFF';
 export default function FriendProfileScreen(){
  const {id:raw}=useLocalSearchParams<{id:string|string[]}>(),id=Array.isArray(raw)?raw[0]:raw??'';
  const {session}=useSession(),me=session?.user.id??'',insets=useSafeAreaInsets(),confirm=useConfirmDialog();
- const [p,setP]=useState<FriendProfile|null>(null),[since,setSince]=useState<string|null>(null),[isFriend,setIsFriend]=useState(true);
+ const [p,setP]=useState<FriendProfile|null>(null),[since,setSince]=useState<string|null>(null),[fresh,setFresh]=useState(false),[isFriend,setIsFriend]=useState(true);
  const [shared,setShared]=useState<SharedChats>({directId:null,groups:[]}),[streak,setStreak]=useState<StreakState|null>(null),[stories,setStories]=useState(0);
  const [savedRows,setSavedRows]=useState<{total:number;items:SavedPreview[]}>({total:0,items:[]});
  const [notice,setNotice]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
@@ -36,7 +38,7 @@ export default function FriendProfileScreen(){
   ]);
   if(!alive())return;
   if(pr.error||!pr.data){setNotice(pr.error?friendlyError(pr.error):'Dit profiel bestaat niet (meer).');setLoading(false);return}
-  setP(pr.data as FriendProfile);const friend=!fr.error&&!!fr.data;setIsFriend(friend);setSince(friend?friendsSinceLabel(fr.data?.created_at,Date.now(),-new Date().getTimezoneOffset()):'Nog geen vrienden');setStories(st.error?0:(st.data||[]).length);
+  setP(pr.data as FriendProfile);const friend=!fr.error&&!!fr.data;setIsFriend(friend);{const t=friend&&fr.data?.created_at?Date.parse(fr.data.created_at):NaN;setFresh(Number.isFinite(t)&&Date.now()-t<NEW_FRIEND_MS)}setSince(friend?friendsSinceLabel(fr.data?.created_at,Date.now(),-new Date().getTimezoneOffset()):'Nog geen vrienden');setStories(st.error?0:(st.data||[]).length);
   // Shared chats + streak are extras: a failing query must not hide the profile itself.
   const tids=(mine.data||[]).map(x=>x.thread_id as string);
   if(tids.length){
@@ -61,7 +63,10 @@ export default function FriendProfileScreen(){
  // Back to the chat if we came from it (no second copy of the chat on the stack), else open it.
  function openSavedChat(){if(shared.directId)router.dismissTo({pathname:'/chat/[id]',params:{id:shared.directId}})}
  function block(){if(!p)return;confirm.ask({title:`${p.display_name} blokkeren?`,message:'Jullie kunnen elkaar dan niet meer berichten of snaps sturen. In groepschats worden berichten van deze persoon verborgen.',confirmLabel:'Blokkeren',destructive:true},async()=>{const {error}=await supabase.from('sx_blocks').insert({blocker_id:me,blocked_id:id});if(error)return friendlyError(error);router.back();return null})}
- const chips=[streakChip(streak),since].filter((x):x is string=>!!x);
+ const emojiChoices=useFriendEmojis(st=>me?st.choices[me]:undefined),known=useFriendEmojis(st=>me?st.relations[me]?.[id]:undefined);
+ // Vriend-emoji: the relationship last ranked in the chat list; a fresh friendship (< 7 days) is 👶 on its own.
+ const relation=isFriend?known??(fresh?'new_friend':null):null;
+ const chips=[relation?relationLabel(relation,emojiChoices):null,streakChip(streak,emojiFor('streak',emojiChoices),emojiFor('hourglass',emojiChoices)),since].filter((x):x is string=>!!x);
  const groupsTitle=sharedGroupsTitle(shared.groups.length);
  return <GalaxyScreen>
   <Stack.Screen options={{headerShown:false}}/>

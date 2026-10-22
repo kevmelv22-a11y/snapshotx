@@ -76,7 +76,8 @@ export function computeStreak(events: StreakEvent[], me: string, them: string, n
   const hoursLeft = count > 0 && !both(today) ? (endOfToday - now) / 3600000 : null;
   return { count, atRisk: hoursLeft !== null && hoursLeft < warnHours, hoursLeft, todayMe, todayThem };
 }
-export function streakLabel(s: StreakState): string { return s.count < 1 ? '' : `${s.count}🔥${s.atRisk ? '⌛' : ''}`; }
+/** "12🔥" / "3🔥⌛"; the glyphs can be the user's own Vriend-emoji's. */
+export function streakLabel(s: StreakState, fire = '🔥', hourglass = '⌛'): string { return s.count < 1 ? '' : `${s.count}${fire}${s.atRisk ? hourglass : ''}`; }
 export function streakHint(s: StreakState): string | null {
   if (!s.atRisk || s.hoursLeft === null) return null;
   const who = !s.todayMe && !s.todayThem ? 'Jullie moeten allebei' : !s.todayMe ? 'Jij moet nog' : 'Je vriend moet nog';

@@ -65,8 +65,8 @@ export function statusLine(status: ChatStatus, time: string, streak?: StreakStat
   return [status.label, statusMeta(time, streak)].filter(Boolean).join(' · ');
 }
 /** The part after the label: "12 m · 6🔥". */
-export function statusMeta(time: string, streak?: StreakState | null): string {
-  return [time, streak ? streakLabel(streak) : ''].filter(Boolean).join(' · ');
+export function statusMeta(time: string, streak?: StreakState | null, glyphs?: { fire?: string; hourglass?: string }): string {
+  return [time, streak ? streakLabel(streak, glyphs?.fire, glyphs?.hourglass) : ''].filter(Boolean).join(' · ');
 }
 
 /** Label for a snap bubble inside a chat (Snapchat shows a status line instead of the media). */

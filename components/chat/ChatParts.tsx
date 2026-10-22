@@ -2,12 +2,16 @@ import React,{useEffect,useRef,useState} from 'react';
 import {Animated,Modal,Pressable,StyleSheet,Text,View} from 'react-native';
 import {useAudioPlayer,useAudioPlayerStatus} from 'expo-audio';
 import {C} from '../../lib/theme';
+import {useSession} from '../../hooks/useSession';
+import {useFriendEmojis} from '../../stores/friendEmojis';
+import {emojiFor} from '../../lib/friend-emojis';
 import {REACTION_EMOJIS,RETENTION_LABEL,RETENTION_MODES,formatDuration,streakHint,streakLabel,waveform,type RetentionMode,type StreakState} from '../../lib/chat-features';
 
 /** 🔥 counter (+ ⌛ when the streak is about to expire). Renders nothing without a streak. */
 export function StreakBadge({streak}:{streak:StreakState}){
+  const {session}=useSession(),uid=session?.user.id,choices=useFriendEmojis(st=>uid?st.choices[uid]:undefined);
   if(streak.count<1)return null;
-  return <View testID="streak" style={[s.streak,streak.atRisk&&s.streakRisk]}><Text style={s.streakText}>{streakLabel(streak)}</Text></View>;
+  return <View testID="streak" style={[s.streak,streak.atRisk&&s.streakRisk]}><Text style={s.streakText}>{streakLabel(streak,emojiFor('streak',choices),emojiFor('hourglass',choices))}</Text></View>;
 }
 export function StreakWarning({streak}:{streak:StreakState}){
   const hint=streakHint(streak);

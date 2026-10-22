@@ -49,7 +49,8 @@ function seedDemo(m: StaffMock) {
   Object.assign(m.profile(I.eva)!, { display_name: 'Eva Smit' });
   Object.assign(m.profile(I.cleo)!, { display_name: 'Cleo Jansen' });
   const friends = [I.aria, I.eva, I.cleo, EXTRA.noor];
-  m.t.sx_friends = friends.flatMap(f => [{ user_id: ME, friend_id: f, created_at: iso(-30 * D) }, { user_id: f, friend_id: ME, created_at: iso(-30 * D) }]);
+  // Noor joined 3 days ago → 👶 Nieuwe vriend in the chat list.
+  m.t.sx_friends = friends.flatMap(f => { const at = iso((f === EXTRA.noor ? -3 : -30) * D); return [{ user_id: ME, friend_id: f, created_at: at }, { user_id: f, friend_id: ME, created_at: at }]; });
   m.t.sx_friend_requests = [{ id: 'fr000000-0000-4000-8000-000000000001', sender_id: EXTRA.tim, recipient_id: ME, status: 'pending', created_at: iso(-2 * H) }];
   m.t.sx_threads.push({ id: T.aria, title: null, created_at: iso(-10 * D), member_count: 2, retention_mode: 'keep' }, { id: T.eva, title: null, created_at: iso(-4 * D), member_count: 2, retention_mode: 'keep' });
   m.t.sx_threads.forEach(t => { t.retention_mode ??= 'keep'; });
@@ -103,6 +104,8 @@ function seedDemo(m: StaffMock) {
   m.t.sx_members.push({ thread_id: T.noor, user_id: ME }, { thread_id: T.noor, user_id: EXTRA.noor });
   const opened = (message_id: unknown, user_id: string, ago: number) => m.t.sx_receipts.push({ message_id, user_id, opened_at: iso(-ago), replay_count: 0 });
   const history: Row[] = [];
+  // Vriend-emoji's: Aria also snapped with Kevin the week before (#1 two weeks running → ❤️ BFF's).
+  for (const d of [12, 11, 10, 9, 8]) history.push(msg(T.aria, I.aria, 'photo', d * D, 'snap'), msg(T.aria, ME, 'photo', d * D - 60e3, 'snap'));
   for (let d = 5; d >= 1; d--) history.push(msg(T.aria, I.aria, 'photo', d * D, 'snap'), msg(T.aria, ME, 'photo', d * D - 60e3, 'snap'));
   for (let d = 3; d >= 1; d--) history.push(msg(T.eva, ME, 'photo', d * D + 30 * 60e3, 'snap'), msg(T.eva, I.eva, 'video', d * D + 20 * 60e3, 'snap'));
   const noorHi = msg(T.noor, EXTRA.noor, 'Leuk je gisteren te zien!', 30 * H), noorSnap = msg(T.noor, ME, 'photo', 9 * H, 'snap', 'demo/fiets.svg');

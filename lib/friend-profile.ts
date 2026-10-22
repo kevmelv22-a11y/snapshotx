@@ -20,9 +20,9 @@ export function formatScore(n: number | null | undefined): string {
   return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 /** "🔥 12 dagen reeks" (+ ⌛ when at risk); null without a streak. */
-export function streakChip(s: StreakState | null | undefined): string | null {
+export function streakChip(s: StreakState | null | undefined, fire = '🔥', hourglass = '⌛'): string | null {
   if (!s || s.count < 1) return null;
-  return `🔥 ${s.count} ${s.count === 1 ? 'dag' : 'dagen'} reeks${s.atRisk ? ' ⌛' : ''}`;
+  return `${fire} ${s.count} ${s.count === 1 ? 'dag' : 'dagen'} reeks${s.atRisk ? ` ${hourglass}` : ''}`;
 }
 export type MemberRow = { thread_id: string; user_id: string };
 export type ThreadRow = { id: string; title: string | null; is_group?: boolean | null };

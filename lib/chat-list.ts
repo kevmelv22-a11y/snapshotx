@@ -4,6 +4,7 @@ import {replyText} from './chat-replies';
 import {hasUnreadMention} from './chat-mentions';
 import {threadStatus,threadStreak,type ChatStatus} from './chat-status';
 import type {StreakState} from './chat-features';
+import {relationKinds,type Interaction,type RelationKind} from './friend-emojis';
 
 export type ChatRow = {
   id:string;
@@ -20,12 +21,14 @@ export type ChatRow = {
   chatStatus?:ChatStatus;
   /** 1-on-1 snap streak (🔥 count, ⌛ when about to expire). */
   streak?:StreakState|null;
+  /** 1-on-1 Vriend-emoji relationship (💛 BFF, 😊 Beste vrienden, 👶 Nieuwe vriend …). */
+  relation?:RelationKind|null;
   demo?:boolean;
 };
 
 // Preview-only content: it never gets uploaded or mixed with Supabase rows.
 export const DEMO_CHATS:ChatRow[] = [
-  {id:'demo-aria',title:'Aria Nova',preview:'Die foto van gister was geweldig ✨',status:'Nieuwe snap',createdAt:new Date(Date.now()-12*60000).toISOString(),peerIds:[],isGroup:false,unread:true,demo:true,chatStatus:{tone:'snap',shape:'square',filled:true,label:'Nieuwe snap',mine:false,unopened:true},streak:{count:12,atRisk:false,hoursLeft:null,todayMe:false,todayThem:true}},
+  {id:'demo-aria',title:'Aria Nova',preview:'Die foto van gister was geweldig ✨',status:'Nieuwe snap',createdAt:new Date(Date.now()-12*60000).toISOString(),peerIds:[],isGroup:false,unread:true,demo:true,chatStatus:{tone:'snap',shape:'square',filled:true,label:'Nieuwe snap',mine:false,unopened:true},streak:{count:12,atRisk:false,hoursLeft:null,todayMe:false,todayThem:true},relation:'bffs'},
   {id:'demo-crew',title:'De Nachtrit',preview:'Milan: We spreken om acht uur af',status:'Ontvangen',createdAt:new Date(Date.now()-2*3600000).toISOString(),peerIds:[],isGroup:true,unread:false,demo:true,chatStatus:{tone:'chat',shape:'square',filled:false,label:'Ontvangen',mine:false,unopened:false}},
   {id:'demo-jules',title:'Jules',preview:'Foto verstuurd',status:'Geopend',createdAt:new Date(Date.now()-86400000).toISOString(),peerIds:[],isGroup:false,unread:false,demo:true,chatStatus:{tone:'snap',shape:'arrow',filled:false,label:'Geopend',mine:true,unopened:false}},
 ];
@@ -66,6 +69,13 @@ export async function loadChatRows(uid:string,myName?:string|null):Promise<ChatR
   const byThread=new Map<string,NonNullable<typeof messages.data>>();
   for(const message of messages.data||[])(byThread.get(message.thread_id)??byThread.set(message.thread_id,[]).get(message.thread_id)!).push(message);
   const now=Date.now(),offset=-new Date().getTimezoneOffset();
+  // Vriend-emoji's: ranked from the 1-on-1 messages above + friendship dates (optional: errors only hide 👶).
+  const directPeer=new Map<string,string>();
+  for(const thread of threads.data||[]){const people=peers.filter(x=>x.thread_id===thread.id).map(x=>x.user_id);if(people.length===1&&!thread.title)directPeer.set(thread.id,people[0])}
+  const interactions:Interaction[]=(messages.data||[]).filter(x=>directPeer.has(x.thread_id)).map(x=>({peerId:directPeer.get(x.thread_id)!,senderId:x.sender_id,kind:x.kind,at:Date.parse(x.created_at)}));
+  const since=await supabase.from('sx_friends').select('friend_id,created_at').eq('user_id',uid);
+  if(since.error)console.warn('[chat-list] friends',since.error.code,since.error.message);
+  const relations=relationKinds(interactions,uid,now,new Map((since.data||[]).map(x=>[x.friend_id as string,Date.parse(x.created_at)])));
   return (threads.data||[]).map(thread=>{
     const people=peers.filter(x=>x.thread_id===thread.id).map(x=>x.user_id);
     const last=latest.get(thread.id);
@@ -78,6 +88,6 @@ export async function loadChatRows(uid:string,myName?:string|null):Promise<ChatR
     const members=(participants.data||[]).filter(x=>x.thread_id===thread.id).map(x=>({id:x.user_id as string,name:names.get(x.user_id)??(x.user_id===uid?myName:null)}));
     const mentioned=isGroup&&!receipts?.error&&hasUnreadMention(list,uid,read,members);
     const preview=!last?'Nieuw gesprek':last.kind==='system'?(last.body||'Melding'):last.kind==='text'?(chatPreviewText(replyText(last.body))||'Bericht'):last.kind==='snap'?'Snap ontvangen':last.kind==='voice'?'Spraakbericht':last.kind==='video'?'Video':'Foto';
-    return {id:thread.id,title:thread.title||people.map(id=>names.get(id)||'Vriend').join(', ')||'Chat',preview,status:chatStatus.label,chatStatus,streak:streak&&streak.count>0?streak:null,createdAt:last?.created_at||null,peerIds:people,isGroup,unread,mentioned};
+    return {id:thread.id,title:thread.title||people.map(id=>names.get(id)||'Vriend').join(', ')||'Chat',preview,status:chatStatus.label,chatStatus,streak:streak&&streak.count>0?streak:null,createdAt:last?.created_at||null,peerIds:people,isGroup,unread,mentioned,relation:isGroup?null:relations.get(people[0])??null};
   }).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
 }
