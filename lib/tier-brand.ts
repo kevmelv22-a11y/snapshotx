@@ -12,3 +12,6 @@ export const TIER_BRAND: Record<BrandTier, { label: string; short: string; wordm
 export const isBrandTier = (t: Tier | null | undefined): t is BrandTier => !!t && t !== 'storage';
 /** Width for a given height, keeping the PNG's aspect. */
 export const brandWidth = (t: BrandTier, kind: 'wordmark' | 'icon', height: number) => { const [w, h] = TIER_BRAND[t][kind]; return Math.round(height * w / h); };
+/** Sizes up to this many px (profile badge 22, paywall tabs 26) use the simplified small icon set (assets/tiers/small, 96x96). */
+export const SMALL_ICON_MAX = 28;
+export const isSmallIconSize = (size: number) => size <= SMALL_ICON_MAX;
