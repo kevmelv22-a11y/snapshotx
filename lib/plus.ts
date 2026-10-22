@@ -25,11 +25,11 @@ export const plansFor = (tier: Tier): Plan[] => PLANS.filter(p => p.tier === tie
 export type TierInfo = { id: Tier; name: string; tagline: string; storage: string; seats: number; perks: string[] };
 /** Tier ladder. Each paid tier includes everything of the one before (Lens+ ⊃ X+, Platinum ⊃ Lens+). */
 export const TIERS: readonly TierInfo[] = [
-  { id: 'plus', name: 'Snapshot X+', tagline: 'Alle X+-functies voor jou', storage: '250 GB', seats: 1, perks: ['Alle X+-functies', '250 GB opslag voor Herinneringen'] },
-  { id: 'family', name: 'X+ Gezin', tagline: 'X+ voor jou en 2 anderen', storage: '250 GB', seats: 3, perks: ['Alle X+-functies voor 3 personen', '250 GB opslag (beheerder)'] },
-  { id: 'lens', name: 'Lens+', tagline: 'X+ plus exclusieve AI-lenzen', storage: '250 GB', seats: 1, perks: ['Alles van X+', 'Exclusieve AI-lenzen, elke week nieuw', 'Imagine-lens: maak een beeld met tekst'] },
-  { id: 'platinum', name: 'X+ Platinum', tagline: 'Alles, zonder advertenties', storage: '5 TB', seats: 1, perks: ['Alles van Lens+', 'Geen gesponsorde snaps, verhaal- of lensadvertenties', '5 TB opslag voor Herinneringen'] },
-  { id: 'storage', name: 'Herinneringen 100 GB', tagline: 'Alleen extra opslag', storage: '100 GB', seats: 1, perks: ['100 GB opslag voor Herinneringen', 'Geen X+-functies'] },
+  { id: 'plus', name: 'Snapshot X+', tagline: 'Alle Snapshot X+-functies voor jou', storage: '250 GB', seats: 1, perks: ['Alle Snapshot X+-functies', '250 GB opslag voor Herinneringen'] },
+  { id: 'family', name: 'Snapshot Family', tagline: 'Snapshot X+ voor jou en 2 anderen', storage: '250 GB', seats: 3, perks: ['Alle Snapshot X+-functies voor 3 personen', '250 GB opslag (beheerder)'] },
+  { id: 'lens', name: 'Snapshot X Lens', tagline: 'Snapshot X+ plus exclusieve AI-lenzen', storage: '250 GB', seats: 1, perks: ['Alles van Snapshot X+', 'Exclusieve AI-lenzen, elke week nieuw', 'Imagine-lens: maak een beeld met tekst'] },
+  { id: 'platinum', name: 'Snapshot Platinum', tagline: 'Alles, zonder advertenties', storage: '5 TB', seats: 1, perks: ['Alles van Snapshot X Lens', 'Geen gesponsorde snaps, verhaal- of lensadvertenties', '5 TB opslag voor Herinneringen'] },
+  { id: 'storage', name: 'Herinneringen 100 GB', tagline: 'Alleen extra opslag', storage: '100 GB', seats: 1, perks: ['100 GB opslag voor Herinneringen', 'Geen Snapshot X+-functies'] },
 ];
 export const tierInfo = (t: Tier): TierInfo => TIERS.find(x => x.id === t)!;
 export const FREE_STORAGE = '5 GB';
@@ -74,7 +74,7 @@ export function isPlus(ents: readonly (Entitlement | null | undefined)[] | Entit
 }
 /** Status line for settings. */
 export function entitlementLabel(e: Entitlement | null | undefined, now: number): string {
-  if (!isEntitlementActive(e, now) || !e) return 'Geen X+';
+  if (!isEntitlementActive(e, now) || !e) return 'Geen abonnement';
   const name = tierInfo(e.tier).name;
   if (e.expiresAt === null) return `${name} actief`;
   const d = new Date(Date.parse(e.expiresAt) > now ? e.expiresAt : e.graceUntil!);
@@ -97,7 +97,7 @@ export function trialEligible(plan: Plan, history: readonly Entitlement[]): bool
 
 export type PlusFeature = 'badge' | 'app_icon' | 'story_rewatch' | 'priority_replies' | 'chat_wallpaper' | 'bff_pin' | 'ai_lenses' | 'no_ads' | 'memories_5tb';
 export const FEATURES: readonly { id: PlusFeature; title: string; description: string; icon: string; minTier: Tier }[] = [
-  { id: 'badge', title: 'X+-badge', description: 'Een badge naast je naam op je profiel', icon: 'sparkles', minTier: 'plus' },
+  { id: 'badge', title: 'Snapshot X+-badge', description: 'Een badge naast je naam op je profiel', icon: 'sparkles', minTier: 'plus' },
   { id: 'app_icon', title: 'Eigen app-icoon', description: 'Kies een ander icoon voor je beginscherm', icon: 'apps', minTier: 'plus' },
   { id: 'story_rewatch', title: 'Herbekeken-indicator', description: 'Zie hoeveel vrienden je verhaal opnieuw bekeken', icon: 'eye', minTier: 'plus' },
   { id: 'priority_replies', title: 'Voorrang bij reacties', description: 'Jouw reacties op verhalen staan bovenaan', icon: 'arrow-up-circle', minTier: 'plus' },

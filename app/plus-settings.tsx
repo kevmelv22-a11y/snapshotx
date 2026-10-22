@@ -10,7 +10,7 @@ import {usePlusStore,useIsPlus} from '../stores/plus';
 /** X+ perks overview. Changing the real home-screen icon needs a native alternate-icons config plugin (dev build); here the choice is stored only. */
 export default function PlusSettings(){
   const plus=useIsPlus();const now=useNow();const st=usePlusStore();
-  return <ScrollView contentContainerStyle={s.c}><Stack.Screen options={{title:'X+-instellingen'}}/>
+  return <ScrollView contentContainerStyle={s.c}><Stack.Screen options={{title:'Snapshot X+-instellingen'}}/>
     <Text style={s.status}>{entitlementLabel(st.entitlements[0],now)}</Text>
     {!plus&&<Locked onUpgrade={()=>router.push('/plus')}/>}
     <Pressable onPress={()=>router.push('/plus-manage')}><Text style={s.link}>Abonnement beheren of opzeggen</Text></Pressable>

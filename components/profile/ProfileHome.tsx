@@ -14,7 +14,7 @@ import { WardrobePortrait } from '../avatar/OwnAvatar';
 
 export type ProfileFriend = { id: string; name: string; outfit: Outfit | null; ring?: StoryRingState; fallback?: React.ReactNode };
 type Props = {
-  username: string; score: number; hero: React.ReactNode; ownOutfit: Outfit | null; friends: ProfileFriend[]; storyCount: number; sharingLocation: boolean;
+  username: string; nameBadge?: React.ReactNode; score: number; hero: React.ReactNode; ownOutfit: Outfit | null; friends: ProfileFriend[]; storyCount: number; sharingLocation: boolean;
   topInset?: number; onMenu: () => void; onSettings: () => void; onAvatar: () => void; onStory: () => void; onFriends: () => void; onFriend?: (id: string) => void; onMap: () => void; onTimers: () => void;
   footer?: React.ReactNode;
 };
@@ -26,7 +26,7 @@ export function ProfileHome(p: Props) {
     <View style={s.top}>
       <Pressable onPress={p.onMenu} accessibilityLabel="Menu" hitSlop={8}><Ionicons name="menu" size={32} color="#FFF"/></Pressable>
       <View style={{ alignItems: 'center', flex: 1 }}>
-        <Text style={s.user} numberOfLines={1}>{p.username.toUpperCase()}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', maxWidth: '100%' }}><Text style={s.user} numberOfLines={1}>{p.username.toUpperCase()}</Text>{p.nameBadge}</View>
         <Text style={s.score}>★ Mijn score is {fmt(p.score)}</Text>
       </View>
       <Pressable onPress={p.onSettings} accessibilityLabel="Instellingen" hitSlop={8}><Ionicons name="settings-outline" size={30} color="#FFF"/></Pressable>

@@ -15,7 +15,7 @@ export default function PlusScreen(){
   const buy=usePlusStore(s=>s.buy),restore=usePlusStore(s=>s.restore),ents=usePlusStore(s=>s.entitlements);
   const current=ents.find(e=>(e.tier==='storage')===(tier==='storage')&&e.status!=='expired')?.productId??null;
   const trial=ents.length===0;
-  return <ScrollView><Stack.Screen options={{title:tier==='storage'?'Herinneringen-opslag':'Snapshot X+'}}/><Paywall tier={tier} onTier={t=>{setTier(t);setPlan(defaultPlan(t));setNotice(null)}} selected={plan} onSelect={setPlan} busy={busy} notice={notice} trial={trial} current={current}
+  return <ScrollView><Stack.Screen options={{title:tier==='storage'?'Herinneringen-opslag':'Abonnementen'}}/><Paywall tier={tier} onTier={t=>{setTier(t);setPlan(defaultPlan(t));setNotice(null)}} selected={plan} onSelect={setPlan} busy={busy} notice={notice} trial={trial} current={current}
     onStorage={()=>{setTier('storage');setPlan(defaultPlan('storage'))}}
     onBuy={async()=>{setBusy(true);const err=await buy(plan);setBusy(false);if(err)setNotice(err);else router.replace('/plus-manage')}}
     onRestore={async()=>setNotice(await restore())} onTerms={()=>void Linking.openURL(TERMS_URL)} onPrivacy={()=>void Linking.openURL(PRIVACY_URL)}/></ScrollView>;
