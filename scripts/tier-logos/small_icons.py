@@ -1,7 +1,7 @@
 """Simplified small tier icons (for 22–26 px: profile badge + paywall tabs), 96x96 RGBA in assets/tiers/small/.
 Built from the source logo crops so colours stay identical:
   plus     - the bare flame/lightning X badge, outer lightning wisps trimmed, X redrawn bold white so it reads at 22 px
-  lens     - one thick cyan ring (colour sampled from the lens ring) around a bold X in the same cyan
+  lens     - cyan ring with 6 aperture blades around a bold X split flame-orange / lightning-cyan (colours sampled)
   platinum - the silver ghost with the X filled solid dark (no see-through interior)
   family   - the X badge with one small cyan ghost (cropped from the family row) at its lower right"""
 import sys, os
@@ -45,13 +45,31 @@ b = crisp_x(badge())
 def solid(img, gain=1.35):
     arr = np.asarray(img).astype(float); arr[..., 3] = (arr[..., 3] * gain).clip(0, 255); return Image.fromarray(arr.astype(np.uint8))
 save(solid(b), 'plus')
-# lens: sample ring colour from row-2 icon ring pixels
+# lens: cyan ring + 6 aperture blades (pinwheel chords) + X split in flame orange / lightning cyan, like the big logo
 ring = im[442:754, 340:651]; m = ring.max(2) > 200; cyan = tuple(int(v) for v in ring[m & (ring[..., 2] > ring[..., 0] + 60)].mean(0))
-L = Image.new('RGBA', (S * 4, S * 4)); d = ImageDraw.Draw(L); c = S * 2
-d.ellipse([16, 16, S * 4 - 16, S * 4 - 16], outline=cyan + (255,), width=34)
-w = 30; r = 92
-for sgn in (1, -1): d.line([(c - r, c - sgn * r), (c + r, c + sgn * r)], fill=cyan + (255,), width=w)
-glow = L.filter(ImageFilter.GaussianBlur(10)); out = Image.alpha_composite(glow, L)
+fl = im[60:436, 660:960]; om = (fl[..., 0] > 200) & (fl[..., 1] > 60) & (fl[..., 1] < 140) & (fl[..., 2] < 80); orange = tuple(int(v) for v in fl[om].mean(0))
+import math
+Z = S * 4; c = Z / 2; R = Z / 2 - 20
+L = Image.new('RGBA', (Z, Z)); d = ImageDraw.Draw(L)
+d.ellipse([c - R, c - R, c + R, c + R], outline=cyan + (255,), width=26)
+ri = R - 13; hole = ri * 0.6                       # blades: chords tangent to the central opening
+for k in range(6):
+    t = math.radians(k * 60 + 15)
+    p0 = (c + ri * math.cos(t), c + ri * math.sin(t))
+    tt = t + math.radians(90) ; p1 = (c + hole * math.cos(t + math.radians(62)), c + hole * math.sin(t + math.radians(62)))
+    d.line([p0, p1], fill=cyan + (230,), width=11)
+d.ellipse([c - hole, c - hole, c + hole, c + hole], outline=cyan + (200,), width=8)
+# X split down the middle: left orange, right cyan, white-hot core edge for punch
+X = Image.new('RGBA', (Z, Z)); xd = ImageDraw.Draw(X); r = hole * 0.74; w = 36
+for sg in (1, -1): xd.line([(c - r, c - sg * r), (c + r, c + sg * r)], fill=(255, 255, 255, 255), width=w)
+xa = np.asarray(X).astype(float); xs = np.arange(Z)[None, :]
+col = np.where((xs < c)[..., None], np.array(orange, float), np.array(cyan, float))
+xa[..., :3] = col * 0.8 + 255 * 0.2
+X = Image.fromarray(xa.astype(np.uint8))
+dark = Image.new('RGBA', (Z, Z)); dd = ImageDraw.Draw(dark)
+for sg in (1, -1): dd.line([(c - r, c - sg * r), (c + r, c + sg * r)], fill=(8, 10, 18, 240), width=w + 16)
+out = Image.alpha_composite(L.filter(ImageFilter.GaussianBlur(9)), L)
+out = Image.alpha_composite(out, dark); out = Image.alpha_composite(out, X.filter(ImageFilter.GaussianBlur(8))); out = Image.alpha_composite(out, X)
 save(out, 'lens')
 # platinum: ghost from row 3; fill transparent interior (holes enclosed by the ghost) with dark grey
 p = unmatte(im[805:1084, 358:549], floor=10); p = tight(p, 30); arr = np.asarray(p).astype(float)
