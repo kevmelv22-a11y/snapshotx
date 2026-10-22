@@ -14,11 +14,11 @@ import {QUOTE_GONE,canReply,parseReply,quotedIndex,type ReplyRef} from '../../li
 import {ReactionChips,ReactionPicker,StreakBadge,StreakWarning,SystemLine,TypingIndicator} from './ChatParts';
 
 /** Header row: title, streak, retention toggle, video call. Shared by the real chat and the dev harness. */
-export function ChatHeaderBar({title,streak,retention,onRetention,onCall,avatar,onInfo,memberCount,onBack,topInset=0}:{onBack?:()=>void;topInset?:number;title:string;streak:StreakState;retention:RetentionMode;onRetention:()=>void;onCall:()=>void;/** Optional avatar shown left of the title (step 8). */avatar?:React.ReactNode;/** Group chats: opens "Groepsinfo" (title tap + 👥 button). */onInfo?:()=>void;memberCount?:number}){
+export function ChatHeaderBar({title,streak,retention,onRetention,onCall,avatar,onInfo,memberCount,onBack,onProfile,topInset=0}:{onBack?:()=>void;/** 1:1 chats: tap avatar/name → friendship profile. */onProfile?:()=>void;topInset?:number;title:string;streak:StreakState;retention:RetentionMode;onRetention:()=>void;onCall:()=>void;/** Optional avatar shown left of the title (step 8). */avatar?:React.ReactNode;/** Group chats: opens "Groepsinfo" (title tap + 👥 button). */onInfo?:()=>void;memberCount?:number}){
   return <View style={[s.header,{paddingTop:10+topInset}]}>
     {onBack&&<Pressable onPress={onBack} accessibilityLabel="Terug" hitSlop={10} style={{marginRight:-2}}><Ionicons name="chevron-back" size={26} color={C.text}/></Pressable>}
-    {avatar}
-    {onInfo?<Pressable onPress={onInfo} accessibilityLabel={`Groepsinfo van ${title}`} style={{flexShrink:1}}><Text style={s.title} numberOfLines={1}>{title}</Text>{!!memberCount&&<Text style={s.sub}>{memberCount} leden · tik voor info</Text>}</Pressable>:<Text style={s.title} numberOfLines={1}>{title}</Text>}
+    {onProfile&&!onInfo?<Pressable onPress={onProfile} accessibilityLabel={`Vriendschapsprofiel van ${title}`} testID="chat-profile-link" style={s.who}>{avatar}<Text style={s.title} numberOfLines={1}>{title}</Text></Pressable>:avatar}
+    {onProfile&&!onInfo?null:onInfo?<Pressable onPress={onInfo} accessibilityLabel={`Groepsinfo van ${title}`} style={{flexShrink:1}}><Text style={s.title} numberOfLines={1}>{title}</Text>{!!memberCount&&<Text style={s.sub}>{memberCount} leden · tik voor info</Text>}</Pressable>:<Text style={s.title} numberOfLines={1}>{title}</Text>}
     <StreakBadge streak={streak}/>
     <View style={{flex:1}}/>
     <Pressable onPress={onRetention} accessibilityLabel="Verwijderinstelling" style={s.pill}><Text style={s.pillText}>⏱ {RETENTION_SHORT[retention]}</Text></Pressable>
@@ -55,7 +55,7 @@ export function ChatView(p:ChatViewProps){
   const jump=(ref:ReplyRef)=>{const i=quotedIndex(p.rows,ref);if(i<0){setGone(true);return}list.current?.scrollToIndex({index:i,viewPosition:.5,animated:true});setFlash(ref.id)};
   return <View style={{flex:1}}>
     <StreakWarning streak={p.streak}/>
-    <FlatList ref={list} onScrollToIndexFailed={e=>{list.current?.scrollToOffset({offset:e.averageItemLength*e.index,animated:true});setTimeout(()=>list.current?.scrollToIndex({index:e.index,viewPosition:.5,animated:true}),250)}} data={p.rows} inverted keyExtractor={x=>x.id} contentContainerStyle={{padding:15}}
+    <FlatList ref={list} onScrollToIndexFailed={e=>{list.current?.scrollToOffset({offset:e.averageItemLength*e.index,animated:true});setTimeout(()=>list.current?.scrollToIndex({index:e.index,viewPosition:.5,animated:true}),250)}} data={p.rows} inverted keyboardShouldPersistTaps="handled" keyExtractor={x=>x.id} contentContainerStyle={{padding:15}}
       ListHeaderComponent={<TypingIndicator text={p.typing}/>} ListHeaderComponentStyle={{marginHorizontal:-15}}
       renderItem={({item})=>{
         if(item.kind==='system')return <View>{divider(item)}<SystemLine text={item.body??''} icon={isGroupChangeText(item.body)?'👥':item.body?.includes('screenshot')?'📸':item.body?.includes('gesprek')?'📹':'⏱'}/></View>;
@@ -88,7 +88,7 @@ export function ChatView(p:ChatViewProps){
 }
 const s=StyleSheet.create({
   header:{flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:14,paddingVertical:10,backgroundColor:C.surface,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:C.border},
-  title:{color:C.text,fontSize:17,fontWeight:'700',maxWidth:150},pill:{backgroundColor:C.elevated,borderRadius:14,paddingHorizontal:10,paddingVertical:5},pillText:{color:C.text,fontSize:12},callBtn:{padding:4},infoBtn:{width:34,height:34,borderRadius:17,backgroundColor:'#51427980',alignItems:'center',justifyContent:'center'},sub:{color:C.muted,fontSize:11,marginTop:1},
+  title:{color:C.text,fontSize:17,fontWeight:'700',maxWidth:150},who:{flexDirection:'row',alignItems:'center',gap:8,flexShrink:1},pill:{backgroundColor:C.elevated,borderRadius:14,paddingHorizontal:10,paddingVertical:5},pillText:{color:C.text,fontSize:12},callBtn:{padding:4},infoBtn:{width:34,height:34,borderRadius:17,backgroundColor:'#51427980',alignItems:'center',justifyContent:'center'},sub:{color:C.muted,fontSize:11,marginTop:1},
   runStart:{marginTop:12},senderRow:{flexDirection:'row',alignItems:'center',gap:6,marginBottom:3},sender:{fontSize:12,fontWeight:'800',letterSpacing:.6},runTime:{color:C.muted,fontSize:10,marginLeft:2},
   msg:{borderLeftWidth:3,paddingLeft:10,paddingVertical:3,marginLeft:2,alignSelf:'stretch'},
   empty:{position:'absolute',left:0,right:0,top:0,bottom:0,alignItems:'center',justifyContent:'center',padding:15},
