@@ -3,6 +3,7 @@
  * allows, RPC arguments for public.sx_staff_report_action and audit <-> report linkage.
  * The server re-validates everything; these only drive the UI.
  */
+import { readableBody } from './chat-replies';
 
 export type ReportAction = 'warn' | 'ban_user' | 'delete_content';
 export type ReportStatus = 'open' | 'reviewing' | 'resolved' | 'dismissed' | string;
@@ -72,7 +73,7 @@ export function describeSnapshot(report: Pick<ReportLike, 'message_id' | 'story_
   if (s.view_once) meta.push('Eenmalig bekijken');
   if (s.backfilled) meta.push('Achteraf vastgelegd');
   const media = s.has_media ? `${kind} (media niet in console te bekijken)` : null;
-  return { title: kind, text: s.body?.trim() || null, media, meta, missing: false };
+  return { title: kind, text: readableBody(s.body)?.trim() || null, media, meta, missing: false };
 }
 
 export type ActionAvailability = { action: ReportAction; label: string; enabled: boolean; why: string | null };

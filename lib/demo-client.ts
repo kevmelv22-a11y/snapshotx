@@ -5,6 +5,7 @@
  * mock owner "kevin"). Data lives in memory and resets on reload. Never makes a network request.
  */
 import { StaffMock, seedStaffMock, MOCK_IDS, type Row } from './staff-mock';
+import { parseReply, replyBody } from './chat-replies';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, isGroupThread, normalizeGroupTitle } from './group-chat';
 
 type Err = { message: string; code?: string; details?: string };
@@ -70,6 +71,14 @@ function seedDemo(m: StaffMock) {
   // first bubble. In the demo it becomes Aria's beach snap with real demo media.
   Object.assign(m.t.sx_messages.find(x => x.id === 'e0000000-0000-4000-8000-000000000003') ?? {}, { sender_id: I.aria, media_path: 'demo/strand.svg', body: 'photo', view_once: true });
   Object.assign(m.t.sx_messages.find(x => x.id === 'e0000000-0000-4000-8000-000000000004') ?? {}, { body: 'Zaterdag strand? 🏖️' });
+  // Quoted replies (Snapchat "Antwoorden"): Eva answers Kevin's question in the group, Aria quotes his time in 1:1.
+  const quote = (thread: string, sender: string, startsWith: string, text: string) => {
+    const target = m.t.sx_messages.find(x => x.thread_id === thread && String(x.body).startsWith(startsWith));
+    const reply = m.t.sx_messages.find(x => x.thread_id === thread && x.sender_id === sender && x.body === text);
+    if (target && reply) reply.body = replyBody(target as never, text);
+  };
+  quote(T.crew, I.eva, 'Zaterdag 14:00', 'Ik ben erbij 🙌');
+  quote(T.aria, I.aria, 'Ja zeker, om 8 uur', 'Top, tot dan! 🙌');
   const st = (owner_id: string, path: string, caption: string | null, ago: number, visibility = 'friends') =>
     ({ id: newId(), owner_id, media_path: path, media_type: 'photo', caption, visibility, created_at: iso(-ago), expires_at: iso(24 * H - ago) });
   m.t.sx_stories.forEach((s, i) => { s.media_path = i ? 'demo/stad.svg' : 'demo/pizza.svg'; s.media_type = 'photo'; s.expires_at = m.iso(16 * H); });
@@ -183,6 +192,7 @@ class DemoQuery implements PromiseLike<Res> {
   }
 }
 
+const QUESTION_REPLIES = ['Ja, goed idee! 👍', 'Prima, ik ben erbij', 'Hmm, ik laat het je straks weten', 'Zeker weten 😄'];
 const REPLIES = ['Haha 😄', 'Klinkt goed!', 'Echt? 😮', 'Top 👍', 'Zie je straks!', 'Haha ja precies', '🔥🔥'];
 
 /**
@@ -244,7 +254,12 @@ export class DemoClient {
       const receipts = this.m.table('sx_receipts');
       for (const x of this.m.table('sx_messages').filter(x => x.thread_id === threadId && x.sender_id === ME && x.kind !== 'system'))
         if (!receipts.some(r => r.message_id === x.id && r.user_id === sender)) { const r = { message_id: x.id, user_id: sender, opened_at: this.m.iso(), replay_count: 0 }; receipts.push(r); this.emit('sx_receipts', 'INSERT', r); }
-      const row = { id: newId(), thread_id: threadId, sender_id: sender, kind: 'text', body: REPLIES[Math.floor(Math.random() * REPLIES.length)], media_path: null, created_at: this.m.iso(), expires_at: null };
+      // A question from Kevin gets a quoted reply (swipe-reply style), anything else a plain answer.
+      const last = this.m.table('sx_messages').filter(x => x.thread_id === threadId && x.sender_id === ME && x.kind === 'text').sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
+      const text = REPLIES[Math.floor(Math.random() * REPLIES.length)];
+      const asked = !!last && (parseReply(String(last.body))?.text ?? String(last.body)).trim().endsWith('?');
+      const body = asked ? replyBody(last as never, QUESTION_REPLIES[Math.floor(Math.random() * QUESTION_REPLIES.length)]) : text;
+      const row = { id: newId(), thread_id: threadId, sender_id: sender, kind: 'text', body, media_path: null, created_at: this.m.iso(), expires_at: null };
       this.m.table('sx_messages').push(row); this.emit('sx_messages', 'INSERT', row);
     }, 1800);
   }

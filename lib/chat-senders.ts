@@ -43,6 +43,6 @@ export function emptyMessageText(m: { kind: string; body: string | null; media_p
   if ((m.kind === 'text' || !m.kind) && !(m.body ?? '').trim() && !m.media_path) return 'Bericht niet beschikbaar';
   return null;
 }
-/** Long-press / context-menu actions for a message. Own messages get none; others get report + block. */
-export function messageMenuActions(mine: boolean): ('report' | 'block')[] { return mine ? [] : ['report', 'block']; }
-export const MENU_LABEL = { report: 'Meld bericht', block: 'Blokkeer gebruiker' } as const;
+/** Long-press / context-menu actions for a message. Everyone can reply (quoted reply); others also get report + block. */
+export function messageMenuActions(mine: boolean): ('reply' | 'report' | 'block')[] { return mine ? ['reply'] : ['reply', 'report', 'block']; }
+export const MENU_LABEL = { reply: 'Antwoorden', report: 'Meld bericht', block: 'Blokkeer gebruiker' } as const;

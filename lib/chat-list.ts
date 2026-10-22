@@ -1,5 +1,6 @@
 import {supabase} from './supabase';
 import {chatPreviewText} from './avatar/poses';
+import {replyText} from './chat-replies';
 import {threadStatus,threadStreak,type ChatStatus} from './chat-status';
 import type {StreakState} from './chat-features';
 
@@ -70,7 +71,7 @@ export async function loadChatRows(uid:string):Promise<ChatRow[]> {
     // Without receipts (error) an incoming message counts as opened, so nothing looks falsely "new".
     const chatStatus=threadStatus(list,uid,peerOpened,receipts?.error?new Set(list.map(x=>x.id)):read);
     const streak=isGroup?null:threadStreak(list,uid,people[0]??null,now,offset);
-    const preview=!last?'Nieuw gesprek':last.kind==='system'?(last.body||'Melding'):last.kind==='text'?(chatPreviewText(last.body)||'Bericht'):last.kind==='snap'?'Snap ontvangen':last.kind==='voice'?'Spraakbericht':last.kind==='video'?'Video':'Foto';
+    const preview=!last?'Nieuw gesprek':last.kind==='system'?(last.body||'Melding'):last.kind==='text'?(chatPreviewText(replyText(last.body))||'Bericht'):last.kind==='snap'?'Snap ontvangen':last.kind==='voice'?'Spraakbericht':last.kind==='video'?'Video':'Foto';
     return {id:thread.id,title:thread.title||people.map(id=>names.get(id)||'Vriend').join(', ')||'Chat',preview,status:chatStatus.label,chatStatus,streak:streak&&streak.count>0?streak:null,createdAt:last?.created_at||null,peerIds:people,isGroup,unread};
   }).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
 }
