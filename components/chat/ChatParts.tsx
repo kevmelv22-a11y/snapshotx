@@ -27,13 +27,23 @@ export function SystemLine({text,icon='•'}:{text:string;icon?:string}){
   return <View style={s.system}><Text style={s.systemText}>{icon} {text}</Text></View>;
 }
 
+/** Taps within this window after opening are ignored (the long-press finger lifting). */
+export const BACKDROP_GUARD_MS=250;
 /** Long-press menu: 7 emoji reactions plus optional actions. */
 export function ReactionPicker({visible,onPick,onClose,current,actions=[]}:{visible:boolean;onPick:(e:string)=>void;onClose:()=>void;current?:string|null;actions?:{label:string;onPress:()=>void}[]}){
+  // The menu opens under the finger during a long-press. Lifting that finger must not count as a tap on whatever is
+  // now under it (backdrop = close, or worse an action like "Blokkeer gebruiker"). Only presses that STARTED inside
+  // the open menu count (onPressIn fired inside it). Plus a short time guard for platforms without pressIn.
+  const ready=useRef(false),pressedInside=useRef(false);
+  useEffect(()=>{if(!visible)return;ready.current=false;pressedInside.current=false;const t=setTimeout(()=>{ready.current=true},BACKDROP_GUARD_MS);return()=>clearTimeout(t)},[visible]);
+  const armed=()=>ready.current&&pressedInside.current;
+  const onIn=()=>{pressedInside.current=true};
+  const backdrop=()=>{if(armed())onClose()};
   return <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-    <Pressable style={s.backdrop} onPress={onClose}>
+    <Pressable style={s.backdrop} onPressIn={onIn} onPress={backdrop} testID="reaction-backdrop">
       <View style={s.picker} testID="reaction-picker">
-        <View style={s.emojiRow}>{REACTION_EMOJIS.map(e=><Pressable key={e} accessibilityLabel={`Reageer met ${e}`} onPress={()=>{onPick(e);onClose()}} style={[s.emojiBtn,current===e&&s.emojiOn]}><Text style={s.emoji}>{e}</Text></Pressable>)}</View>
-        {actions.map(x=><Pressable key={x.label} onPress={()=>{onClose();x.onPress()}} style={s.action}><Text style={s.actionText}>{x.label}</Text></Pressable>)}
+        <View style={s.emojiRow}>{REACTION_EMOJIS.map(e=><Pressable key={e} accessibilityLabel={`Reageer met ${e}`} onPressIn={onIn} onPress={()=>{if(!armed())return;onPick(e);onClose()}} style={[s.emojiBtn,current===e&&s.emojiOn]}><Text style={s.emoji}>{e}</Text></Pressable>)}</View>
+        {actions.map(x=><Pressable key={x.label} onPressIn={onIn} onPress={()=>{if(!armed())return;onClose();x.onPress()}} style={s.action}><Text style={s.actionText}>{x.label}</Text></Pressable>)}
       </View>
     </Pressable>
   </Modal>;
@@ -92,7 +102,7 @@ const s=StyleSheet.create({
   backdrop:{flex:1,backgroundColor:'#000a',justifyContent:'center',alignItems:'center'},
   picker:{backgroundColor:C.surface,borderRadius:22,padding:10,minWidth:300},emojiRow:{flexDirection:'row',justifyContent:'space-between'},emojiBtn:{padding:6,borderRadius:18},emojiOn:{backgroundColor:'#ffffff22'},emoji:{fontSize:28},
   action:{paddingVertical:12,paddingHorizontal:8,borderTopWidth:StyleSheet.hairlineWidth,borderTopColor:'#ffffff22',marginTop:4},actionText:{color:C.text,fontSize:15},
-  chips:{flexDirection:'row',gap:4,marginTop:-10,marginBottom:4,marginHorizontal:10},chip:{backgroundColor:C.surface,borderRadius:12,paddingHorizontal:6,paddingVertical:2,borderWidth:1,borderColor:'#ffffff22'},chipMine:{borderColor:C.yellow},chipText:{fontSize:13,color:C.text},
+  chips:{flexDirection:'row',gap:4,marginTop:2,marginBottom:4,marginHorizontal:15},chip:{backgroundColor:C.surface,borderRadius:12,paddingHorizontal:6,paddingVertical:2,borderWidth:1,borderColor:'#ffffff22'},chipMine:{borderColor:C.yellow},chipText:{fontSize:13,color:C.text},
   sheet:{width:'100%',backgroundColor:C.surface,borderTopLeftRadius:22,borderTopRightRadius:22,padding:18,gap:4},sheetTitle:{color:C.text,fontSize:18,fontWeight:'700',marginBottom:6},
   option:{flexDirection:'row',alignItems:'center',paddingVertical:10,gap:10},optTitle:{color:C.text,fontSize:15,fontWeight:'600'},optSub:{color:C.muted,fontSize:12,marginTop:2},radio:{color:C.yellow,fontSize:20},
   voice:{flexDirection:'row',alignItems:'center',gap:8,minWidth:220},play:{width:34,height:34,borderRadius:17,backgroundColor:C.yellow,alignItems:'center',justifyContent:'center'},playIcon:{color:'#000',fontSize:13,fontWeight:'800'},

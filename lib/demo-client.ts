@@ -62,7 +62,14 @@ function seedDemo(m: StaffMock) {
     msg(T.aria, I.aria, 'Hé Kevin! Kom je vanavond ook naar het concert? 🎸', 5 * H), msg(T.aria, ME, 'Ja zeker, om 8 uur bij de ingang?', 4.8 * H),
     msg(T.aria, I.aria, 'Top, tot dan! 🙌', 4.7 * H), msg(T.aria, I.aria, 'photo', 1.2 * H, 'snap', 'demo/concert.svg'),
     msg(T.eva, I.eva, 'Heb je de foto’s van zaterdag nog?', 26 * H), msg(T.eva, ME, 'Komen eraan! Even zoeken 😅', 25 * H), msg(T.eva, I.eva, 'Haha oké 😄', 20 * H),
-    msg(T.crew, I.cleo, 'Wie neemt de bal mee?', 3.5 * H), msg(T.crew, EXTRA.noor, 'Ik! ⚽', 3.4 * H));
+    msg(T.crew, I.cleo, 'Wie neemt de bal mee?', 3.5 * H), msg(T.crew, EXTRA.noor, 'Ik! ⚽', 3.4 * H),
+    msg(T.crew, EXTRA.noor, 'En ik neem ook de pomp mee', 3.39 * H), msg(T.crew, ME, 'Top! Ik regel de muziekbox 🔊', 3.3 * H),
+    msg(T.crew, ME, 'Zaterdag 14:00 bij het strandpaviljoen?', 3.29 * H), msg(T.crew, I.eva, 'Ik ben erbij 🙌', 3.1 * H),
+    msg(T.crew, I.aria, 'Ik kom iets later, rond 15:00', 2.8 * H));
+  // Staff-mock seed has a Daan snap without media in Weekend crew (Daan is no member here): it rendered as an empty
+  // first bubble. In the demo it becomes Aria's beach snap with real demo media.
+  Object.assign(m.t.sx_messages.find(x => x.id === 'e0000000-0000-4000-8000-000000000003') ?? {}, { sender_id: I.aria, media_path: 'demo/strand.svg', body: 'photo', view_once: true });
+  Object.assign(m.t.sx_messages.find(x => x.id === 'e0000000-0000-4000-8000-000000000004') ?? {}, { body: 'Zaterdag strand? 🏖️' });
   const st = (owner_id: string, path: string, caption: string | null, ago: number, visibility = 'friends') =>
     ({ id: newId(), owner_id, media_path: path, media_type: 'photo', caption, visibility, created_at: iso(-ago), expires_at: iso(24 * H - ago) });
   m.t.sx_stories.forEach((s, i) => { s.media_path = i ? 'demo/stad.svg' : 'demo/pizza.svg'; s.media_type = 'photo'; s.expires_at = m.iso(16 * H); });
