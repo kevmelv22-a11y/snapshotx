@@ -117,6 +117,48 @@ export class StaffMock {
         return { report_id: rep.id, action: act, action_ref: ref };
       } finally { this.reportCtx = null; }
     },
+    sx_staff_report_conversation: a => {
+      this.requireStaff(); const r = this.reason(a.p_reason, 10); const audience = String(a.p_audience);
+      if (!['reporter', 'reported'].includes(audience)) throw new SqlError('invalid conversation audience');
+      const report = this.table('sx_reports').find(x => x.id === a.p_report_id);
+      if (!report) throw new SqlError('report not found');
+      const recipient = audience === 'reporter' ? report.reporter_id : report.reported_user_id;
+      if (!recipient) throw new SqlError('recipient is no longer available');
+      if (recipient === this.actorId) throw new SqlError('staff cannot message themselves');
+      const mapping = this.table('sx_report_conversations').find(x => x.report_id === report.id && x.audience === audience);
+      if (mapping && mapping.recipient_id !== recipient) throw new SqlError('report conversation recipient no longer matches the report');
+      const threadId = mapping?.thread_id ?? null;
+      const profile = this.profile(recipient);
+      this.audit('sx_staff_report_conversation_open', 'sx_report', String(report.id), { report_id: report.id, audience, thread_id: threadId, recipient_id: recipient, reason: r });
+      const messages = threadId ? this.table('sx_messages').filter(m => m.thread_id === threadId && (!m.expires_at || Date.parse(String(m.expires_at)) > this.now())).slice(-100) : [];
+      const recipientRow = { thread_id: threadId, recipient_id: recipient, recipient_username: profile?.username ?? null, recipient_display_name: profile?.display_name ?? null };
+      if (!messages.length) return [{ ...recipientRow, message_id: null, sender_id: null, kind: null, body: null, created_at: null, is_deleted: false }];
+      return messages.map(m => ({ ...recipientRow, message_id: m.id, sender_id: m.sender_id, kind: m.kind, body: m.media_deleted_at ? null : m.body, created_at: m.created_at, is_deleted: !!m.media_deleted_at }));
+    },
+    sx_staff_send_report_message: a => {
+      const actor = this.requireStaff(); const audience = String(a.p_audience); const reason = this.reason(a.p_reason, 10); const body = String(a.p_body ?? '').trim();
+      if (!['reporter', 'reported'].includes(audience)) throw new SqlError('invalid conversation audience');
+      if (!body || body.length > 2000) throw new SqlError('message must contain 1 to 2000 characters');
+      const report = this.table('sx_reports').find(x => x.id === a.p_report_id);
+      if (!report) throw new SqlError('report not found');
+      const recipient = audience === 'reporter' ? report.reporter_id : report.reported_user_id;
+      if (!recipient) throw new SqlError('recipient is no longer available');
+      if (recipient === actor) throw new SqlError('staff cannot message themselves');
+      let mapping = this.table('sx_report_conversations').find(x => x.report_id === report.id && x.audience === audience);
+      if (mapping && mapping.recipient_id !== recipient) throw new SqlError('report conversation recipient no longer matches the report');
+      if (!mapping) {
+        const threadId = this.id(0xc2);
+        const title = audience === 'reporter' ? 'Support over je melding' : 'Bericht over een melding';
+        this.table('sx_threads').push({ id: threadId, title, created_by: actor, retention_mode: '24h', created_at: this.iso(), member_count: 2 });
+        this.table('sx_members').push({ thread_id: threadId, user_id: actor, joined_at: this.iso() }, { thread_id: threadId, user_id: recipient, joined_at: this.iso() });
+        mapping = { id: this.id(0xc3), report_id: report.id, audience, thread_id: threadId, recipient_id: recipient, creator_id: actor, created_at: this.iso() };
+        this.table('sx_report_conversations').push(mapping);
+      }
+      const messageId = this.id(0xc4);
+      this.table('sx_messages').push({ id: messageId, thread_id: mapping.thread_id, sender_id: actor, kind: 'text', body, created_at: this.iso(), expires_at: this.iso(86400e3), media_deleted_at: null });
+      this.audit('sx_staff_report_message_sent', 'sx_report', String(report.id), { report_id: report.id, audience, thread_id: mapping.thread_id, recipient_id: recipient, message_id: messageId, character_count: body.length, reason });
+      return { thread_id: mapping.thread_id, message_id: messageId, recipient_id: recipient };
+    },
     sx_manage_staff_role: a => {
       const actor = this.requireStaff(['ADMIN', 'OWNER']); const owner = this.has('OWNER'); const role = String(a.p_role), grant = !!a.p_grant, target = String(a.p_user_id);
       const roleRow = this.table('roles').find(r => r.name === role); if (!roleRow || !this.profile(target)) throw new SqlError('target not found');
@@ -274,6 +316,7 @@ export function seedStaffMock(m: StaffMock) {
     { id: 'l3', user_id: I.cleo, logged_at: m.iso(-1 * H), ip_address: '192.0.2.55', device_id: '5d000000-0000-4000-8000-0000000000c1', device_label: 'Pixel 8', user_agent: null },
   ];
   m.t.sx_threads = [{ id: 'c0000000-0000-4000-8000-000000000001', title: 'Aria & Bram', created_at: m.iso(-5 * D), member_count: 2 }, { id: 'c0000000-0000-4000-8000-000000000002', title: 'Weekend crew', created_at: m.iso(-9 * D), member_count: 5 }];
+  m.t.sx_members = [{ thread_id: m.t.sx_threads[0].id, user_id: I.aria, joined_at: m.iso(-5 * D) }, { thread_id: m.t.sx_threads[0].id, user_id: I.bram, joined_at: m.iso(-5 * D) }];
   const msg = (id: string, t: number, s: string, kind: string, body: string | null, ago: number) => ({ id, thread_id: m.t.sx_threads[t].id, sender_id: s, kind, body, created_at: m.iso(-ago) });
   m.t.sx_messages = [msg('e0000000-0000-4000-8000-000000000001', 0, I.bram, 'text', 'Stuur je adres maar, anders kom ik het zelf zoeken 😡', 3 * H), msg('e0000000-0000-4000-8000-000000000002', 0, I.aria, 'text', 'Doe normaal', 2.9 * H),
     msg('e0000000-0000-4000-8000-000000000003', 1, I.daan, 'snap', null, 5 * H), msg('e0000000-0000-4000-8000-000000000004', 1, I.eva, 'text', 'Zaterdag strand?', 4 * H)];
@@ -288,6 +331,7 @@ export function seedStaffMock(m: StaffMock) {
     rep('d0000000-0000-4000-8000-000000000004', I.bram, I.daan, 'Gevaarlijke handelingen', 7 * H, null, 'f0000000-0000-4000-8000-000000000002', { type: 'story', caption: 'Gevaarlijke stunt op het spoor', media_type: 'video', visibility: 'everyone', owner_id: I.daan }),
     rep('d0000000-0000-4000-8000-000000000005', I.cleo, I.eva, 'Ik vind dit gewoon niet leuk', 9 * H, 'e0000000-0000-4000-8000-000000000004', null, { type: 'message', kind: 'text', body: 'Zaterdag strand?', sender_id: I.eva }),
   ];
+  m.t.sx_report_conversations = [];
   m.t.sx_entitlements = [{ id: 'en000001', user_id: I.eva, tier: 'plus', source: 'app_store', status: 'active', starts_at: m.iso(-20 * D), expires_at: m.iso(10 * D), will_renew: true }];
   m.t.sx_staff_bans = []; m.t.audit_logs = []; m.t.sx_staff_warnings = [];
 }

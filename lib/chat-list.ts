@@ -52,6 +52,7 @@ export async function loadChatRows(uid:string):Promise<ChatRow[]> {
     const last=latest.get(thread.id);
     const unread=unreadThreads.has(thread.id);
     const preview=!last?'Nieuw gesprek':last.kind==='text'?(chatPreviewText(last.body)||'Bericht'):last.kind==='snap'?'Snap ontvangen':last.kind==='voice'?'Spraakbericht':last.kind==='video'?'Video':'Foto';
-    return {id:thread.id,title:thread.title||people.map(id=>names.get(id)||'Vriend').join(', ')||'Chat',preview,status:!last?'Begin een gesprek':last.sender_id===uid?(unread?'Eerder ongelezen':'Verzonden'):unread?'Nieuw bericht':'Ontvangen',createdAt:last?.created_at||null,peerIds:people,isGroup:people.length>1||!!thread.title,unread};
+    const isReportSupport=thread.title?.startsWith('Support over je melding')||thread.title?.startsWith('Bericht over een melding');
+    return {id:thread.id,title:thread.title||people.map(id=>names.get(id)||'Vriend').join(', ')||'Chat',preview,status:!last?'Begin een gesprek':last.sender_id===uid?(unread?'Eerder ongelezen':'Verzonden'):unread?'Nieuw bericht':'Ontvangen',createdAt:last?.created_at||null,peerIds:people,isGroup:!isReportSupport&&(people.length>1||!!thread.title),unread};
   }).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
 }

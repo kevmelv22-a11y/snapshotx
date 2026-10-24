@@ -7,13 +7,13 @@ import {RETENTION_SHORT,retentionHint,summarizeReactions,type Reaction,type Rete
 import {ReactionChips,ReactionPicker,StreakBadge,StreakWarning,SystemLine,TypingIndicator} from './ChatParts';
 
 /** Header row: title, streak, retention toggle, video call. Shared by the real chat and the dev harness. */
-export function ChatHeaderBar({title,streak,retention,onRetention,onCall,avatar}:{title:string;streak:StreakState;retention:RetentionMode;onRetention:()=>void;onCall:()=>void;/** Optional avatar shown left of the title (step 8). */avatar?:React.ReactNode}){
+export function ChatHeaderBar({title,streak,retention,onRetention,onCall,avatar,fixedRetention}:{title:string;streak:StreakState;retention:RetentionMode;onRetention?:()=>void;onCall:()=>void;/** Optional avatar shown left of the title (step 8). */avatar?:React.ReactNode;fixedRetention?:boolean}){
   return <View style={s.header}>
     {avatar}
     <Text style={s.title} numberOfLines={1}>{title}</Text>
     <StreakBadge streak={streak}/>
     <View style={{flex:1}}/>
-    <Pressable onPress={onRetention} accessibilityLabel="Verwijderinstelling" style={s.pill}><Text style={s.pillText}>⏱ {RETENTION_SHORT[retention]}</Text></Pressable>
+    {onRetention?<Pressable onPress={onRetention} accessibilityLabel="Verwijderinstelling" style={s.pill}><Text style={s.pillText}>⏱ {RETENTION_SHORT[retention]}</Text></Pressable>:fixedRetention?<View accessibilityLabel="Vaste verwijderinstelling: 24 uur" style={s.pill}><Text style={s.pillText}>⏱ 24u · vast</Text></View>:null}
     <Pressable onPress={onCall} accessibilityLabel="Videobellen" style={s.callBtn}><Text style={{fontSize:20}}>📹</Text></Pressable>
   </View>;
 }

@@ -29,7 +29,7 @@ export default function Chat(){
  const confirm=useConfirmDialog();
  const {id:rawId}=useLocalSearchParams<{id:string|string[]}>(),id=threadIdFromParam(rawId)??'',{session}=useSession(),uid=session?.user.id??'';
  const [rows,setRows]=useState<Message[]>([]),[body,setBody]=useState(''),[notice,setNotice]=useState(id?'':'Deze chat kon niet worden geopend.'),[busy,setBusy]=useState(false),[opened,setOpened]=useState<Record<string,boolean>>({});
- const [retention,setRetention]=useState<RetentionMode>('24h'),[retentionOpen,setRetentionOpen]=useState(false);
+ const [retention,setRetention]=useState<RetentionMode>('24h'),[retentionOpen,setRetentionOpen]=useState(false),[supportThreadId,setSupportThreadId]=useState<string|null>(null),supportConversation=supportThreadId===id;
  const [viewedAt,setViewedAt]=useState<Record<string,number>>({}),[reactions,setReactions]=useState<Reaction[]>([]);
  const [peers,setPeers]=useState<{id:string;name:string}[]>([]),[typingMap,setTypingMap]=useState<TypingMap>({}),[now,setNow]=useState(Date.now());
  const sessionStart=useRef(Date.now()).current,channelRef=useRef<RealtimeChannel|null>(null),lastTyping=useRef<number|null>(null),lastShot=useRef<number|null>(null);
@@ -42,7 +42,7 @@ export default function Chat(){
   const ids=list.map(m=>m.id);if(ids.length){const r=await supabase.from('sx_reactions').select('message_id,user_id,emoji').in('message_id',ids);if(!r.error)setReactions((r.data||[]).map(x=>({messageId:x.message_id,userId:x.user_id,emoji:x.emoji})))}
  },[id,uid]);
  // Thread meta: retention setting + peers (names for typing, streak partner).
- useEffect(()=>{if(!id||!uid)return;let alive=true;void (async()=>{const t=await supabase.from('sx_threads').select('retention_mode').eq('id',id).maybeSingle();if(alive&&!t.error)setRetention(parseRetention(t.data?.retention_mode));
+ useEffect(()=>{if(!id||!uid)return;let alive=true;void (async()=>{const t=await supabase.from('sx_threads').select('retention_mode,title').eq('id',id).maybeSingle();if(alive&&!t.error){const support=t.data?.title?.startsWith('Support over je melding')||t.data?.title?.startsWith('Bericht over een melding');setSupportThreadId(support?id:null);setRetention(support?'24h':parseRetention(t.data?.retention_mode))}
   const m=await supabase.from('sx_members').select('user_id').eq('thread_id',id);const ids=(m.data||[]).map(x=>x.user_id).filter(x=>x!==uid);if(!ids.length)return;const p=await supabase.from('profiles').select('id,display_name').in('id',ids);const names=new Map((p.data||[]).map(x=>[x.id,x.display_name]));if(alive)setPeers(ids.map(x=>({id:x,name:names.get(x)||'Vriend'})))})();return()=>{alive=false}},[id,uid]);
  useEffect(()=>{if(!id)return;const timer=setTimeout(()=>void load(),0);
   const channel=supabase.channel(`sx-thread-${id}`)
@@ -87,7 +87,8 @@ export default function Chat(){
  const content=(item:Message,mine:boolean)=><>{item.kind==='snap'&&item.media_path?<Pressable onPress={()=>openSnap(item)}><Text style={s.text}>{opened[item.id]?'📷 Snap geopend':'📷 Tik om snap te openen'}</Text>{opened[item.id]&&<Media path={item.media_path} type={item.body==='video'?'video':'photo'} style={s.image} ttl={90}/>}</Pressable>:item.kind==='voice'&&item.media_path?<AudioClip path={item.media_path} seed={item.id} mine={mine}/>:item.media_path?<><Media path={item.media_path} type={item.kind==='video'?'video':'photo'} style={s.image}/><Text style={s.mediaHint}>Blijft zichtbaar in dit gesprek — geen eenmalige snap</Text></>:(()=>{const st=stickerFromChatBody(item.body);return st?<ChatAvatarSticker sticker={st} outfit={outfitOf(item.sender_id)}/>:<Text style={s.text}>{item.body}</Text>})()}{!mine&&<View style={{flexDirection:'row',gap:16}}><Pressable onPress={()=>router.push({pathname:'/report',params:{message_id:item.id}})}><Text style={s.report}>Meld bericht</Text></Pressable><Pressable onPress={()=>blockSender(item.sender_id)}><Text style={s.report}>Blokkeer gebruiker</Text></Pressable></View>}</>;
  return <KeyboardAvoidingView style={s.root} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={90}>
   <Stack.Screen options={{title}}/>
-  <ChatHeaderBar title={title} streak={streak} retention={retention} onRetention={()=>setRetentionOpen(true)} onCall={()=>router.push({pathname:'/call/[id]',params:{id:String(id),name:title}})} avatar={peers.length===1?<FriendAvatar id={peers[0].id} outfit={friendOutfits.get(peers[0].id)} size={34} name={peers[0].name}/>:undefined}/>
+  <ChatHeaderBar title={title} streak={streak} retention={retention} onRetention={supportConversation?undefined:()=>setRetentionOpen(true)} fixedRetention={supportConversation} onCall={()=>router.push({pathname:'/call/[id]',params:{id:String(id),name:title}})} avatar={peers.length===1?<FriendAvatar id={peers[0].id} outfit={friendOutfits.get(peers[0].id)} size={34} name={peers[0].name}/>:undefined}/>
+  {supportConversation&&<Text style={{color:C.muted,alignSelf:'center',fontSize:10,paddingVertical:5}}>Support over een melding · berichten verdwijnen na 24 uur</Text>}
   <ChatView rows={visible} me={uid} reactions={reactions} retention={retention} viewedAt={viewedAt} now={now} streak={streak} typing={typing} renderContent={content} onReact={(m,e)=>void react(m,e)}/>
   {!!notice&&<Text style={s.notice}>{notice}</Text>}
   {recorderState.isRecording?<RecordingBar durationMs={recorderState.durationMillis} level={meterLevel(recorderState.metering)} onCancel={()=>void stopRecording(false)} onStop={()=>void stopRecording(true)}/>:
