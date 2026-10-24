@@ -2,9 +2,9 @@ name: Verify Expo app
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/snaplion-staff-console]
   push:
-    branches: [main]
+    branches: [main, feat/snaplion-staff-console]
 
 permissions:
   contents: read
@@ -12,7 +12,11 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      # Build-only placeholders. Never point CI at a real Supabase project.
+      EXPO_PUBLIC_SUPABASE_URL: https://build-check.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v7
@@ -23,7 +27,13 @@ jobs:
         run: npm ci
       - name: TypeScript
         run: npx tsc --noEmit
+      - name: Staff and migration contracts
+        run: node --experimental-strip-types --test lib/staff-audit.test.mjs lib/staff-mock.test.mjs supabase/tests/staff-console-migration.test.mjs supabase/tests/staff-report-messaging.test.mjs
       - name: ESLint
         run: npx expo lint
       - name: Expo compatibility
         run: npx expo-doctor
+      - name: Generate iOS native project
+        run: EXPO_NO_GIT_STATUS=1 npx expo prebuild --platform ios --no-install --clean
+      - name: Export iOS JavaScript bundle
+        run: npx expo export --platform ios

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="136" viewBox="0 0 620 136" role="img" aria-labelledby="title desc">
+  <title id="title">Snapshot X</title>
+  <desc id="desc">Een origineel apertuurbeeldmerk naast de naam Snapshot X.</desc>
+  <g transform="translate(8 8)" fill="#FFE436">
+    <path d="M60 2a52 52 0 0 1 39 18L72 47 48 23A52 52 0 0 1 60 2Z"/>
+    <path d="M118 60a52 52 0 0 1-18 39L73 72l24-24a52 52 0 0 1 21 12Z"/>
+    <path d="M60 118a52 52 0 0 1-39-18l27-27 24 24a52 52 0 0 1-12 21Z"/>
+    <path d="M2 60a52 52 0 0 1 18-39l27 27-24 24A52 52 0 0 1 2 60Z"/>
+    <circle cx="60" cy="60" r="17" fill="#08090E"/>
+  </g>
+  <text x="158" y="91" fill="#F5F5FA" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="700" letter-spacing="-2">Snapshot <tspan fill="#FFE436">X</tspan></text>
+</svg>

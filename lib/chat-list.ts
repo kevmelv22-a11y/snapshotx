@@ -1,4 +1,5 @@
 import {supabase} from './supabase';
+import {chatPreviewText} from './avatar/poses';
 
 export type ChatRow = {
   id:string;
@@ -36,20 +37,22 @@ export async function loadChatRows(uid:string):Promise<ChatRow[]> {
   const peers=(participants.data||[]).filter(x=>x.user_id!==uid);
   const peerIds=[...new Set(peers.map(x=>x.user_id))];
   const profiles=peerIds.length?await supabase.from('profiles').select('id,display_name').in('id',peerIds):null;
-  if(profiles?.error)throw profiles.error;
+  // Names/read marks are extras: an unavailable table must not hide the chat list itself.
+  if(profiles?.error)console.warn('[chat-list] profiles',profiles.error.code,profiles.error.message);
   const names=new Map((profiles?.data||[]).map(x=>[x.id,x.display_name]));
   const latest=new Map<string,NonNullable<typeof messages.data>[number]>();
   for(const message of messages.data||[])if(!latest.has(message.thread_id))latest.set(message.thread_id,message);
   const incoming=(messages.data||[]).filter(x=>x.sender_id!==uid).map(x=>x.id);
   const receipts=incoming.length?await supabase.from('sx_receipts').select('message_id').eq('user_id',uid).in('message_id',incoming):null;
-  if(receipts?.error)throw receipts.error;
+  if(receipts?.error)console.warn('[chat-list] receipts',receipts.error.code,receipts.error.message);
   const read=new Set((receipts?.data||[]).map(x=>x.message_id));
-  const unreadThreads=new Set((messages.data||[]).filter(x=>x.sender_id!==uid&&!read.has(x.id)).map(x=>x.thread_id));
+  const unreadThreads=receipts?.error?new Set<string>():new Set((messages.data||[]).filter(x=>x.sender_id!==uid&&!read.has(x.id)).map(x=>x.thread_id));
   return (threads.data||[]).map(thread=>{
     const people=peers.filter(x=>x.thread_id===thread.id).map(x=>x.user_id);
     const last=latest.get(thread.id);
     const unread=unreadThreads.has(thread.id);
-    const preview=!last?'Nieuw gesprek':last.kind==='text'?(last.body||'Bericht'):last.kind==='snap'?'Snap ontvangen':last.kind==='voice'?'Spraakbericht':last.kind==='video'?'Video':'Foto';
-    return {id:thread.id,title:thread.title||people.map(id=>names.get(id)||'Vriend').join(', ')||'Chat',preview,status:!last?'Begin een gesprek':last.sender_id===uid?(unread?'Eerder ongelezen':'Verzonden'):unread?'Nieuw bericht':'Ontvangen',createdAt:last?.created_at||null,peerIds:people,isGroup:people.length>1||!!thread.title,unread};
+    const preview=!last?'Nieuw gesprek':last.kind==='text'?(chatPreviewText(last.body)||'Bericht'):last.kind==='snap'?'Snap ontvangen':last.kind==='voice'?'Spraakbericht':last.kind==='video'?'Video':'Foto';
+    const isReportSupport=thread.title?.startsWith('Support over je melding')||thread.title?.startsWith('Bericht over een melding');
+    return {id:thread.id,title:thread.title||people.map(id=>names.get(id)||'Vriend').join(', ')||'Chat',preview,status:!last?'Begin een gesprek':last.sender_id===uid?(unread?'Eerder ongelezen':'Verzonden'):unread?'Nieuw bericht':'Ontvangen',createdAt:last?.created_at||null,peerIds:people,isGroup:!isReportSupport&&(people.length>1||!!thread.title),unread};
   }).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
 }

@@ -6,6 +6,7 @@ import {useSession} from '../hooks/useSession';
 import {supabase} from '../lib/supabase';
 import {C} from '../lib/theme';
 
+import {friendlyError} from '../lib/db-errors';
 export default function ResetPassword() {
   const {session, ready} = useSession();
   const [password, setPassword] = useState('');
@@ -25,7 +26,7 @@ export default function ResetPassword() {
       await supabase.auth.signOut({scope: 'local'});
       router.replace('/(auth)/login');
     } catch (error) {
-      setNotice((error as Error).message);
+      setNotice(friendlyError(error));
     } finally {
       setBusy(false);
     }

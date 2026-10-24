@@ -1,30 +1,56 @@
 import React,{useCallback,useState} from 'react';
-import {Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {Pressable,StyleSheet,Text,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {router,useFocusEffect} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {GalaxyScreen} from '../../components/GalaxyScreen';
 import {MapAvatar} from '../../components/MapAvatar';
+import {AvatarBust} from '../../components/avatar/AvatarBust';
+import {ProfileHome,YellowAvatarCircle,type ProfileFriend} from '../../components/profile/ProfileHome';
+import {useStartOutfit,useWardrobeSync} from '../../hooks/useWardrobeSync';
+import {useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {useSession} from '../../hooks/useSession';
 import {useStaffRoles} from '../../hooks/useStaffRoles';
+import {useOwnProfile} from '../../hooks/useOwnProfile';
+import {friendlyError} from '../../lib/db-errors';
+import {storyRingState} from '../../lib/avatar/poses';
 import {supabase} from '../../lib/supabase';
 import {C} from '../../lib/theme';
-import {readAvatarAppearance} from '../../lib/avatar';
+
+/** Profile (step 8 layout: see components/profile/ProfileHome). Data: profile, 4 friends + story rings, own story count, location sharing. */
 export default function Profile(){
  const {session}=useSession(),uid=session?.user.id,{isStaff}=useStaffRoles(),insets=useSafeAreaInsets();
- const appearance=readAvatarAppearance(session?.user.user_metadata?.snaplion_avatar);
- const [name,setName]=useState(''),[username,setUsername]=useState(''),[score,setScore]=useState(0),[friends,setFriends]=useState(0),[stories,setStories]=useState(0),[notice,setNotice]=useState('');
+ useWardrobeSync(uid);
+ const {profile:own}=useOwnProfile();
+ const [stories,setStories]=useState(0),[sharing,setSharing]=useState(false),[notice,setNotice]=useState('');
+ const [friends,setFriends]=useState<{id:string;name:string;ring:ProfileFriend['ring']}[]>([]);
+ const outfits=useFriendOutfits(friends.map(f=>f.id));
  useFocusEffect(useCallback(()=>{if(!uid)return;let active=true;void (async()=>{
-  const [p,f,s]=await Promise.all([supabase.from('profiles').select('display_name,username,activity_score').eq('id',uid).single(),supabase.from('sx_friends').select('friend_id',{count:'exact',head:true}).eq('user_id',uid),supabase.from('sx_stories').select('id',{count:'exact',head:true}).eq('owner_id',uid).gt('expires_at',new Date().toISOString())]);
-  if(!active)return;if(p.error)setNotice(p.error.message);else if(p.data){setName(p.data.display_name);setUsername(p.data.username);setScore(p.data.activity_score)}setFriends(f.count||0);setStories(s.count||0);
+  const now=new Date().toISOString();
+  // Own profile comes from useOwnProfile (maybeSingle + create/fallback). The rest loads independently so one
+  // unavailable table (no GRANT on live) only hides its own part instead of breaking the screen.
+  const [f,s,l]=await Promise.all([supabase.from('sx_friends').select('friend_id').eq('user_id',uid).limit(4),supabase.from('sx_stories').select('id',{count:'exact',head:true}).eq('owner_id',uid).gt('expires_at',now),supabase.from('sx_locations').select('sharing').eq('user_id',uid).maybeSingle()]);
+  if(!active)return;setStories(s.count||0);setSharing(!!l.data?.sharing);
+  const problems=[f.error&&friendlyError(f.error,'Vrienden'),s.error&&friendlyError(s.error,'Stories'),l.error&&friendlyError(l.error,'Locatie')].filter(Boolean) as string[];
+  setNotice([...new Set(problems)].join('\n'));
+  const ids=(f.data||[]).map(x=>x.friend_id as string);if(!ids.length){setFriends([]);return}
+  const [n,st]=await Promise.all([supabase.from('profiles').select('id,display_name').in('id',ids),supabase.from('sx_stories').select('id,owner_id,expires_at').in('owner_id',ids).gt('expires_at',now)]);
+  const storyIds=(st.data||[]).map(x=>x.id as string);const v=storyIds.length?await supabase.from('sx_story_views').select('story_id').eq('viewer_id',uid).in('story_id',storyIds):{data:[]};
+  if(!active)return;const names=new Map((n.data||[]).map(x=>[x.id,x.display_name])),seen=(v.data||[]).map(x=>x.story_id as string),t=Date.now();
+  setFriends(ids.map(id=>({id,name:names.get(id)||'Vriend',ring:storyRingState((st.data||[]).filter(x=>x.owner_id===id).map(x=>({id:x.id,expiresAt:Date.parse(x.expires_at)})),seen,t)})));
  })();return()=>{active=false}},[uid]));
- return <GalaxyScreen><ScrollView contentContainerStyle={s.scroll}><View style={[s.hero,{paddingTop:Math.max(insets.top,14)}]}><View style={s.top}><Pressable style={s.round} onPress={()=>router.back()} accessibilityLabel="Terug"><Ionicons name="chevron-back" color="white" size={28}/></Pressable><Text style={s.brand}>SnapShot X</Text><Pressable style={s.round} onPress={()=>router.push('/settings')} accessibilityLabel="Instellingen"><Ionicons name="settings-outline" color="white" size={27}/></Pressable></View><Pressable style={s.portrait} onPress={()=>router.push('/avatar-editor')} accessibilityLabel="Mijn personage aanpassen"><MapAvatar id={uid||'me'} size={104} appearance={appearance}/></Pressable><View style={s.identity}><MapAvatar id={uid||'me'} size={60} appearance={appearance}/><View style={{flex:1}}><Text style={s.name} numberOfLines={1}>{name||'Mijn profiel'}</Text><Text style={s.username}>@{username||'gebruiker'}</Text></View></View><View style={s.heroButtons}><Pressable style={s.heroButton} onPress={()=>router.push('/settings')}><Text style={s.heroButtonText}>Mijn account</Text></Pressable><Pressable style={s.heroButton} onPress={()=>router.push('/(tabs)/stories')}><Text style={s.heroButtonText}>Mijn verhalen</Text></Pressable></View></View>
- <View style={s.metrics}><Text style={s.metric}><Text style={s.metricValue}>{score}</Text>{"\n"}punten</Text><View style={s.metricDivider}/><Text style={s.metric}><Text style={s.metricValue}>{friends}</Text>{"\n"}vrienden</Text><View style={s.metricDivider}/><Text style={s.metric}><Text style={s.metricValue}>{stories}</Text>{"\n"}verhalen</Text></View>
- <Text style={s.heading}>Vrienden</Text><Pressable style={s.tile} onPress={()=>router.push('/(tabs)/friends')}><Ionicons name="person-add-outline" color="white" size={24}/><Text style={s.tileText}>Vrienden toevoegen</Text><Ionicons name="chevron-forward" color="#C9C3D1" size={20}/></Pressable><Pressable style={s.tile} onPress={()=>router.push('/(tabs)/friends')}><Ionicons name="people-outline" color="white" size={24}/><Text style={s.tileText}>Mijn vrienden · {friends}</Text><Ionicons name="chevron-forward" color="#C9C3D1" size={20}/></Pressable>
- <Text style={s.heading}>Mijn personage</Text><Pressable style={s.tile} onPress={()=>router.push('/avatar-editor')}><Ionicons name="color-palette-outline" color="#D38EF4" size={24}/><Text style={s.tileText}>Uiterlijk en kleding aanpassen</Text><Ionicons name="chevron-forward" color="white" size={20}/></Pressable>
- <Text style={s.heading}>Locatie</Text><Pressable style={s.map} onPress={()=>router.push('/map')}><Ionicons name="map-outline" color="white" size={42}/><Text style={s.mapText}>Bekijk je kaart en locatie-instellingen</Text></Pressable>
- <Text style={s.heading}>Plaatsen op...</Text><Pressable style={s.tile} onPress={()=>router.push('/(tabs)')}><Ionicons name="camera-outline" color="#D38EF4" size={25}/><Text style={s.tileText}>Maak een verhaal</Text><Ionicons name="add-circle-outline" color="#B995EB" size={23}/></Pressable><Pressable style={s.tile} onPress={()=>router.push('/(tabs)/stories')}><Ionicons name="albums-outline" color="#D38EF4" size={25}/><Text style={s.tileText}>Mijn verhalen · {stories}</Text><Ionicons name="chevron-forward" color="#C9C3D1" size={20}/></Pressable>
- {isStaff&&<><Text style={s.heading}>Team</Text><Pressable style={s.tile} onPress={()=>router.push('/staff')}><Ionicons name="shield-checkmark-outline" size={24} color={C.yellow}/><Text style={s.tileText}>Staff- en moderatiepaneel</Text><Ionicons name="chevron-forward" color="white" size={20}/></Pressable></>}
- {!!notice&&<Text style={s.notice}>{notice}</Text>}</ScrollView></GalaxyScreen>
+ const start=useStartOutfit(uid);
+ // Same art as the doll (OutfitArt), cropped to head+shoulders: updates with every Kast / look change.
+ const hero=<YellowAvatarCircle size={230}><AvatarBust outfit={start} size={230} testID="profile-bust-art"/></YellowAvatarCircle>;
+ const tile=(icon:keyof typeof Ionicons.glyphMap,label:string,to:Parameters<typeof router.push>[0])=><Pressable key={label} style={s.tile} onPress={()=>router.push(to)}><Ionicons name={icon} color="#FFF" size={22}/><Text style={s.tileText}>{label}</Text><Ionicons name="chevron-forward" color="#C7C7CC" size={20}/></Pressable>;
+ return <ProfileHome username={own?(own.hasUsername||own.source==='metadata'?own.handle:own.displayName):'Mijn profiel'} score={own?.activityScore??0} hero={hero} ownOutfit={start} storyCount={stories} sharingLocation={sharing} topInset={insets.top}
+  friends={friends.map(f=>{const o=outfits.get(f.id);return {...f,outfit:o&&o!=='pending'?o:null,fallback:<MapAvatar id={f.id} size={70}/>}})}
+  onMenu={()=>router.back()} onSettings={()=>router.push('/settings')} onAvatar={()=>router.push('/avatar/mode')} onStory={()=>router.push('/(tabs)/stories')} onFriends={()=>router.push('/(tabs)/friends')} onMap={()=>router.push('/map')} onTimers={()=>setNotice('Afteltimers komen binnenkort.')}
+  footer={<View style={{marginTop:6}}>
+   {tile('shirt-outline','Avatar-kast','/avatar/kast')}
+   {tile('happy-outline','Avatarstickers','/avatar/stickers')}
+   {tile('color-palette-outline','Avatar-editor','/avatar-editor')}
+   {isStaff&&tile('shield-checkmark-outline','Staff- en moderatiepaneel','/staff')}
+   {!!(notice||own?.notice)&&<Text style={s.notice}>{[own?.notice,notice].filter(Boolean).join('\n')}</Text>}
+  </View>}/>;
 }
-const s=StyleSheet.create({scroll:{paddingBottom:35},hero:{minHeight:365,backgroundColor:'#4C4078',paddingHorizontal:16,paddingTop:46,borderBottomLeftRadius:28,borderBottomRightRadius:28,overflow:'hidden'},top:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},round:{height:46,width:46,borderRadius:24,backgroundColor:'#16132378',alignItems:'center',justifyContent:'center'},brand:{fontSize:18,fontWeight:'900',color:'white'},portrait:{alignSelf:'center',marginTop:14,padding:4,borderRadius:60,borderWidth:3,borderColor:C.purple},identity:{flexDirection:'row',alignItems:'center',gap:13,marginTop:10},name:{fontSize:22,fontWeight:'900',color:'white'},username:{color:'#F0EAF5',fontSize:14,marginTop:2},heroButtons:{flexDirection:'row',gap:10,marginTop:16,marginBottom:18},heroButton:{flex:1,borderWidth:1.5,borderColor:'white',borderRadius:24,paddingVertical:10,alignItems:'center',backgroundColor:'#08080A66'},heroButtonText:{color:'white',fontSize:15,fontWeight:'800'},metrics:{flexDirection:'row',alignItems:'center',marginHorizontal:16,marginTop:18,paddingVertical:14,backgroundColor:'#07090FD9',borderRadius:16},metric:{flex:1,color:'#D5D1DA',textAlign:'center',fontSize:13},metricValue:{color:'white',fontSize:20,fontWeight:'800'},metricDivider:{width:1,height:32,backgroundColor:'#FFFFFF33'},heading:{fontSize:20,fontWeight:'800',color:'white',marginTop:24,marginBottom:10,marginHorizontal:17},tile:{minHeight:63,marginHorizontal:16,marginBottom:7,paddingHorizontal:16,borderRadius:16,backgroundColor:'#08080ED9',flexDirection:'row',alignItems:'center',gap:13},tileText:{flex:1,color:'white',fontSize:16,fontWeight:'700'},map:{marginHorizontal:16,minHeight:130,borderRadius:18,backgroundColor:'#292B43',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:15,padding:15},mapText:{color:'white',fontSize:16,fontWeight:'700',flex:1},notice:{color:'#FFD4E2',margin:17}});
+const s=StyleSheet.create({tile:{flexDirection:'row',alignItems:'center',gap:12,backgroundColor:'#14301F',borderRadius:14,borderWidth:1,borderColor:'#24452F',padding:14,marginBottom:8},tileText:{flex:1,color:'#FFF',fontSize:16,fontWeight:'700'},notice:{color:C.yellow,textAlign:'center',marginTop:8}});
