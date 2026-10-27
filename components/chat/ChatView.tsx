@@ -57,7 +57,7 @@ export function ChatView(p:ChatViewProps){
   useEffect(()=>{if(!flash&&!gone)return;const t=setTimeout(()=>{setFlash(null);setGone(false)},1600);return()=>clearTimeout(t)},[flash,gone]);
   const jump=(ref:ReplyRef)=>{const i=quotedIndex(p.rows,ref);if(i<0){setGone(true);return}list.current?.scrollToIndex({index:i,viewPosition:.5,animated:true});setFlash(ref.id)};
   // Group @mention chip: parent sets jumpRequestId → scroll to that row and flash it (same path as quote taps).
-  useEffect(()=>{const id=p.jumpRequestId;if(!id)return;const i=p.rows.findIndex(m=>m.id===id);if(i<0)return;list.current?.scrollToIndex({index:i,viewPosition:.5,animated:true});setFlash(id)},[p.jumpRequestId,p.rows]);
+  useEffect(()=>{const id=p.jumpRequestId;if(!id)return;const i=p.rows.findIndex(m=>m.id===id);if(i<0)return;list.current?.scrollToIndex({index:i,viewPosition:.5,animated:true});const t=setTimeout(()=>setFlash(id),0);return()=>clearTimeout(t)},[p.jumpRequestId,p.rows]);
   return <View style={{flex:1}}>
     <StreakWarning streak={p.streak}/>
     <FlatList ref={list} onScrollToIndexFailed={e=>{list.current?.scrollToOffset({offset:e.averageItemLength*e.index,animated:true});setTimeout(()=>list.current?.scrollToIndex({index:e.index,viewPosition:.5,animated:true}),250)}} data={p.rows} inverted keyboardShouldPersistTaps="handled" keyExtractor={x=>x.id} contentContainerStyle={{padding:15}}

@@ -103,10 +103,11 @@ export default function Chat(){
  const mq=isGroup?mentionQuery(body,caret??body.length):null;
  const candidates=mq?mentionCandidates(mentionMembers,uid,mq.query):[];
  function pickMention(m:MentionMember){if(!mq)return;const next=insertMention(body,mq.start,caret??body.length,mentionLabel(m,mentionMembers));setBody(next.text);setCaret(next.caret);setForcedSel({start:next.caret,end:next.caret});setTimeout(()=>{inputRef.current?.focus();setForcedSel(null)},60)}
- // Jump-to-latest-unread-@mention (group only, local — no backend): latch the newest unread id so the chip survives the focus-effect marking receipts read.
- const [mentionJumpId,setMentionJumpId]=useState<string|null>(null),[jumpRequestId,setJumpRequestId]=useState<string|null>(null);
- useEffect(()=>{if(!isGroup||!uid||mentionJumpId||!rows.length||!mentionMembers.length)return;const id=latestUnreadMentionId(rows,uid,new Set(Object.keys(viewedAt)),mentionMembers);if(id)setMentionJumpId(id)},[isGroup,uid,rows,viewedAt,mentionMembers,mentionJumpId]);
- function jumpToMention(){if(!mentionJumpId)return;setJumpRequestId(mentionJumpId);setMentionJumpId(null);setTimeout(()=>setJumpRequestId(null),400)}
+ // Jump-to-latest-unread-@mention (group only, local — no backend): latch newest unread id in a ref (survives focus marking receipts read); dismiss flag hides the chip after tap.
+ const mentionLatch=useRef<string|null>(null),[mentionDismissed,setMentionDismissed]=useState(false),[jumpRequestId,setJumpRequestId]=useState<string|null>(null);
+ if(!mentionLatch.current&&isGroup&&uid&&rows.length&&mentionMembers.length){const id=latestUnreadMentionId(rows,uid,new Set(Object.keys(viewedAt)),mentionMembers);if(id)mentionLatch.current=id}
+ const mentionJumpId=!mentionDismissed?mentionLatch.current:null;
+ function jumpToMention(){if(!mentionJumpId)return;setJumpRequestId(mentionJumpId);setMentionDismissed(true);setTimeout(()=>setJumpRequestId(null),400)}
  // Quoted reply (Snapchat "Antwoorden"): set by swipe-right or the long-press menu; the quote travels inside the body.
  const [replyTo,setReplyTo]=useState<Message|null>(null),inputRef=useRef<TextInput>(null);
  const startReply=(m:Message)=>{setReplyTo(m);setTimeout(()=>inputRef.current?.focus(),50)};
