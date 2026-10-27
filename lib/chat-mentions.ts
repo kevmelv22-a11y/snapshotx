@@ -118,3 +118,17 @@ export function hasUnreadMention(
 ): boolean {
   return messages.some(m => m.sender_id !== me && m.kind === 'text' && !read.has(m.id) && mentionsUser(m.body, me, members));
 }
+
+/** Id of the newest unread @mention of `me` (text from someone else), or null. Newest = latest `created_at`. No I/O. */
+export function latestUnreadMentionId(
+  messages: readonly { id: string; sender_id: string; kind: string; body: string | null; created_at?: string }[],
+  me: string, read: ReadonlySet<string>, members: readonly MentionMember[],
+): string | null {
+  let best: { id: string; at: string } | null = null;
+  for (const m of messages) {
+    if (m.sender_id === me || m.kind !== 'text' || read.has(m.id) || !mentionsUser(m.body, me, members)) continue;
+    const at = m.created_at ?? '';
+    if (!best || at > best.at) best = { id: m.id, at };
+  }
+  return best?.id ?? null;
+}

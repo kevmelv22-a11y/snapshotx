@@ -41,6 +41,8 @@ export type ChatViewProps={
   receipt?:{messageId:string;status:ChatStatus}|null;
   /** Quoted reply (swipe right on a message). Replies render a quote above their text; tap it to jump to the original. */
   onReply?:(m:Message)=>void;
+  /** Scroll + flash this message id (group @mention jump). Parent clears after. */
+  jumpRequestId?:string|null;
 };
 /** Message list (inverted, newest first): bubbles, system lines, reaction chips, retention hints, typing row. */
 export function ChatView(p:ChatViewProps){
@@ -54,6 +56,8 @@ export function ChatView(p:ChatViewProps){
   const list=useRef<FlatList<Message>>(null),[flash,setFlash]=useState<string|null>(null),[gone,setGone]=useState(false);
   useEffect(()=>{if(!flash&&!gone)return;const t=setTimeout(()=>{setFlash(null);setGone(false)},1600);return()=>clearTimeout(t)},[flash,gone]);
   const jump=(ref:ReplyRef)=>{const i=quotedIndex(p.rows,ref);if(i<0){setGone(true);return}list.current?.scrollToIndex({index:i,viewPosition:.5,animated:true});setFlash(ref.id)};
+  // Group @mention chip: parent sets jumpRequestId → scroll to that row and flash it (same path as quote taps).
+  useEffect(()=>{const id=p.jumpRequestId;if(!id)return;const i=p.rows.findIndex(m=>m.id===id);if(i<0)return;list.current?.scrollToIndex({index:i,viewPosition:.5,animated:true});setFlash(id)},[p.jumpRequestId,p.rows]);
   return <View style={{flex:1}}>
     <StreakWarning streak={p.streak}/>
     <FlatList ref={list} onScrollToIndexFailed={e=>{list.current?.scrollToOffset({offset:e.averageItemLength*e.index,animated:true});setTimeout(()=>list.current?.scrollToIndex({index:e.index,viewPosition:.5,animated:true}),250)}} data={p.rows} inverted keyboardShouldPersistTaps="handled" keyExtractor={x=>x.id} contentContainerStyle={{padding:15}}
