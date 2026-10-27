@@ -39,6 +39,8 @@ import {MentionPicker,MentionText} from '../../components/chat/MentionPicker';
 import {MENTION_BADGE,insertMention,latestUnreadMentionId,mentionCandidates,mentionLabel,mentionQuery,type MentionMember} from '../../lib/chat-mentions';
 import {PollBubble,PollComposer} from '../../components/chat/PollParts';
 import {POLL_LABEL,applyVote,nextVote,parsePoll,tallyPoll,type PollVote} from '../../lib/chat-polls';
+import {ForwardSheet} from '../../components/chat/ForwardSheet';
+import {FORWARD_LABEL,canForward} from '../../lib/chat-forward';
 import {isSilentSystemMessageError,systemMessageRow,threadIdFromParam} from '../../lib/chat-ids';
 export default function Chat(){
  const confirm=useConfirmDialog(),insets=useSafeAreaInsets();
@@ -121,6 +123,8 @@ export default function Chat(){
  const startReply=(m:Message)=>{setEditing(null);setReplyTo(m);setTimeout(()=>inputRef.current?.focus(),50)};
  // Snapchat Bewerken (own text, first 5 min): input gets the text + "Bericht bewerken" bar; ➤ saves via sx_edit_message.
  const [editing,setEditing]=useState<Message|null>(null);
+ // Doorsturen: the message being forwarded (opens the "Doorsturen naar…" sheet).
+ const [forwarding,setForwarding]=useState<Message|null>(null);
  const startEdit=(m:Message)=>{setReplyTo(null);setEditing(m);const t=editableText(m);setBody(t);setCaret(t.length);setTimeout(()=>inputRef.current?.focus(),50)};
  const cancelEdit=()=>{setEditing(null);setBody('');setCaret(0)};
  async function saveEdit(m:Message){const v=validateEdit(body);if(!v.ok){setNotice(v.error);return}if(isNoopEdit(m,v.text)){cancelEdit();return}const before=rows;setBusy(true);setRows(r=>applyEdit(r,m.id,v.text,new Date().toISOString()));cancelEdit();stopTyping();try{const {error}=await supabase.rpc('sx_edit_message',{p_message_id:m.id,p_text:v.text});if(error){setRows(before);setNotice(friendlyError(error))}else void load()}finally{setBusy(false)}}
@@ -153,6 +157,8 @@ export default function Chat(){
   if(save)items.splice(items[0]?.label===MENU_LABEL.reply?1:0,0,{label:SAVE_LABEL[save],onPress:()=>void setSaved(item,save==='save')});
   // Own messages: Bewerken (text, first 5 minutes) right after Antwoorden; Verwijderen last.
   if(canEdit(item,uid,Date.now()))items.splice(items[0]?.label===MENU_LABEL.reply?1:0,0,{label:EDIT_LABEL.edit,onPress:()=>startEdit(item)});
+  // Doorsturen (Snapchat Forward): after Opslaan in chat / before Melden; not for snaps, polls, system lines.
+  if(canForward(item)){const at=items.findIndex(a=>a.label===MENU_LABEL.report||a.label===MENU_LABEL.block||a.label===EDIT_LABEL.unsend);items.splice(at<0?items.length:at,0,{label:FORWARD_LABEL.action,onPress:()=>setForwarding(item)})}
   if(canUnsend(item,uid))items.push({label:EDIT_LABEL.unsend,onPress:()=>unsend(item)});return items};
  const nameOf=(sid:string)=>members.find(m=>m.id===sid)?.name??peers.find(p=>p.id===sid)?.name??null;
  const avatarOf=(sid:string)=><FriendAvatar id={sid} outfit={sid===uid?ownOutfit:friendOutfits.get(sid)} size={22} name={nameOf(sid)??undefined}/>;
@@ -166,6 +172,7 @@ export default function Chat(){
   <View>{isGroup&&<MentionPicker candidates={candidates} members={mentionMembers} colorOf={id=>colorFor(id,colorMap)} avatarOf={sid=><FriendAvatar id={sid} outfit={friendOutfits.get(sid)} size={32} name={nameOf(sid)??undefined}/>} onPick={pickMention}/>}{editing&&<EditBar excerpt={editableText(editing)} onCancel={cancelEdit}/>}{replyTo&&(()=>{const ids=members.length?members.map(m=>m.id):[uid,...peers.map(p=>p.id)];return <ReplyBar title={replyBarTitle(replyTo.sender_id,uid,nameOf(replyTo.sender_id))} color={colorFor(replyTo.sender_id,senderColors(ids,uid))} excerpt={quoteOf(replyTo).excerpt} onCancel={()=>setReplyTo(null)}/>})()}<View style={s.inputRow}><Pressable onPress={pickMedia} disabled={busy}><Text style={s.action}>＋</Text></Pressable><TextInput style={s.input} ref={inputRef} placeholder={editing?'Bewerk je bericht…':replyTo?'Antwoord…':'Bericht…'} placeholderTextColor={C.muted} value={body} onChangeText={onChangeBody} onSelectionChange={e=>setCaret(e.nativeEvent.selection.end)} selection={forcedSel??undefined} testID="chat-input" onBlur={stopTyping} multiline/>{isGroup&&!editing&&<Pressable onPress={()=>setPollOpen(true)} disabled={busy} accessibilityLabel={POLL_LABEL.button} testID="poll-button" style={{marginHorizontal:7}}><Ionicons name="stats-chart" size={22} color={C.yellow}/></Pressable>}<Pressable onPress={()=>setStickerOpen(true)} disabled={busy} accessibilityLabel="Avatarsticker sturen"><Text style={s.action}>☺</Text></Pressable><Pressable onPress={startRecording} disabled={busy} accessibilityLabel="Spraakbericht opnemen"><Text style={s.action}>🎙</Text></Pressable><Pressable onPress={send} disabled={busy} accessibilityLabel={editing?"Bewerking opslaan":"Versturen"} testID="chat-send"><Text style={s.send}>➤</Text></Pressable></View></View>}
   <AvatarStickerSheet visible={stickerOpen} outfit={ownOutfit} onPick={st=>void sendSticker(st.id)} onClose={()=>setStickerOpen(false)}/>
   {isGroup&&<PollComposer visible={pollOpen} onClose={()=>setPollOpen(false)} onSend={b=>void sendPoll(b)}/>}
+  {forwarding&&<ForwardSheet me={uid} myName={(session?.user.user_metadata?.display_name as string|undefined)??null} threadId={id} messageId={forwarding.id} excerpt={quoteOf(forwarding).excerpt} onClose={()=>setForwarding(null)} onDone={t=>{setForwarding(null);setNotice(t);setTimeout(()=>setNotice(n=>n===t?'':n),3500)}}/>}
   <RetentionSheet visible={retentionOpen} mode={retention} onPick={m=>void changeRetention(m)} onClose={()=>setRetentionOpen(false)}/>
   {isGroup&&infoOpen&&<GroupInfoSheet visible threadId={id} me={uid} title={title} creatorId={creatorId} members={members} onClose={()=>setInfoOpen(false)} onChanged={()=>{void loadMeta();void load()}} onLeft={()=>{setInfoOpen(false);router.replace('/(tabs)/chats')}}/>}
   {confirm.dialog}</KeyboardAvoidingView>

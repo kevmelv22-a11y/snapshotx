@@ -11,6 +11,7 @@ import { SAVE_ERRORS, canSave, unsaveExpiry } from './chat-saves';
 import { parseRetention } from './chat-features';
 import { EDIT_ERRORS, EDIT_WINDOW_MS, editableText, editedBody, isNoopEdit, isStickerText, unsentText, validateEdit } from './chat-edits';
 import { POLL_ERRORS, parsePoll, pollBody, validateVote } from './chat-polls';
+import { FORWARD_ERRORS, FORWARD_MAX_TARGETS, canForward, forwardBody, forwardExpiry } from './chat-forward';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, isGroupThread, normalizeGroupTitle } from './group-chat';
 
 type Err = { message: string; code?: string; details?: string };
@@ -383,6 +384,29 @@ export class DemoClient {
       const option = a.p_option == null ? null : Number(a.p_option);
       const err = validateVote(msg.kind === 'text' ? parsePoll(msg.body as string) : null, option); if (err) throw new Error(err);
       this.vote(msg.id, ME, option); return option;
+    },
+    // Doorsturen: mirrors public.sx_forward_message (migration 20261027180000_chat_forward.sql, same rules + Dutch errors).
+    sx_forward_message: a => {
+      const msg = this.m.table('sx_messages').find(x => x.id === a.p_message_id);
+      if (!msg || msg.unsent_at) throw new Error(FORWARD_ERRORS.notFound);
+      if (!this.memberIds(msg.thread_id).includes(ME)) throw new Error(FORWARD_ERRORS.notMember);
+      const blocked = (u: unknown) => this.m.table('sx_blocks').some(b => (b.blocker_id === ME && b.blocked_id === u) || (b.blocker_id === u && b.blocked_id === ME));
+      if (blocked(msg.sender_id) || !canForward(msg as never)) throw new Error(FORWARD_ERRORS.notForwardable);
+      const targets = [...new Set(((a.p_thread_ids as string[]) ?? []).filter(Boolean))];
+      if (!targets.length) throw new Error(FORWARD_ERRORS.noTargets);
+      if (targets.length > FORWARD_MAX_TARGETS) throw new Error(FORWARD_ERRORS.tooMany);
+      for (const t of targets) {
+        const members = this.memberIds(t);
+        if (!members.includes(ME)) throw new Error(FORWARD_ERRORS.notMember);
+        if (members.some(u => u !== ME && blocked(u))) throw new Error(FORWARD_ERRORS.blocked);
+      }
+      const at = this.m.iso();
+      for (const t of targets) {
+        const thread = this.m.table('sx_threads').find(x => x.id === t);
+        const row = { id: newId(), thread_id: t, sender_id: ME, kind: msg.kind, body: forwardBody(msg as never), media_path: msg.media_path ?? null, view_once: false, created_at: at, forwarded_at: at, expires_at: forwardExpiry(thread?.retention_mode as string | undefined, Date.now()) };
+        this.m.table('sx_messages').push(row); this.emit('sx_messages', 'INSERT', row);
+      }
+      return targets.length;
     },
     // Group management: mirrors supabase/migrations/20261021150000_group_chat_management.sql (same errors + lines).
     sx_rename_group: a => {
