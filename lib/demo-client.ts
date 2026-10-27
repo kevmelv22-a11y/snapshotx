@@ -12,6 +12,7 @@ import { parseRetention } from './chat-features';
 import { EDIT_ERRORS, EDIT_WINDOW_MS, editableText, editedBody, isNoopEdit, isStickerText, unsentText, validateEdit } from './chat-edits';
 import { POLL_ERRORS, parsePoll, pollBody, validateVote } from './chat-polls';
 import { FORWARD_ERRORS, FORWARD_MAX_TARGETS, canForward, forwardBody, forwardExpiry } from './chat-forward';
+import { MEDIA_ERRORS, canReadMedia } from './media-access';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, canRemoveMember, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, groupRightsText, isGroupThread, normalizeGroupTitle } from './group-chat';
 
 type Err = { message: string; code?: string; details?: string };
@@ -29,6 +30,7 @@ const ART: Record<string, [string, string, string, string]> = {
   'demo/concert.svg': ['#4b134f', '#c94b4b', '🎸', 'Concert'], 'demo/fiets.svg': ['#11998e', '#38ef7d', '🚲', 'Fietsen'],
   'demo/pizza.svg': ['#f12711', '#f5af19', '🍕', 'Pizza'], 'demo/zonsondergang.svg': ['#0f2027', '#ff7e5f', '🌅', 'Avond'],
   'demo/hond.svg': ['#56ab2f', '#a8e063', '🐶', 'Max'], 'demo/stad.svg': ['#2c3e50', '#4ca1af', '🏙️', 'Amsterdam'],
+  'demo/zaterdag.svg': ['#8360c3', '#2ebf91', '📸', 'Zaterdag'],
 };
 function artUrl(path: string) {
   const [a, b, e, t] = ART[path] ?? ['#333', '#777', '📷', 'Demo'];
@@ -74,6 +76,8 @@ function seedDemo(m: StaffMock) {
     msg(T.aria, I.aria, 'Hé Kevin! Kom je vanavond ook naar het concert? 🎸', 5 * H), msg(T.aria, ME, 'Ja zeker, om 8 uur bij de ingang?', 4.8 * H),
     msg(T.aria, I.aria, 'Top, tot dan! 🙌', 4.7 * H), msg(T.aria, I.aria, 'photo', 1.2 * H, 'snap', 'demo/concert.svg'),
     msg(T.eva, I.eva, 'Heb je de foto’s van zaterdag nog?', 26 * H), msg(T.eva, ME, 'Komen eraan! Even zoeken 😅', 25 * H), msg(T.eva, I.eva, 'Haha oké 😄', 20 * H),
+    // Kept chat media (Bewaren → expires_at NULL): must stay viewable for the other member (lib/media-access.ts).
+    { ...msg(T.eva, I.eva, '', 19.5 * H, 'photo', 'demo/zaterdag.svg'), body: null },
     msg(T.crew, I.cleo, 'Wie neemt de bal mee?', 3.5 * H), msg(T.crew, EXTRA.noor, 'Ik! ⚽', 3.4 * H),
     msg(T.crew, EXTRA.noor, 'En ik neem ook de pomp mee', 3.39 * H), msg(T.crew, ME, 'Top! Ik regel de muziekbox 🔊', 3.3 * H),
     msg(T.crew, ME, 'Zaterdag 14:00 bij het strandpaviljoen?', 3.29 * H), msg(T.crew, I.eva, 'Ik ben erbij 🙌', 3.1 * H),
@@ -246,9 +250,10 @@ const REPLIES = ['Haha 😄', 'Klinkt goed!', 'Echt? 😮', 'Top 👍', 'Zie je 
  * Demo-only fault injection to reproduce the live backend state without touching it:
  * `?demo_faults=live` (or localStorage 'sx-demo-faults') = no GRANT on sx_locations/sx_stories/sx_friends,
  * no profiles row for the signed-in user and no sx_ensure_profile RPC (migration 20261019120000 not applied).
- * Also accepts a comma list: table names (denied), 'no-profile', 'no-ensure'.
+ * Also accepts a comma list: table names (denied), 'no-profile', 'no-ensure', 'old-media-rule' (storage read policy
+ * before migration 20261028000000: kept chat media with expires_at NULL is refused → "Niet meer beschikbaar").
  */
-function readFaults(): { denied: Set<string>; noProfile: boolean; noEnsure: boolean } {
+function readFaults(): { denied: Set<string>; noProfile: boolean; noEnsure: boolean; oldMediaRule: boolean } {
   let raw = '';
   try {
     const q = new URLSearchParams(String(globalThis.location?.search ?? '')).get('demo_faults');
@@ -256,7 +261,7 @@ function readFaults(): { denied: Set<string>; noProfile: boolean; noEnsure: bool
     raw = q ?? globalThis.localStorage?.getItem('sx-demo-faults') ?? '';
   } catch {}
   const parts = raw.split(',').map(x => x.trim()).filter(Boolean).flatMap(x => (x === 'live' ? ['sx_locations', 'sx_stories', 'sx_friends', 'no-profile', 'no-ensure'] : [x]));
-  return { denied: new Set(parts.filter(x => /^(sx_[a-z_]+|memories|profiles)$/.test(x))), noProfile: parts.includes('no-profile'), noEnsure: parts.includes('no-ensure') };
+  return { denied: new Set(parts.filter(x => /^(sx_[a-z_]+|memories|profiles)$/.test(x))), noProfile: parts.includes('no-profile'), noEnsure: parts.includes('no-ensure'), oldMediaRule: parts.includes('old-media-rule') };
 }
 
 export class DemoClient {
@@ -535,7 +540,12 @@ export class DemoClient {
         try { this.uploads[path] = URL.createObjectURL(body instanceof Blob ? body : new Blob([body as ArrayBuffer], { type: o?.contentType })); } catch {}
         return { data: { path }, error: null };
       },
-      createSignedUrl: async (path: string) => ({ data: { signedUrl: this.uploads[path] ?? artUrl(path) }, error: null }),
+      createSignedUrl: async (path: string) => {
+        // Same rule as the storage policy sx_media_read (lib/media-access.ts): kept chat media (expires_at NULL) stays readable.
+        if (!this.uploads[path] && !this.m.table('memories').some(x => x.storage_path === path) && !canReadMedia({ path, me: ME, messages: this.m.table('sx_messages') as never, stories: this.m.table('sx_stories') as never, now: Date.now(), legacyNullExpired: this.faults.oldMediaRule }))
+          return { data: null, error: { message: MEDIA_ERRORS.gone, code: '403' } };
+        return { data: { signedUrl: this.uploads[path] ?? artUrl(path) }, error: null };
+      },
       remove: async (paths: string[]) => ({ data: paths.map(name => ({ name })), error: null }),
     }),
   };
