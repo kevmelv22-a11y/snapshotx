@@ -35,6 +35,7 @@ import {StatusIcon} from '../../components/chat/StatusIcon';
 import {SAVE_LABEL,applySaved,saveAction} from '../../lib/chat-saves';
 import {groupDisplayTitle,isGroupThread} from '../../lib/group-chat';
 import {GroupInfoSheet,type GroupMember} from '../../components/chat/GroupInfoSheet';
+import {MemberRoleIcon,useMemberActions} from '../../components/chat/MemberActionSheet';
 import {MentionPicker,MentionText} from '../../components/chat/MentionPicker';
 import {MENTION_BADGE,insertMention,latestUnreadMentionId,mentionCandidates,mentionLabel,mentionQuery,type MentionMember} from '../../lib/chat-mentions';
 import {PollBubble,PollComposer} from '../../components/chat/PollParts';
@@ -66,21 +67,23 @@ export default function Chat(){
   const polls=list.filter(m=>m.kind==='text'&&parsePoll(m.body)).map(m=>m.id);if(polls.length){const v=await supabase.from('sx_poll_votes').select('message_id,user_id,option_index').in('message_id',polls);if(!v.error)setVotes((v.data||[]).map(x=>({messageId:x.message_id,userId:x.user_id,option:Number(x.option_index)})))}
  },[id,uid]);
  // Thread meta: retention setting, group name/creator + members (names for typing, streak partner, Groepsinfo).
- const [threadTitle,setThreadTitle]=useState<string|null>(null),[creatorId,setCreatorId]=useState<string|null>(null),[members,setMembers]=useState<GroupMember[]>([]),[infoOpen,setInfoOpen]=useState(false);
+ const [threadTitle,setThreadTitle]=useState<string|null>(null),[creatorId,setCreatorId]=useState<string|null>(null),[members,setMembers]=useState<GroupMember[]>([]),[removers,setRemovers]=useState<string[]>([]),[infoOpen,setInfoOpen]=useState(false);
  const loadMeta=useCallback(async(alive:()=>boolean=()=>true)=>{if(!id||!uid)return;const t=await supabase.from('sx_threads').select('retention_mode,title,created_by').eq('id',id).maybeSingle();if(alive()&&!t.error){setRetention(parseRetention(t.data?.retention_mode));setThreadTitle(t.data?.title??null);setCreatorId(t.data?.created_by??null)}
-  const m=await supabase.from('sx_members').select('user_id').eq('thread_id',id);const all=[...new Set((m.data||[]).map(x=>x.user_id as string))];const ids=all.filter(x=>x!==uid);const p=all.length?await supabase.from('profiles').select('id,display_name').in('id',all):null;const names=new Map((p?.data||[]).map(x=>[x.id,x.display_name]));if(!alive())return;
+  // can_remove_members needs migration 20261027200000; without it fall back to plain membership (no remove rights).
+  let m:{data:{user_id:string;can_remove_members?:boolean|null}[]|null}=await supabase.from('sx_members').select('user_id,can_remove_members').eq('thread_id',id);if((m as {error?:unknown}).error)m=await supabase.from('sx_members').select('user_id').eq('thread_id',id);if(alive())setRemovers((m.data||[]).filter(x=>x.can_remove_members).map(x=>x.user_id));const all=[...new Set((m.data||[]).map(x=>x.user_id as string))];const ids=all.filter(x=>x!==uid);const p=all.length?await supabase.from('profiles').select('id,display_name').in('id',all):null;const names=new Map((p?.data||[]).map(x=>[x.id,x.display_name]));if(!alive())return;
   setPeers(ids.map(x=>({id:x,name:names.get(x)||'Vriend'})));setMembers(all.map(x=>({id:x,name:x===uid?(names.get(x)||session?.user.user_metadata?.display_name||'Jij'):(names.get(x)||'Vriend')})))},[id,uid,session?.user.user_metadata?.display_name]);
  useEffect(()=>{let alive=true;const timer=setTimeout(()=>void loadMeta(()=>alive),0);return()=>{alive=false;clearTimeout(timer)}},[loadMeta]);
  useEffect(()=>{if(!id)return;const timer=setTimeout(()=>void load(),0);
   const channel=supabase.channel(`sx-thread-${id}`)
    .on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_messages',filter:`thread_id=eq.${id}`},()=>void load())
    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'sx_messages',filter:`thread_id=eq.${id}`},()=>void load())
+   .on('postgres_changes',{event:'*',schema:'public',table:'sx_members'},()=>void loadMeta())
    .on('postgres_changes',{event:'*',schema:'public',table:'sx_reactions'},()=>void load())
    .on('postgres_changes',{event:'*',schema:'public',table:'sx_poll_votes'},()=>void load())
    .on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_receipts'},()=>void load())
    .on('broadcast',{event:'typing'},({payload})=>{const p=payload as {user:string;typing:boolean};if(p?.user)setTypingMap(m=>applyTyping(m,p.user,!!p.typing,Date.now()))})
    .subscribe();channelRef.current=channel;
-  return()=>{clearTimeout(timer);channelRef.current=null;void supabase.removeChannel(channel)}},[id,load]);
+  return()=>{clearTimeout(timer);channelRef.current=null;void supabase.removeChannel(channel)}},[id,load,loadMeta]);
  useEffect(()=>{const t=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(t)},[]);
  // Text and ordinary attachments become read when this conversation is open.
  // One-time snaps are deliberately excluded: their receipt is claimed only by sx_claim_snap.
@@ -160,12 +163,13 @@ export default function Chat(){
   // Doorsturen (Snapchat Forward): after Opslaan in chat / before Melden; not for snaps, polls, system lines.
   if(canForward(item)){const at=items.findIndex(a=>a.label===MENU_LABEL.report||a.label===MENU_LABEL.block||a.label===EDIT_LABEL.unsend);items.splice(at<0?items.length:at,0,{label:FORWARD_LABEL.action,onPress:()=>setForwarding(item)})}
   if(canUnsend(item,uid))items.push({label:EDIT_LABEL.unsend,onPress:()=>unsend(item)});return items};
+ const memberMenu=useMemberActions({threadId:String(id??''),me:uid,adminId:creatorId,members,removers,onChanged:()=>{void loadMeta();void load()}});
  const nameOf=(sid:string)=>members.find(m=>m.id===sid)?.name??peers.find(p=>p.id===sid)?.name??null;
  const avatarOf=(sid:string)=><FriendAvatar id={sid} outfit={sid===uid?ownOutfit:friendOutfits.get(sid)} size={22} name={nameOf(sid)??undefined}/>;
  return <KeyboardAvoidingView style={s.root} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={90}>
   <Stack.Screen options={{headerShown:false,title}}/>
   <ChatHeaderBar onBack={()=>router.canGoBack()?router.back():router.replace('/(tabs)/chats')} topInset={insets.top} title={title} streak={streak} retention={retention} onRetention={()=>setRetentionOpen(true)} onCall={()=>router.push({pathname:'/call/[id]',params:{id:String(id),name:title}})} avatar={!isGroup&&peers.length===1?<FriendAvatar id={peers[0].id} outfit={friendOutfits.get(peers[0].id)} size={34} name={peers[0].name}/>:undefined} onInfo={isGroup?()=>setInfoOpen(true):undefined} onProfile={!isGroup&&peers.length===1?()=>router.push({pathname:'/friend/[id]',params:{id:peers[0].id}}):undefined} memberCount={isGroup?members.length:undefined}/>
-  <ChatView receipt={(()=>{const last=visible.find(m=>m.kind!=='system');return last&&last.sender_id===uid&&last.kind!=='snap'?{messageId:last.id,status:messageStatus(last,uid,peerOpened.has(last.id),false)}:null})()} rows={visible} me={uid} reactions={reactions} retention={retention} viewedAt={viewedAt} now={now} streak={streak} typing={typing} renderContent={content} onReact={(m,e)=>void react(m,e)} extraActions={menu} onReply={startReply} nameOf={nameOf} avatarOf={avatarOf} memberIds={members.length?members.map(m=>m.id):[uid,...peers.map(p=>p.id)]} jumpRequestId={jumpRequestId}/>
+  <ChatView onSenderLongPress={isGroup?sid=>memberMenu.open(members.find(m=>m.id===sid)):undefined} badgeOf={isGroup?sid=><MemberRoleIcon isAdmin={sid===creatorId} canRemove={removers.includes(sid)} size={12}/>:undefined} receipt={(()=>{const last=visible.find(m=>m.kind!=='system');return last&&last.sender_id===uid&&last.kind!=='snap'?{messageId:last.id,status:messageStatus(last,uid,peerOpened.has(last.id),false)}:null})()} rows={visible} me={uid} reactions={reactions} retention={retention} viewedAt={viewedAt} now={now} streak={streak} typing={typing} renderContent={content} onReact={(m,e)=>void react(m,e)} extraActions={menu} onReply={startReply} nameOf={nameOf} avatarOf={avatarOf} memberIds={members.length?members.map(m=>m.id):[uid,...peers.map(p=>p.id)]} jumpRequestId={jumpRequestId}/>
   {isGroup&&!!mentionJumpId&&<Pressable style={s.mentionJump} testID="jump-mention" accessibilityRole="button" accessibilityLabel={MENTION_BADGE} onPress={jumpToMention}><Text style={s.mentionJumpAt}>@</Text><Text style={s.mentionJumpText}>{MENTION_BADGE}</Text></Pressable>}
   {!!notice&&<Text style={s.notice}>{notice}</Text>}
   {recorderState.isRecording?<RecordingBar durationMs={recorderState.durationMillis} level={meterLevel(recorderState.metering)} onCancel={()=>void stopRecording(false)} onStop={()=>void stopRecording(true)}/>:
@@ -174,7 +178,8 @@ export default function Chat(){
   {isGroup&&<PollComposer visible={pollOpen} onClose={()=>setPollOpen(false)} onSend={b=>void sendPoll(b)}/>}
   {forwarding&&<ForwardSheet me={uid} myName={(session?.user.user_metadata?.display_name as string|undefined)??null} threadId={id} messageId={forwarding.id} excerpt={quoteOf(forwarding).excerpt} onClose={()=>setForwarding(null)} onDone={t=>{setForwarding(null);setNotice(t);setTimeout(()=>setNotice(n=>n===t?'':n),3500)}}/>}
   <RetentionSheet visible={retentionOpen} mode={retention} onPick={m=>void changeRetention(m)} onClose={()=>setRetentionOpen(false)}/>
-  {isGroup&&infoOpen&&<GroupInfoSheet visible threadId={id} me={uid} title={title} creatorId={creatorId} members={members} onClose={()=>setInfoOpen(false)} onChanged={()=>{void loadMeta();void load()}} onLeft={()=>{setInfoOpen(false);router.replace('/(tabs)/chats')}}/>}
+  {isGroup&&memberMenu.sheet}
+  {isGroup&&infoOpen&&<GroupInfoSheet visible threadId={id} me={uid} title={title} creatorId={creatorId} members={members} removers={removers} onClose={()=>setInfoOpen(false)} onChanged={()=>{void loadMeta();void load()}} onLeft={()=>{setInfoOpen(false);router.replace('/(tabs)/chats')}}/>}
   {confirm.dialog}</KeyboardAvoidingView>
 }
 function AudioClip({path,seed,mine}:{path:string;seed:string;mine:boolean}){const [url,setUrl]=useState<string|null>(null);useEffect(()=>{let alive=true;mediaUrl(path).then(v=>{if(alive)setUrl(v)}).catch(()=>{});return()=>{alive=false}},[path]);return url?<VoiceNotePlayer uri={url} seed={seed} mine={mine}/>:<Hint>Audio laden…</Hint>}

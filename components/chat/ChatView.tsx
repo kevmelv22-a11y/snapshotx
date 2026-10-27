@@ -37,7 +37,7 @@ export type ChatViewProps={
   onReact:(messageId:string,emoji:string)=>void;
   extraActions?:(m:Message,mine:boolean)=>{label:string;onPress:()=>void}[];
   /** Snapchat-style sender identity: display name + small avatar per sender id, and the thread's member ids (for stable colours). */
-  nameOf?:(senderId:string)=>string|null;avatarOf?:(senderId:string)=>React.ReactNode;memberIds?:string[];
+  nameOf?:(senderId:string)=>string|null;avatarOf?:(senderId:string)=>React.ReactNode;/** Group chats: long-press on a sender avatar/name (member actions) + a role badge after the name. */onSenderLongPress?:(senderId:string)=>void;badgeOf?:(senderId:string)=>React.ReactNode;memberIds?:string[];
   pickerFor?:string|null;
   /** Snapchat read receipt under my newest message: ➤ Bezorgd / ▷ Geopend. */
   receipt?:{messageId:string;status:ChatStatus}|null;
@@ -79,7 +79,7 @@ export function ChatView(p:ChatViewProps){
         const quoted=reply?liveQuoteExcerpt(reply.ref.excerpt,p.rows.find(r=>r.id===reply.ref.id),o=>quoteOf(o).excerpt):'';
         return <View style={start?s.runStart:undefined} testID={start?`run-${item.sender_id===p.me?'me':item.sender_id}`:undefined}>
           {divider(item)}
-          {start&&<View style={s.senderRow}>{p.avatarOf?.(item.sender_id)}<Text style={[s.sender,{color}]} testID="sender-label">{senderLabel(item.sender_id,p.me,p.nameOf?.(item.sender_id))}</Text><Text style={s.runTime}>{time}</Text></View>}
+          {start&&<Pressable style={s.senderRow} disabled={!p.onSenderLongPress} onLongPress={()=>p.onSenderLongPress?.(item.sender_id)} delayLongPress={350} testID="sender-row" accessibilityHint={p.onSenderLongPress?'Lang indrukken voor profiel, bericht en beheer':undefined}>{p.avatarOf?.(item.sender_id)}<Text style={[s.sender,{color}]} testID="sender-label">{senderLabel(item.sender_id,p.me,p.nameOf?.(item.sender_id))}</Text>{p.badgeOf?.(item.sender_id)}<Text style={s.runTime}>{time}</Text></Pressable>}
           <SwipeToReply enabled={!!p.onReply&&canReply(item)} onReply={()=>p.onReply?.(item)}>
           <Pressable onLongPress={open} delayLongPress={300} {...web} accessibilityHint="Veeg naar rechts om te antwoorden; lang indrukken voor reacties, opslaan, doorsturen, bewerken, verwijderen, melden en blokkeren" style={[s.msg,{borderLeftColor:color},!!saved&&s.saved,flash===item.id&&s.flash]} testID={mine?'msg-mine':'msg-theirs'} accessibilityState={{selected:!!saved}}>
             {!!forwarded&&<View style={s.fwdRow} testID="msg-forwarded"><Ionicons name="arrow-redo" size={11} color={C.muted}/><Text style={s.fwdText}>{forwarded}</Text></View>}

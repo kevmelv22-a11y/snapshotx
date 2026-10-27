@@ -9,20 +9,22 @@ import {useConfirmDialog} from '../ConfirmDialog';
 import {FriendAvatar} from '../avatar/FriendAvatar';
 import {OwnAvatar} from '../avatar/OwnAvatar';
 import {useFriendOutfits} from '../../hooks/useFriendOutfits';
-import {GROUP_MAX_MEMBERS,GROUP_TITLE_MAX,addableFriends,canAddMembers,canRemoveMember,canRename,canSelectMore,groupErrorText,normalizeGroupTitle,sortMembers,validateAdd} from '../../lib/group-chat';
+import {MemberRoleIcon,useMemberActions} from './MemberActionSheet';
+import {GROUP_MAX_MEMBERS,GROUP_TITLE_MAX,addableFriends,canAddMembers,canRename,canSelectMore,groupErrorText,normalizeGroupTitle,sortMembers,validateAdd} from '../../lib/group-chat';
 
 export type GroupMember={id:string;name:string};
-type Props={visible:boolean;threadId:string;me:string;title:string;creatorId:string|null;members:GroupMember[];onClose:()=>void;/** Reload thread meta + messages after a change. */onChanged:()=>void;/** Called after leaving; the chat screen navigates back to the chat list. */onLeft:()=>void};
+type Props={visible:boolean;threadId:string;me:string;title:string;creatorId:string|null;members:GroupMember[];/** Members with can_remove_members (migration 20261027200000). */removers?:string[];onClose:()=>void;/** Reload thread meta + messages after a change. */onChanged:()=>void;/** Called after leaving; the chat screen navigates back to the chat list. */onLeft:()=>void};
 const violet='#B629E2';
 const errText=(e:unknown)=>groupErrorText(e)??friendlyError(e);
 
-/** Snapchat-style "Groepsinfo": members, rename, add friends, remove (creator only), leave. Mount it only while open (fresh state each time). */
-export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,onClose,onChanged,onLeft}:Props){
+/** Snapchat-style "Groepsinfo": members (long-press → acties), rename, add friends, leave. Mount it only while open (fresh state each time). */
+export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,removers=[],onClose,onChanged,onLeft}:Props){
  const insets=useSafeAreaInsets(),confirm=useConfirmDialog();
  const [mode,setMode]=useState<'info'|'rename'|'add'>('info'),[draft,setDraft]=useState(title),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
  const [friends,setFriends]=useState<GroupMember[]|null>(null),[picked,setPicked]=useState<string[]>([]);
  const memberIds=members.map(m=>m.id),isMember=memberIds.includes(me),count=members.length;
  const sorted=useMemo(()=>sortMembers(members,me,creatorId),[members,me,creatorId]);
+ const memberMenu=useMemberActions({threadId,me,adminId:creatorId,members,removers,onChanged,beforeNavigate:onClose});
  const candidates=addableFriends(friends??[],memberIds);
  const outfits=useFriendOutfits([...memberIds.filter(id=>id!==me),...candidates.map(f=>f.id)]);
  useEffect(()=>{if(mode!=='add'||friends)return;let alive=true;void (async()=>{const r=await supabase.from('sx_friends').select('friend_id').eq('user_id',me);if(!alive)return;if(r.error){setNotice(friendlyError(r.error,'Je vrienden'));setFriends([]);return}const ids=(r.data||[]).map(x=>x.friend_id);if(!ids.length){setFriends([]);return}const p=await supabase.from('profiles').select('id,display_name').in('id',ids);if(!alive)return;const names=new Map((p.data||[]).map(x=>[x.id,x.display_name]));setFriends(ids.map(id=>({id,name:names.get(id)||'Vriend'})).sort((a,b)=>a.name.localeCompare(b.name,'nl')))})();return()=>{alive=false}},[mode,friends,me]);
@@ -31,7 +33,6 @@ export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,onCl
  function saveName(){const t=normalizeGroupTitle(draft);if(!t){setNotice(`Geef de groep een naam (max ${GROUP_TITLE_MAX} tekens).`);return}if(t===title){setMode('info');return}void run(()=>supabase.rpc('sx_rename_group',{p_thread_id:threadId,p_title:t}),()=>setMode('info'))}
  function addPicked(){const why=validateAdd(count,picked);if(why){setNotice(why);return}void run(()=>supabase.rpc('sx_add_group_members',{p_thread_id:threadId,p_user_ids:picked}),()=>{setPicked([]);setMode('info')})}
  function togglePick(id:string){setNotice('');setPicked(v=>v.includes(id)?v.filter(x=>x!==id):canSelectMore(count,v.length)?[...v,id]:(setNotice(validateAdd(count,[...v,id])??''),v))}
- function askRemove(m:GroupMember){confirm.ask({title:`${m.name} verwijderen?`,message:`${m.name} kan de berichten in "${title}" dan niet meer zien of sturen.`,confirmLabel:'Verwijderen',destructive:true},async()=>{const {error}=await supabase.rpc('sx_remove_group_member',{p_thread_id:threadId,p_user_id:m.id});if(error)return errText(error);onChanged();return null})}
  function askLeave(){confirm.ask({title:'Groep verlaten?',message:`Je verlaat "${title}". Je ziet deze groep en de berichten niet meer, tenzij iemand je opnieuw toevoegt.`,confirmLabel:'Verlaten',destructive:true},async()=>{const {error}=await supabase.rpc('sx_leave_group',{p_thread_id:threadId});if(error)return errText(error);onLeft();return null})}
 
  const header=(label:string,back?:()=>void)=><View style={s.top}><Pressable onPress={back??onClose} accessibilityLabel={back?'Terug naar groepsinfo':'Groepsinfo sluiten'} style={s.topBtn}><Ionicons name={back?'chevron-back':'chevron-down'} size={26} color={C.text}/></Pressable><Text style={s.topTitle}>{label}</Text><View style={s.topBtn}/></View>;
@@ -46,11 +47,12 @@ export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,onCl
      {isMember&&<Row icon="person-add" label="Leden toevoegen" hint={canAddMembers(isMember,count)?`Nog ${GROUP_MAX_MEMBERS-count} plekken`:'Groep is vol'} disabled={!canAddMembers(isMember,count)} onPress={()=>{setNotice('');setPicked([]);setMode('add')}}/>}
     </View>
     <Text style={s.section}>LEDEN ({count})</Text>
-    <View style={s.card}>{sorted.map(m=><View key={m.id} style={s.member} testID={`group-member-${m.id}`}>
+    <Text style={s.hint}>Houd een lid ingedrukt voor acties</Text>
+    <View style={s.card}>{sorted.map(m=><Pressable key={m.id} style={s.member} testID={`group-member-${m.id}`} onLongPress={()=>memberMenu.open(m)} onPress={()=>memberMenu.open(m)} delayLongPress={350} accessibilityRole="button" accessibilityHint="Lang indrukken voor profiel, bericht en beheer">
      {m.id===me?<OwnAvatar userId={me} size={44}/>:<FriendAvatar id={m.id} outfit={outfits.get(m.id)} size={44} name={m.name}/>}
-     <View style={{flex:1}}><Text style={s.memberName} numberOfLines={1}>{m.id===me?`${m.name} (jij)`:m.name}</Text>{m.id===creatorId&&<Text style={s.badge}>Maker van de groep</Text>}</View>
-     {canRemoveMember(me,creatorId,m.id,memberIds)&&<Pressable onPress={()=>askRemove(m)} style={s.removeBtn} accessibilityLabel={`${m.name} verwijderen`}><Ionicons name="person-remove-outline" size={18} color="#FF8FA8"/><Text style={s.removeText}>Verwijder</Text></Pressable>}
-    </View>)}</View>
+     <View style={{flex:1}}><View style={{flexDirection:'row',alignItems:'center',gap:6}}><Text style={s.memberName} numberOfLines={1}>{m.id===me?`${m.name} (jij)`:m.name}</Text><MemberRoleIcon isAdmin={m.id===creatorId} canRemove={removers.includes(m.id)}/></View>{m.id===creatorId?<Text style={s.badge}>Beheerder</Text>:removers.includes(m.id)?<Text style={s.badge}>Kan leden verwijderen</Text>:null}</View>
+     <Ionicons name="ellipsis-horizontal" size={18} color={C.muted}/>
+    </Pressable>)}</View>
     {!!notice&&<Text style={s.notice}>{notice}</Text>}
     {isMember&&<Pressable onPress={askLeave} style={s.leave} accessibilityLabel="Groep verlaten"><Ionicons name="exit-outline" size={21} color="#FF6B81"/><Text style={s.leaveText}>Groep verlaten</Text></Pressable>}
    </ScrollView></>}
@@ -71,6 +73,7 @@ export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,onCl
    {!!notice&&<Text style={s.notice}>{notice}</Text>}
    <View style={{paddingHorizontal:20,paddingTop:8}}><Pressable onPress={addPicked} disabled={busy||!picked.length} style={[s.primary,(busy||!picked.length)&&{opacity:.5}]} accessibilityLabel="Geselecteerde vrienden toevoegen">{busy?<ActivityIndicator color={C.text}/>:<Text style={s.primaryText}>Toevoegen{picked.length?` (${picked.length})`:''}</Text>}</Pressable></View></>}
   {confirm.dialog}
+  {memberMenu.sheet}
   </View></View></Modal>;
 }
 
@@ -79,6 +82,7 @@ function Row({icon,label,hint,onPress,disabled}:{icon:React.ComponentProps<typeo
 }
 
 const s=StyleSheet.create({
+ hint:{color:C.muted,fontSize:12,marginHorizontal:20,marginBottom:6},
  shade:{flex:1,backgroundColor:'#000A',justifyContent:'flex-end'},sheet:{backgroundColor:'#191426',borderTopLeftRadius:28,borderTopRightRadius:28,maxHeight:'94%',minHeight:'70%'},
  top:{flexDirection:'row',alignItems:'center',paddingHorizontal:12,paddingBottom:6},topBtn:{width:40,height:40,alignItems:'center',justifyContent:'center'},topTitle:{flex:1,textAlign:'center',color:C.text,fontSize:18,fontWeight:'800'},
  hero:{alignItems:'center',paddingVertical:14,gap:6},stack:{flexDirection:'row',marginBottom:6},stackItem:{borderRadius:34,borderWidth:3,borderColor:'#191426',overflow:'hidden'},

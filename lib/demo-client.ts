@@ -12,7 +12,7 @@ import { parseRetention } from './chat-features';
 import { EDIT_ERRORS, EDIT_WINDOW_MS, editableText, editedBody, isNoopEdit, isStickerText, unsentText, validateEdit } from './chat-edits';
 import { POLL_ERRORS, parsePoll, pollBody, validateVote } from './chat-polls';
 import { FORWARD_ERRORS, FORWARD_MAX_TARGETS, canForward, forwardBody, forwardExpiry } from './chat-forward';
-import { GROUP_ERRORS, GROUP_MAX_MEMBERS, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, isGroupThread, normalizeGroupTitle } from './group-chat';
+import { GROUP_ERRORS, GROUP_MAX_MEMBERS, canRemoveMember, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, groupRightsText, isGroupThread, normalizeGroupTitle } from './group-chat';
 
 type Err = { message: string; code?: string; details?: string };
 type Res = { data: unknown; error: Err | null; count?: number | null };
@@ -37,7 +37,7 @@ function artUrl(path: string) {
 }
 
 const EXTRA = { noor: '0b000000-0000-4000-8000-000000000016', tim: '0b000000-0000-4000-8000-000000000017' };
-const T = { aria: 'c0000000-0000-4000-8000-0000000000a1', eva: 'c0000000-0000-4000-8000-0000000000a2', noor: 'c0000000-0000-4000-8000-0000000000a3', crew: 'c0000000-0000-4000-8000-000000000002' };
+const T = { aria: 'c0000000-0000-4000-8000-0000000000a1', eva: 'c0000000-0000-4000-8000-0000000000a2', noor: 'c0000000-0000-4000-8000-0000000000a3', crew: 'c0000000-0000-4000-8000-000000000002', fest: 'c0000000-0000-4000-8000-0000000000a4' };
 
 function seedDemo(m: StaffMock) {
   seedStaffMock(m);
@@ -59,9 +59,12 @@ function seedDemo(m: StaffMock) {
   m.t.sx_threads.forEach(t => { t.retention_mode ??= 'keep'; });
   // Weekend crew = Kevin's group (he created it, so Groepsinfo shows the creator-only remove buttons).
   Object.assign(m.t.sx_threads.find(t => t.id === T.crew) ?? {}, { created_by: ME, is_group: true });
+  m.t.sx_threads.push({ id: T.fest, title: 'Festival squad', created_by: I.aria, is_group: true, created_at: iso(-6 * D), member_count: 4, retention_mode: 'keep' });
   m.t.sx_members = [
     { thread_id: T.aria, user_id: ME }, { thread_id: T.aria, user_id: I.aria }, { thread_id: T.eva, user_id: ME }, { thread_id: T.eva, user_id: I.eva },
-    ...[ME, EXTRA.noor, I.eva, I.cleo, I.aria].map(u => ({ thread_id: T.crew, user_id: u })),
+    ...[ME, EXTRA.noor, I.eva, I.cleo, I.aria].map(u => ({ thread_id: T.crew, user_id: u, can_remove_members: u === I.eva })),
+    // Festival squad = Aria's group: Kevin is a plain member there, Cleo may remove members (member view of the rights).
+    ...[I.aria, ME, I.eva, I.cleo].map(u => ({ thread_id: T.fest, user_id: u, can_remove_members: u === I.cleo })),
     { thread_id: 'c0000000-0000-4000-8000-000000000001', user_id: I.aria }, { thread_id: 'c0000000-0000-4000-8000-000000000001', user_id: I.bram },
   ];
   const msg = (thread_id: string, sender_id: string, body: string, ago: number, kind = 'text', media_path: string | null = null) =>
@@ -277,11 +280,12 @@ export class DemoClient {
     try { globalThis.localStorage?.setItem('sx-demo-signed-in', s ? '1' : '0'); globalThis.localStorage?.setItem('sx-demo-meta', JSON.stringify(this.meta)); } catch {}
     this.authCbs.forEach(cb => setTimeout(() => cb(event, s), 0));
   }
+  removers(threadId: unknown): string[] { return this.m.table('sx_members').filter(x => x.thread_id === threadId && x.can_remove_members).map(x => String(x.user_id)); }
   emit(table: string, event: string, row: Row) {
     for (const l of this.listeners) {
       if (l.table !== table || (l.event !== '*' && l.event !== event)) continue;
       if (l.filter) { const [k, v] = l.filter.split('=eq.'); if (String(row[k]) !== v) continue; }
-      setTimeout(() => l.cb({ eventType: event, new: row, old: {}, table, schema: 'public' }), 10);
+      setTimeout(() => l.cb({ eventType: event, new: event === 'DELETE' ? {} : row, old: event === 'DELETE' ? row : {}, table, schema: 'public' }), 10);
     }
     if (table === 'sx_messages' && event === 'INSERT' && row.sender_id === ME && row.kind !== 'system') this.autoReply(String(row.thread_id));
   }
@@ -427,15 +431,29 @@ export class DemoClient {
       this.groupLine(t.id, groupAddText(this.nameOf(ME), add.map(u => this.nameOf(u)).sort((x, y) => x.localeCompare(y))));
       return add.length;
     },
+    // Remove rights: mirrors supabase/migrations/20261027200000_group_remove_rights.sql (admin = created_by,
+    // remover = admin or can_remove_members; never the admin, never yourself). Emits DELETE so open lists update live.
     sx_remove_group_member: a => {
-      const t = this.lockGroup(a.p_thread_id), target = String(a.p_user_id ?? '');
-      if (t.created_by !== ME) throw new Error(GROUP_ERRORS.notCreator);
+      const t = this.lockGroup(a.p_thread_id), target = String(a.p_user_id ?? ''), ids = this.memberIds(t.id);
       if (target === ME) throw new Error(GROUP_ERRORS.self);
-      if (!this.memberIds(t.id).includes(target)) throw new Error(GROUP_ERRORS.noTarget);
+      if (!ids.includes(target)) throw new Error(GROUP_ERRORS.noTarget);
+      if (target === t.created_by) throw new Error(GROUP_ERRORS.adminProtected);
+      if (!canRemoveMember(ME, t.created_by as string, target, ids, this.removers(t.id))) throw new Error(GROUP_ERRORS.notAllowed);
       this.groupLine(t.id, groupRemoveText(this.nameOf(ME), this.nameOf(target)));
-      this.m.t.sx_members = this.m.table('sx_members').filter(x => !(x.thread_id === t.id && x.user_id === target));
+      const gone = this.m.table('sx_members').filter(x => x.thread_id === t.id && x.user_id === target);
+      this.m.t.sx_members = this.m.table('sx_members').filter(x => !gone.includes(x));
+      gone.forEach(r => this.emit('sx_members', 'DELETE', r));
       Object.assign(t, { is_group: true, member_count: this.memberIds(t.id).length });
       return null;
+    },
+    sx_set_can_remove_members: a => {
+      const t = this.lockGroup(a.p_thread_id), target = String(a.p_user_id ?? ''), on = !!a.p_value;
+      if (t.created_by !== ME) throw new Error(GROUP_ERRORS.notAdmin);
+      const row = this.m.table('sx_members').find(x => x.thread_id === t.id && x.user_id === target);
+      if (!row) throw new Error(GROUP_ERRORS.noTarget);
+      if (target === ME) throw new Error(GROUP_ERRORS.notAdmin);
+      if (!!row.can_remove_members !== on) { row.can_remove_members = on; this.emit('sx_members', 'UPDATE', row); this.groupLine(t.id, groupRightsText(this.nameOf(ME), this.nameOf(target), on)); }
+      return on;
     },
     sx_leave_group: a => {
       const t = this.lockGroup(a.p_thread_id);
@@ -444,6 +462,7 @@ export class DemoClient {
       const rest = this.memberIds(t.id);
       if (!rest.length) this.m.t.sx_threads = this.m.table('sx_threads').filter(x => x.id !== t.id);
       else Object.assign(t, { is_group: true, member_count: rest.length, ...(t.created_by === ME ? { created_by: rest[0] } : {}) });
+      this.m.table('sx_members').filter(x => x.thread_id === t.id && x.user_id === t.created_by).forEach(x => { x.can_remove_members = false; });
       return null;
     },
     sx_hide_suggestion: () => null,
