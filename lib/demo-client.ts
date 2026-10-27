@@ -10,6 +10,7 @@ import { mentionLabel, mentionedIds } from './chat-mentions';
 import { SAVE_ERRORS, canSave, unsaveExpiry } from './chat-saves';
 import { parseRetention } from './chat-features';
 import { EDIT_ERRORS, EDIT_WINDOW_MS, editableText, editedBody, isNoopEdit, isStickerText, unsentText, validateEdit } from './chat-edits';
+import { POLL_ERRORS, parsePoll, pollBody, validateVote } from './chat-polls';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, isGroupThread, normalizeGroupTitle } from './group-chat';
 
 type Err = { message: string; code?: string; details?: string };
@@ -96,6 +97,10 @@ function seedDemo(m: StaffMock) {
   // Bewerken / Verwijderen (Snapchat): Aria fixed her time afterwards ("Bewerkt"), Eva unsent a chat in the group.
   Object.assign(m.t.sx_messages.find(x => x.thread_id === T.crew && x.body === 'Ik kom iets later, rond 15:00') ?? {}, { body: 'Ik kom iets later, rond 15:30', edited_at: iso(-2.78 * H) });
   m.t.sx_messages.push({ ...msg(T.crew, I.eva, unsentText('Eva Smit'), 3.05 * H, 'system'), unsent_at: iso(-2.9 * H) });
+  // Peilingen (Snapchat group polls): Cleo asks what to do after the beach; Cleo, Noor and Eva voted, Kevin not yet.
+  const poll = pollBody('Wat doen we zaterdag na het strand? 🌅', ['Pizza eten 🍕', 'Bioscoop 🎬', 'Bowlen 🎳']);
+  if (poll.ok) { const p = msg(T.crew, I.cleo, poll.body, 2.6 * H); m.t.sx_messages.push(p);
+    m.t.sx_poll_votes = [[I.cleo, 0], [EXTRA.noor, 0], [I.eva, 2]].map(([user_id, option_index]) => ({ message_id: p.id, user_id, option_index, created_at: iso(-2.5 * H) })); }
   const st = (owner_id: string, path: string, caption: string | null, ago: number, visibility = 'friends') =>
     ({ id: newId(), owner_id, media_path: path, media_type: 'photo', caption, visibility, created_at: iso(-ago), expires_at: iso(24 * H - ago) });
   m.t.sx_stories.forEach((s, i) => { s.media_path = i ? 'demo/stad.svg' : 'demo/pizza.svg'; s.media_type = 'photo'; s.expires_at = m.iso(16 * H); });
@@ -145,6 +150,7 @@ const PK: Record<string, string[]> = {
   sx_story_views: ['story_id', 'viewer_id'], sx_preferences: ['user_id'], sx_locations: ['user_id'], sx_reactions: ['message_id', 'user_id'],
   sx_story_reactions: ['story_id', 'user_id'], sx_highlight_likes: ['story_id', 'user_id'], sx_highlight_comment_likes: ['comment_id', 'user_id'], sx_creator_subscriptions: ['subscriber_id', 'creator_id'], sx_push_tokens: ['user_id'], sx_avatar_outfits: ['user_id'],
   sx_memory_vault: ['user_id'], sx_receipts: ['message_id', 'user_id'], sx_location_allowed: ['owner_id', 'friend_id'], sx_members: ['thread_id', 'user_id'],
+  sx_poll_votes: ['message_id', 'user_id'],
 };
 type Listener = { table: string; event: string; filter?: string; cb: (p: unknown) => void };
 
@@ -283,6 +289,9 @@ export class DemoClient {
     if (!peers.length) return;
     setTimeout(() => {
       const last = this.m.table('sx_messages').filter(x => x.thread_id === threadId && x.sender_id === ME && x.kind === 'text').sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
+      // A new poll from Kevin: two friends vote on it instead of chatting back.
+      const poll = last ? parsePoll(String(last.body)) : null;
+      if (poll) { peers.slice(0, 2).forEach((u, i) => this.vote(last.id, u, i % poll.options.length)); return; }
       // @vermeldingen: in a group the mentioned friend answers (and mentions Kevin back).
       const members = [ME, ...peers].map(id => ({ id, name: (this.m.profile(id)?.display_name as string | undefined) ?? null }));
       const mentioned = peers.length > 1 && last ? mentionedIds(parseReply(String(last.body))?.text ?? String(last.body), members).filter(id => id !== ME) : [];
@@ -350,7 +359,7 @@ export class DemoClient {
       const msg = this.m.table('sx_messages').find(x => x.id === a.p_message_id);
       if (!msg || msg.unsent_at) throw new Error(EDIT_ERRORS.notFound);
       if (msg.sender_id !== ME) throw new Error(EDIT_ERRORS.notYours);
-      if (msg.kind !== 'text' || isStickerText(editableText(msg as never))) throw new Error(EDIT_ERRORS.notText);
+      if (msg.kind !== 'text' || isStickerText(editableText(msg as never)) || parsePoll(editableText(msg as never))) throw new Error(EDIT_ERRORS.notText);
       if (Date.now() - Date.parse(String(msg.created_at)) >= EDIT_WINDOW_MS) throw new Error(EDIT_ERRORS.tooLate);
       const v = validateEdit(String(a.p_text ?? '')); if (!v.ok) throw new Error(v.error);
       if (isNoopEdit(msg as never, v.text)) return false;
@@ -362,8 +371,18 @@ export class DemoClient {
       if (!msg || msg.unsent_at) throw new Error(EDIT_ERRORS.notFound);
       if (msg.sender_id !== ME) throw new Error(EDIT_ERRORS.notYours);
       if (msg.kind === 'system') throw new Error(EDIT_ERRORS.notUnsendable);
+      this.m.t.sx_poll_votes = this.m.table('sx_poll_votes').filter(v => v.message_id !== msg.id);
       Object.assign(msg, { kind: 'system', body: unsentText(this.m.profile(ME)?.display_name as string | undefined), media_path: null, view_once: false, saved: false, saved_by: null, saved_at: null, edited_at: null, unsent_at: this.m.iso() });
       this.emit('sx_messages', 'UPDATE', msg); return true;
+    },
+    // Peilingen: mirrors public.sx_vote_poll (migration 20261027150000_chat_polls.sql). p_option null = take the vote back.
+    sx_vote_poll: a => {
+      const msg = this.m.table('sx_messages').find(x => x.id === a.p_message_id);
+      if (!msg || msg.unsent_at) throw new Error(POLL_ERRORS.notPoll);
+      if (!this.memberIds(msg.thread_id).includes(ME)) throw new Error(POLL_ERRORS.notMember);
+      const option = a.p_option == null ? null : Number(a.p_option);
+      const err = validateVote(msg.kind === 'text' ? parsePoll(msg.body as string) : null, option); if (err) throw new Error(err);
+      this.vote(msg.id, ME, option); return option;
     },
     // Group management: mirrors supabase/migrations/20261021150000_group_chat_management.sql (same errors + lines).
     sx_rename_group: a => {
@@ -426,6 +445,13 @@ export class DemoClient {
       return [{ id: p.id, username: p.username, display_name: p.display_name }];
     },
   };
+  private vote(messageId: unknown, userId: string, option: number | null) {
+    const t = this.m.table('sx_poll_votes'), old = t.find(v => v.message_id === messageId && v.user_id === userId);
+    if (old) { this.m.t.sx_poll_votes = t.filter(v => v !== old); this.emit('sx_poll_votes', 'DELETE', old); }
+    if (option === null) return;
+    const row = { message_id: messageId, user_id: userId, option_index: option, created_at: this.m.iso() };
+    this.m.table('sx_poll_votes').push(row); this.emit('sx_poll_votes', 'INSERT', row);
+  }
   private memberIds(threadId: unknown) { return this.m.table('sx_members').filter(x => x.thread_id === threadId).map(x => String(x.user_id)); }
   private nameOf(u: string) { const p = this.m.profile(u); return String(p?.display_name || p?.username || 'Iemand'); }
   private lockGroup(threadId: unknown): Row {

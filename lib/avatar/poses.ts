@@ -4,6 +4,7 @@
  * Arm angles are degrees around the shoulder pivots used by components/avatar/WardrobeAvatar
  * (left arm positive = raised outward, right arm negative = raised outward).
  */
+import { parsePoll, pollPreview } from '../chat-polls';
 
 export type AvatarExpression = 'neutral' | 'smile' | 'laugh' | 'wink' | 'surprised';
 export type AvatarHand = 'rest' | 'peace' | 'thumb';
@@ -93,6 +94,8 @@ export function stickerFromChatBody(body: string | null | undefined): AvatarStic
 }
 /** Chat list / notification preview text for a message body. */
 export function chatPreviewText(body: string | null | undefined): string {
+  const poll = parsePoll(body);
+  if (poll) return pollPreview(poll);
   const s = stickerFromChatBody(body);
   return s ? `Avatarsticker: ${s.caption}` : body ?? '';
 }
