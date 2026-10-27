@@ -9,6 +9,7 @@ import { parseReply, replyBody } from './chat-replies';
 import { mentionLabel, mentionedIds } from './chat-mentions';
 import { SAVE_ERRORS, canSave, unsaveExpiry } from './chat-saves';
 import { parseRetention } from './chat-features';
+import { EDIT_ERRORS, EDIT_WINDOW_MS, editableText, editedBody, isNoopEdit, isStickerText, unsentText, validateEdit } from './chat-edits';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, isGroupThread, normalizeGroupTitle } from './group-chat';
 
 type Err = { message: string; code?: string; details?: string };
@@ -92,6 +93,9 @@ function seedDemo(m: StaffMock) {
   };
   save(T.aria, 'Ja zeker, om 8 uur', I.aria);
   save(T.eva, 'Heb je de foto', ME);
+  // Bewerken / Verwijderen (Snapchat): Aria fixed her time afterwards ("Bewerkt"), Eva unsent a chat in the group.
+  Object.assign(m.t.sx_messages.find(x => x.thread_id === T.crew && x.body === 'Ik kom iets later, rond 15:00') ?? {}, { body: 'Ik kom iets later, rond 15:30', edited_at: iso(-2.78 * H) });
+  m.t.sx_messages.push({ ...msg(T.crew, I.eva, unsentText('Eva Smit'), 3.05 * H, 'system'), unsent_at: iso(-2.9 * H) });
   const st = (owner_id: string, path: string, caption: string | null, ago: number, visibility = 'friends') =>
     ({ id: newId(), owner_id, media_path: path, media_type: 'photo', caption, visibility, created_at: iso(-ago), expires_at: iso(24 * H - ago) });
   m.t.sx_stories.forEach((s, i) => { s.media_path = i ? 'demo/stad.svg' : 'demo/pizza.svg'; s.media_type = 'photo'; s.expires_at = m.iso(16 * H); });
@@ -340,6 +344,26 @@ export class DemoClient {
       const mode = parseRetention(this.m.table('sx_threads').find(t => t.id === msg.thread_id)?.retention_mode);
       Object.assign(msg, { saved: false, saved_by: null, saved_at: null, expires_at: unsaveExpiry(mode, Date.now()) }); this.emit('sx_messages', 'UPDATE', msg);
       return false;
+    },
+    // Bewerken / Verwijderen: mirrors public.sx_edit_message + sx_unsend_message (migration 20261027090000_chat_edit_unsend.sql).
+    sx_edit_message: a => {
+      const msg = this.m.table('sx_messages').find(x => x.id === a.p_message_id);
+      if (!msg || msg.unsent_at) throw new Error(EDIT_ERRORS.notFound);
+      if (msg.sender_id !== ME) throw new Error(EDIT_ERRORS.notYours);
+      if (msg.kind !== 'text' || isStickerText(editableText(msg as never))) throw new Error(EDIT_ERRORS.notText);
+      if (Date.now() - Date.parse(String(msg.created_at)) >= EDIT_WINDOW_MS) throw new Error(EDIT_ERRORS.tooLate);
+      const v = validateEdit(String(a.p_text ?? '')); if (!v.ok) throw new Error(v.error);
+      if (isNoopEdit(msg as never, v.text)) return false;
+      Object.assign(msg, { body: editedBody((msg.body as string | null) ?? null, v.text), edited_at: this.m.iso() }); this.emit('sx_messages', 'UPDATE', msg);
+      return true;
+    },
+    sx_unsend_message: a => {
+      const msg = this.m.table('sx_messages').find(x => x.id === a.p_message_id);
+      if (!msg || msg.unsent_at) throw new Error(EDIT_ERRORS.notFound);
+      if (msg.sender_id !== ME) throw new Error(EDIT_ERRORS.notYours);
+      if (msg.kind === 'system') throw new Error(EDIT_ERRORS.notUnsendable);
+      Object.assign(msg, { kind: 'system', body: unsentText(this.m.profile(ME)?.display_name as string | undefined), media_path: null, view_once: false, saved: false, saved_by: null, saved_at: null, edited_at: null, unsent_at: this.m.iso() });
+      this.emit('sx_messages', 'UPDATE', msg); return true;
     },
     // Group management: mirrors supabase/migrations/20261021150000_group_chat_management.sql (same errors + lines).
     sx_rename_group: a => {

@@ -11,7 +11,8 @@ import {StatusIcon} from './StatusIcon';
 import {colorFor,runStarts,senderColors,senderLabel} from '../../lib/chat-senders';
 import {QuoteBlock,SwipeToReply} from './ChatReply';
 import {savedLabel} from '../../lib/chat-saves';
-import {QUOTE_GONE,canReply,parseReply,quotedIndex,type ReplyRef} from '../../lib/chat-replies';
+import {QUOTE_GONE,canReply,parseReply,quoteOf,quotedIndex,type ReplyRef} from '../../lib/chat-replies';
+import {editedLabel,isUnsentLine,liveQuoteExcerpt} from '../../lib/chat-edits';
 import {ReactionChips,ReactionPicker,StreakBadge,StreakWarning,SystemLine,TypingIndicator} from './ChatParts';
 
 /** Header row: title, streak, retention toggle, video call. Shared by the real chat and the dev harness. */
@@ -63,7 +64,7 @@ export function ChatView(p:ChatViewProps){
     <FlatList ref={list} onScrollToIndexFailed={e=>{list.current?.scrollToOffset({offset:e.averageItemLength*e.index,animated:true});setTimeout(()=>list.current?.scrollToIndex({index:e.index,viewPosition:.5,animated:true}),250)}} data={p.rows} inverted keyboardShouldPersistTaps="handled" keyExtractor={x=>x.id} contentContainerStyle={{padding:15}}
       ListHeaderComponent={<TypingIndicator text={p.typing}/>} ListHeaderComponentStyle={{marginHorizontal:-15}}
       renderItem={({item})=>{
-        if(item.kind==='system')return <View>{divider(item)}<SystemLine text={item.body??''} icon={isGroupChangeText(item.body)?'👥':item.body?.includes('screenshot')?'📸':item.body?.includes('gesprek')?'📹':'⏱'}/></View>;
+        if(item.kind==='system')return <View testID={isUnsentLine(item)?'msg-unsent':undefined}>{divider(item)}<SystemLine text={item.body??''} icon={isUnsentLine(item)?'🗑':isGroupChangeText(item.body)?'👥':item.body?.includes('screenshot')?'📸':item.body?.includes('gesprek')?'📹':'⏱'}/></View>;
         const mine=item.sender_id===p.me,color=colorFor(item.sender_id,colors),start=starts.has(item.id)||days.has(item.id);
         // Opslaan in chat: saved messages get Snapchat's grey highlight + "Opgeslagen (door …)" instead of a timer.
         const saved=savedLabel(item,p.me,id=>p.nameOf?.(id));
@@ -72,15 +73,18 @@ export function ChatView(p:ChatViewProps){
         const open=()=>setPicker(item.id);
         // Web: right-click opens the same menu as a long-press (mobile).
         const web=Platform.OS==='web'?{onContextMenu:(e:{preventDefault:()=>void})=>{e.preventDefault();open()}}:{};
-        const reply=parseReply(item.body),shown=reply?{...item,body:reply.text}:item;
+        const reply=parseReply(item.body),shown=reply?{...item,body:reply.text}:item,edited=editedLabel(item);
+        // Quotes follow the original: edited → its new text, unsent → "Verwijderd bericht" (never the deleted text).
+        const quoted=reply?liveQuoteExcerpt(reply.ref.excerpt,p.rows.find(r=>r.id===reply.ref.id),o=>quoteOf(o).excerpt):'';
         return <View style={start?s.runStart:undefined} testID={start?`run-${item.sender_id===p.me?'me':item.sender_id}`:undefined}>
           {divider(item)}
           {start&&<View style={s.senderRow}>{p.avatarOf?.(item.sender_id)}<Text style={[s.sender,{color}]} testID="sender-label">{senderLabel(item.sender_id,p.me,p.nameOf?.(item.sender_id))}</Text><Text style={s.runTime}>{time}</Text></View>}
           <SwipeToReply enabled={!!p.onReply&&canReply(item)} onReply={()=>p.onReply?.(item)}>
-          <Pressable onLongPress={open} delayLongPress={300} {...web} accessibilityHint="Veeg naar rechts om te antwoorden; lang indrukken voor reacties, opslaan, melden en blokkeren" style={[s.msg,{borderLeftColor:color},!!saved&&s.saved,flash===item.id&&s.flash]} testID={mine?'msg-mine':'msg-theirs'} accessibilityState={{selected:!!saved}}>
-            {reply&&<QuoteBlock label={senderLabel(reply.ref.senderId,p.me,p.nameOf?.(reply.ref.senderId))} color={colorFor(reply.ref.senderId,colors)} excerpt={reply.ref.excerpt} onPress={()=>jump(reply.ref)}/>}
+          <Pressable onLongPress={open} delayLongPress={300} {...web} accessibilityHint="Veeg naar rechts om te antwoorden; lang indrukken voor reacties, opslaan, bewerken, verwijderen, melden en blokkeren" style={[s.msg,{borderLeftColor:color},!!saved&&s.saved,flash===item.id&&s.flash]} testID={mine?'msg-mine':'msg-theirs'} accessibilityState={{selected:!!saved}}>
+            {reply&&<QuoteBlock label={senderLabel(reply.ref.senderId,p.me,p.nameOf?.(reply.ref.senderId))} color={colorFor(reply.ref.senderId,colors)} excerpt={quoted} onPress={()=>jump(reply.ref)}/>}
             {p.renderContent(shown,mine)}
             {!!saved&&<View style={s.savedRow} testID="msg-saved"><Ionicons name="bookmark" size={10} color={C.muted}/><Text style={s.savedText}>{saved}</Text></View>}
+            {!!edited&&<Text style={s.edited} testID="msg-edited">{edited}</Text>}
             {!!hint&&<Text style={s.time}>{hint}</Text>}
           </Pressable>
           </SwipeToReply>
@@ -100,7 +104,7 @@ const s=StyleSheet.create({
   runStart:{marginTop:12},senderRow:{flexDirection:'row',alignItems:'center',gap:6,marginBottom:3},sender:{fontSize:12,fontWeight:'800',letterSpacing:.6},runTime:{color:C.muted,fontSize:10,marginLeft:2},
   msg:{borderLeftWidth:3,paddingLeft:10,paddingVertical:3,marginLeft:2,alignSelf:'stretch'},
   empty:{position:'absolute',left:0,right:0,top:0,bottom:0,alignItems:'center',justifyContent:'center',padding:15},
-  time:{color:C.muted,fontSize:10,marginTop:2},saved:{backgroundColor:'#ffffff17',borderTopRightRadius:8,borderBottomRightRadius:8,paddingRight:8},savedRow:{flexDirection:'row',alignItems:'center',gap:4,marginTop:3},savedText:{color:C.muted,fontSize:10,fontWeight:'700'},flash:{backgroundColor:'#ffffff1f',borderRadius:6},
+  time:{color:C.muted,fontSize:10,marginTop:2},edited:{color:C.muted,fontSize:10,fontWeight:'700',fontStyle:'italic',marginTop:2},saved:{backgroundColor:'#ffffff17',borderTopRightRadius:8,borderBottomRightRadius:8,paddingRight:8},savedRow:{flexDirection:'row',alignItems:'center',gap:4,marginTop:3},savedText:{color:C.muted,fontSize:10,fontWeight:'700'},flash:{backgroundColor:'#ffffff1f',borderRadius:6},
   toast:{position:'absolute',top:12,alignSelf:'center',backgroundColor:C.elevated,borderRadius:14,paddingHorizontal:14,paddingVertical:8},toastText:{color:C.text,fontSize:13},
   day:{color:C.muted,fontSize:11,fontWeight:'800',letterSpacing:1,textAlign:'center',marginTop:16,marginBottom:2},
   receipt:{flexDirection:'row',alignItems:'center',gap:5,alignSelf:'flex-end',marginTop:4},receiptText:{color:C.muted,fontSize:11,fontWeight:'700'},

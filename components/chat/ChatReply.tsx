@@ -21,6 +21,15 @@ export function ReplyBar({title,color,excerpt,onCancel}:{title:string;color:stri
   </View>;
 }
 
+/** "Bericht bewerken" bar above the input while editing one of your own messages (Snapchat Bewerken). */
+export function EditBar({excerpt,onCancel}:{excerpt:string;onCancel:()=>void}){
+  return <View style={s.bar} testID="edit-bar">
+    <Ionicons name="pencil" size={17} color={C.yellow}/>
+    <View style={[s.barQuote,{borderLeftColor:C.yellow}]}><Text style={[s.barTitle,{color:C.yellow}]} numberOfLines={1}>Bericht bewerken</Text><Text style={s.quoteText} numberOfLines={1}>{excerpt}</Text></View>
+    <Pressable onPress={onCancel} hitSlop={10} accessibilityLabel="Bewerken annuleren" testID="edit-cancel"><Ionicons name="close" size={22} color={C.muted}/></Pressable>
+  </View>;
+}
+
 /** Swipe a message to the right to reply (Snapchat). Only clear horizontal right-drags are captured, so vertical
  *  scrolling and long-press keep working. The row follows the finger (max 80 px) and a reply arrow fades in. */
 export function SwipeToReply({onReply,enabled=true,children}:{onReply:()=>void;enabled?:boolean;children:React.ReactNode}){
