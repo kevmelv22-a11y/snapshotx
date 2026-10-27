@@ -53,7 +53,8 @@ function seedDemo(m: StaffMock) {
   Object.assign(m.profile(I.cleo)!, { display_name: 'Cleo Jansen' });
   const friends = [I.aria, I.eva, I.cleo, EXTRA.noor];
   // Noor joined 3 days ago → 👶 Nieuwe vriend in the chat list.
-  m.t.sx_friends = friends.flatMap(f => { const at = iso((f === EXTRA.noor ? -3 : -30) * D); return [{ user_id: ME, friend_id: f, created_at: at }, { user_id: f, friend_id: ME, created_at: at }]; });
+  // Charms: Aria and Kevin have been friends for almost a year (🎂 "Over 3 dagen 1 jaar vrienden").
+  m.t.sx_friends = friends.flatMap(f => { const at = iso((f === EXTRA.noor ? -3 : f === I.aria ? -362 : -30) * D); return [{ user_id: ME, friend_id: f, created_at: at }, { user_id: f, friend_id: ME, created_at: at }]; });
   m.t.sx_friend_requests = [{ id: 'fr000000-0000-4000-8000-000000000001', sender_id: EXTRA.tim, recipient_id: ME, status: 'pending', created_at: iso(-2 * H) }];
   m.t.sx_threads.push({ id: T.aria, title: null, created_at: iso(-10 * D), member_count: 2, retention_mode: 'keep' }, { id: T.eva, title: null, created_at: iso(-4 * D), member_count: 2, retention_mode: 'keep' });
   m.t.sx_threads.forEach(t => { t.retention_mode ??= 'keep'; });
@@ -121,6 +122,9 @@ function seedDemo(m: StaffMock) {
   for (const d of [12, 11, 10, 9, 8]) history.push(msg(T.aria, I.aria, 'photo', d * D, 'snap'), msg(T.aria, ME, 'photo', d * D - 60e3, 'snap'));
   for (let d = 5; d >= 1; d--) history.push(msg(T.aria, I.aria, 'photo', d * D, 'snap'), msg(T.aria, ME, 'photo', d * D - 60e3, 'snap'));
   for (let d = 3; d >= 1; d--) history.push(msg(T.eva, ME, 'photo', d * D + 30 * 60e3, 'snap'), msg(T.eva, I.eva, 'video', d * D + 20 * 60e3, 'snap'));
+  // Charms 🦉 Nachtbrakers: Aria and Kevin chatted at 01:30 (browser local time) two nights ago.
+  { const t = new Date(m.now()); t.setHours(1, 30, 0, 0); const ago = m.now() - t.getTime() + 2 * D;
+    history.push(msg(T.aria, I.aria, 'Kun je ook niet slapen? 😅', ago), msg(T.aria, ME, 'Nee haha, morgen wordt zwaar 😴', ago - 4 * 60e3)); }
   const noorHi = msg(T.noor, EXTRA.noor, 'Leuk je gisteren te zien!', 30 * H), noorSnap = msg(T.noor, ME, 'photo', 9 * H, 'snap', 'demo/fiets.svg');
   m.t.sx_messages.push(...history, noorHi, noorSnap);
   history.forEach(x => m.t.sx_receipts.push({ message_id: x.id, user_id: x.sender_id === ME ? (x.thread_id === T.aria ? I.aria : I.eva) : ME, opened_at: x.created_at, replay_count: 0 }));

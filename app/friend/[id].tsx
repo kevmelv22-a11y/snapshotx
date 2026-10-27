@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
-import {Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {Modal,Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {Stack,router,useLocalSearchParams} from 'expo-router';
 import {Ionicons} from '@expo/vector-icons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import {savedCount,savedPreviews,savedSectionTitle,type SaveableMessage,type Sav
 import {quoteOf} from '../../lib/chat-replies';
 import {useFriendEmojis} from '../../stores/friendEmojis';
 import {emojiFor,NEW_FRIEND_MS,relationLabel} from '../../lib/friend-emojis';
+import {charmsTitle,friendCharms,type Charm,type CharmMessage} from '../../lib/friend-charms';
 import {formatScore,friendsSinceLabel,groupLine,sharedChats,sharedGroupsTitle,streakChip,type SharedChats} from '../../lib/friend-profile';
 
 type FriendProfile={id:string;display_name:string;username:string;activity_score:number;gender?:string|null};
@@ -27,6 +28,7 @@ export default function FriendProfileScreen(){
  const [p,setP]=useState<FriendProfile|null>(null),[since,setSince]=useState<string|null>(null),[fresh,setFresh]=useState(false),[isFriend,setIsFriend]=useState(true);
  const [shared,setShared]=useState<SharedChats>({directId:null,groups:[]}),[streak,setStreak]=useState<StreakState|null>(null),[stories,setStories]=useState(0);
  const [savedRows,setSavedRows]=useState<{total:number;items:SavedPreview[]}>({total:0,items:[]});
+ const [sinceIso,setSinceIso]=useState<string|null>(null),[recentMsgs,setRecentMsgs]=useState<CharmMessage[]>([]),[charm,setCharm]=useState<Charm|null>(null),[loadedAt,setLoadedAt]=useState(0);
  const [notice,setNotice]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const outfits=useFriendOutfits(useMemo(()=>[id],[id]));
  const load=useCallback(async(alive:()=>boolean)=>{if(!id||!me)return;
@@ -38,7 +40,7 @@ export default function FriendProfileScreen(){
   ]);
   if(!alive())return;
   if(pr.error||!pr.data){setNotice(pr.error?friendlyError(pr.error):'Dit profiel bestaat niet (meer).');setLoading(false);return}
-  setP(pr.data as FriendProfile);const friend=!fr.error&&!!fr.data;setIsFriend(friend);{const t=friend&&fr.data?.created_at?Date.parse(fr.data.created_at):NaN;setFresh(Number.isFinite(t)&&Date.now()-t<NEW_FRIEND_MS)}setSince(friend?friendsSinceLabel(fr.data?.created_at,Date.now(),-new Date().getTimezoneOffset()):'Nog geen vrienden');setStories(st.error?0:(st.data||[]).length);
+  setP(pr.data as FriendProfile);const friend=!fr.error&&!!fr.data;setIsFriend(friend);{const t=friend&&fr.data?.created_at?Date.parse(fr.data.created_at):NaN;setFresh(Number.isFinite(t)&&Date.now()-t<NEW_FRIEND_MS)}setLoadedAt(Date.now());setSinceIso(friend?(fr.data?.created_at as string|null)??null:null);setSince(friend?friendsSinceLabel(fr.data?.created_at,Date.now(),-new Date().getTimezoneOffset()):'Nog geen vrienden');setStories(st.error?0:(st.data||[]).length);
   // Shared chats + streak are extras: a failing query must not hide the profile itself.
   const tids=(mine.data||[]).map(x=>x.thread_id as string);
   if(tids.length){
@@ -49,6 +51,9 @@ export default function FriendProfileScreen(){
    const sc=mem.error?{directId:null,groups:[]}:sharedChats(mem.data||[],th.data||[],me,id,u=>nm.get(u)||'Vriend');setShared(sc);
    if(sc.directId){const m=await supabase.from('sx_messages').select('sender_id,kind,created_at').eq('thread_id',sc.directId).eq('kind','snap').order('created_at',{ascending:false}).limit(200);
     if(alive()&&!m.error)setStreak(threadStreak(m.data||[],me,id,Date.now(),-new Date().getTimezoneOffset()))
+    // Charms (Kletskousen / Nachtbrakers): the last 30 days of the 1:1 chat, newest first.
+    const rc=await supabase.from('sx_messages').select('sender_id,kind,created_at').eq('thread_id',sc.directId).gte('created_at',new Date(Date.now()-30*86400000).toISOString()).order('created_at',{ascending:false}).limit(400);
+    if(alive()&&!rc.error)setRecentMsgs((rc.data||[]) as CharmMessage[]);
     // Opslaan in chat: newest saved messages of the 1:1 chat (missing column on an old DB → section stays hidden).
     const sv=await supabase.from('sx_messages').select('id,sender_id,kind,body,saved,created_at').eq('thread_id',sc.directId).eq('saved',true).order('created_at',{ascending:false}).limit(50);
     if(alive()&&!sv.error){const list=(sv.data||[]) as (SaveableMessage&{body:string|null})[];const first=(pr.data?.display_name??'').trim().split(/\s+/)[0];setSavedRows({total:savedCount(list),items:savedPreviews(list,me,first,3,m=>quoteOf({...m,body:m.body}).excerpt)})}}
@@ -68,6 +73,8 @@ export default function FriendProfileScreen(){
  const relation=isFriend?known??(fresh?'new_friend':null):null;
  const chips=[relation?relationLabel(relation,emojiChoices):null,streakChip(streak,emojiFor('streak',emojiChoices),emojiFor('hourglass',emojiChoices)),since].filter((x):x is string=>!!x);
  const groupsTitle=sharedGroupsTitle(shared.groups.length);
+ const charms=useMemo(()=>isFriend&&me?friendCharms({me,friend:id,now:loadedAt,offsetMin:-new Date(loadedAt).getTimezoneOffset(),friendsSince:sinceIso,relation,streak:streak?.count??0,messages:recentMsgs,sharedGroups:shared.groups.length,savedCount:savedRows.total}):[],[isFriend,me,id,loadedAt,sinceIso,relation,streak,recentMsgs,shared.groups.length,savedRows.total]);
+ const charmsHead=charmsTitle(charms.length);
  return <GalaxyScreen>
   <Stack.Screen options={{headerShown:false}}/>
   <View style={[s.header,{paddingTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.canGoBack()?router.back():router.replace('/(tabs)/chats')} accessibilityLabel="Terug" hitSlop={10}><Ionicons name="chevron-back" size={28} color="white"/></Pressable><Text style={s.headerTitle}>Vriendschapsprofiel</Text><View style={{width:28}}/></View>
@@ -83,6 +90,9 @@ export default function FriendProfileScreen(){
     {stories>0&&<Action icon="play-circle" label="Verhaal" onPress={()=>router.push({pathname:'/stories/[owner]',params:{owner:p.id}})}/>}
    </View>
    {!!notice&&<Text style={s.notice}>{notice}</Text>}
+   {charmsHead&&<><Text style={s.section} testID="charms-title">{charmsHead}</Text>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.charmRow} testID="charms">{charms.map(c=><Pressable key={c.id} onPress={()=>setCharm(c)} style={[s.charm,{backgroundColor:c.colors[1],borderColor:c.colors[0]}]} accessibilityLabel={`Charm ${c.title}: ${c.subtitle}`} testID={`charm-${c.id}`}>
+     <View style={[s.charmGlow,{backgroundColor:c.colors[0]}]}/><Text style={s.charmEmoji}>{c.emoji}</Text><Text style={s.charmTitle} numberOfLines={2}>{c.title}</Text><Text style={s.charmSub} numberOfLines={2}>{c.subtitle}</Text></Pressable>)}</ScrollView></>}
    {groupsTitle&&<><Text style={s.section}>{groupsTitle}</Text>
     <View style={s.card}>{shared.groups.map((g,i)=><Pressable key={g.id} onPress={()=>router.push({pathname:'/chat/[id]',params:{id:g.id}})} style={[s.row,i>0&&s.rowLine]} accessibilityLabel={`Open groep ${g.title}`} testID="shared-group"><View style={s.groupIcon}><Ionicons name="people" size={18} color="white"/></View><Text style={s.rowText} numberOfLines={1}>{groupLine(g)}</Text><Ionicons name="chevron-forward" size={18} color="#C7C0CD"/></Pressable>)}</View></>}
    {savedRows.total>0&&shared.directId&&<><Text style={s.section} testID="saved-section">Opgeslagen in chat</Text>
@@ -91,6 +101,17 @@ export default function FriendProfileScreen(){
    <Text style={s.section}>Privacy</Text>
    <View style={s.card}><Pressable onPress={block} style={s.row} accessibilityLabel={`${p.display_name} blokkeren`} testID="friend-block"><Ionicons name="ban" size={20} color="#FF6B6B"/><Text style={[s.rowText,{color:'#FF6B6B'}]}>Blokkeren</Text></Pressable></View>
   </ScrollView>}
+  <Modal visible={!!charm} transparent animationType="fade" onRequestClose={()=>setCharm(null)}>
+   <Pressable style={s.sheetBackdrop} onPress={()=>setCharm(null)} accessibilityLabel="Sluiten" testID="charm-backdrop">
+    {charm&&<Pressable style={[s.sheet,{paddingBottom:insets.bottom+20}]} onPress={()=>{}} testID="charm-sheet">
+     <View style={[s.sheetBadge,{backgroundColor:charm.colors[1],borderColor:charm.colors[0]}]}><Text style={s.sheetEmoji}>{charm.emoji}</Text></View>
+     <Text style={s.sheetTitle}>{charm.title}</Text><Text style={s.sheetSub}>{charm.subtitle}</Text>
+     <Text style={s.sheetText}>{charm.description}</Text>
+     {!!p&&<Text style={s.sheetNote}>Alleen jij en {p.display_name.split(/\s+/)[0]} zien deze charm.</Text>}
+     <Pressable onPress={()=>setCharm(null)} style={s.sheetBtn} accessibilityLabel="Oké" testID="charm-close"><Text style={s.sheetBtnText}>Oké</Text></Pressable>
+    </Pressable>}
+   </Pressable>
+  </Modal>
   {confirm.dialog}
  </GalaxyScreen>;
 }
@@ -106,5 +127,13 @@ const s=StyleSheet.create({
  section:{color:'white',fontSize:19,fontWeight:'800',marginTop:26,marginBottom:10},card:{backgroundColor:'#1A1425CC',borderRadius:18,overflow:'hidden'},
  row:{flexDirection:'row',alignItems:'center',gap:12,paddingHorizontal:14,minHeight:54},rowLine:{borderTopWidth:StyleSheet.hairlineWidth,borderTopColor:'#ffffff22'},rowText:{color:'white',fontSize:16,fontWeight:'600',flex:1},
  groupIcon:{width:32,height:32,borderRadius:16,backgroundColor:'#51427980',alignItems:'center',justifyContent:'center'},
+ charmRow:{gap:10,paddingRight:6},charm:{width:132,minHeight:142,borderRadius:18,borderWidth:1.5,padding:12,overflow:'hidden',justifyContent:'flex-end'},
+ charmGlow:{position:'absolute',top:-40,right:-40,width:110,height:110,borderRadius:55,opacity:.55},charmEmoji:{fontSize:34,position:'absolute',top:12,left:12},
+ charmTitle:{color:'white',fontSize:15,fontWeight:'800'},charmSub:{color:'#FFFFFFD0',fontSize:12,fontWeight:'600',marginTop:2},
+ sheetBackdrop:{flex:1,backgroundColor:'#000000AA',justifyContent:'flex-end'},sheet:{backgroundColor:'#1A1425',borderTopLeftRadius:26,borderTopRightRadius:26,paddingHorizontal:24,paddingTop:26,alignItems:'center'},
+ sheetBadge:{width:96,height:96,borderRadius:48,borderWidth:2,alignItems:'center',justifyContent:'center'},sheetEmoji:{fontSize:50},
+ sheetTitle:{color:'white',fontSize:22,fontWeight:'800',marginTop:14},sheetSub:{color:'#C7C0CD',fontSize:15,fontWeight:'700',marginTop:4},
+ sheetText:{color:'white',fontSize:16,textAlign:'center',lineHeight:22,marginTop:14},sheetNote:{color:'#9C93A6',fontSize:13,textAlign:'center',marginTop:12},
+ sheetBtn:{backgroundColor:purple,borderRadius:24,alignSelf:'stretch',alignItems:'center',paddingVertical:14,marginTop:22},sheetBtnText:{color:'white',fontSize:16,fontWeight:'800'},
  muted:{color:'#C7C0CD',textAlign:'center',marginTop:40},notice:{color:'#FFE436',textAlign:'center',marginTop:12},
 });
