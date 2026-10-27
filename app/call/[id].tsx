@@ -1,13 +1,21 @@
 import React,{useEffect,useReducer,useState} from 'react';
-import {Pressable,StyleSheet,Text,View} from 'react-native';
+import {Platform,Pressable,StyleSheet,Text,View} from 'react-native';
 import {Stack,router,useLocalSearchParams} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {C} from '../../lib/theme';
 import {callStatusText,nextCallState,type CallEvent,type CallState} from '../../lib/chat-features';
+import {DEMO_MODE} from '../../lib/supabase';
+import {isUuid} from '../../lib/chat-ids';
+import RealCall from '../../components/call/RealCall';
 
-/** Video call screen — UI ONLY (mock). There is no WebRTC/SFU backend yet: nothing is transmitted.
- *  `state` param lets the dev harness open a fixed state (ringing|connecting|active|ended). */
+/** Video call screen. On iOS/Android (real backend) this is a real 1:1 WebRTC call (components/call/RealCall.native.tsx).
+ *  On web, in demo mode, or from the dev harness (`state` param / id 'demo') it shows the mock below. */
 export default function CallScreen(){
+  const p=useLocalSearchParams<{id:string;name?:string;state?:CallState;role?:string;callId?:string;peer?:string}>();
+  if(Platform.OS!=='web'&&!DEMO_MODE&&!p.state&&isUuid(p.id))return <><Stack.Screen options={{headerShown:false,gestureEnabled:false}}/><RealCall threadId={p.id} name={p.name||'Vriend'} role={p.role==='callee'?'callee':'caller'} callId={p.callId} peerId={p.peer}/></>;
+  return <DemoCall/>;
+}
+function DemoCall(){
   const {name='Vriend',state:initial}=useLocalSearchParams<{id:string;name?:string;state?:CallState}>();
   const insets=useSafeAreaInsets();
   const [state,dispatch]=useReducer((s:CallState,e:CallEvent)=>nextCallState(s,e),(initial as CallState)||'ringing');
