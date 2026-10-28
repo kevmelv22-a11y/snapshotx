@@ -29,6 +29,8 @@ export type WardrobeItem = {
   colors: string[];
   preview: ItemPreview;
   featured?: boolean;
+  /** Staff-only item: only users with one of these staff roles see/wear it (lib/avatar/staffWardrobe). */
+  staffRoles?: readonly ('MODERATOR' | 'SENIOR MODERATOR' | 'ADMIN' | 'OWNER')[];
 };
 
 export type Outfit = {

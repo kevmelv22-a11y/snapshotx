@@ -19,6 +19,8 @@ import { AppearancePicker } from '../../components/avatar/AppearancePicker';
 import { ITEM_ART } from '../../components/avatar/itemArt';
 import { useSession } from '../../hooks/useSession';
 import { useWardrobeSync } from '../../hooks/useWardrobeSync';
+import { useStaffRoles } from '../../hooks/useStaffRoles';
+import { canUseItem, isStaffItem, stripStaffItems, visibleItems } from '../../lib/avatar/staffWardrobe';
 import {
   CATEGORIES, DEFAULT_HAIR, DEFAULT_OUTFIT, applyLook, defaultOutfitFor, formatPriceCents, isFree, isOwned, itemsForTab, recolor, removeLayer, unownedItems, wearItem,
   type CategoryTab, type Gender, type Layer, type Outfit, type OutfitHistory, type SortMode, type WardrobeCategory, type WardrobeItem,
@@ -56,6 +58,9 @@ export default function WardrobeScreen() {
   const history = useWardrobe(s => s.history);
   const unlocked = useWardrobe(s => s.unlocked);
   const outfit = history.present;
+  // Staff-only clothing: listed and wearable only with a matching staff role (same roles as the staff console).
+  const { roles: staffRoles, loading: rolesLoading } = useStaffRoles();
+  const items = useMemo(() => visibleItems(WARDROBE_ITEMS, staffRoles), [staffRoles]);
   const [ready, setReady] = useState(() => useWardrobe.persist.hasHydrated());
   const [tab, setTab] = useState<SheetTab>('kast');
   const [category, setCategory] = useState<CategoryTab>('top');
@@ -81,6 +86,12 @@ export default function WardrobeScreen() {
     return useWardrobe.persist.onFinishHydration(start);
   }, []);
   useWardrobeSync(uid, { force: true });
+  // A staff item in the outfit without the role (e.g. role revoked, or synced from another account state) is taken off.
+  useEffect(() => {
+    if (!ready || rolesLoading) return;
+    const next = stripStaffItems(outfit, WARDROBE_ITEMS, staffRoles);
+    if (next !== outfit) useWardrobe.getState().apply(next);
+  }, [ready, rolesLoading, staffRoles, outfit]);
 
   const sheetH = Math.round(winH * 0.49);
   const stageH = winH - sheetH;
@@ -96,10 +107,10 @@ export default function WardrobeScreen() {
   void swatchesFor;
   const activeColor = activeLayer === 'hair' ? (outfit.colors.hair ?? DEFAULT_HAIR) : activeItem ? (outfit.colors[activeItem.category] ?? activeItem.colors[0]) : null;
 
-  const data = useMemo(() => itemsForTab(WARDROBE_ITEMS, category, { onlyFree, sort }), [category, onlyFree, sort]);
+  const data = useMemo(() => itemsForTab(items, category, { onlyFree, sort }), [items, category, onlyFree, sort]);
   const modeData = useMemo(() => modeFilter === 'featured'
-    ? WARDROBE_ITEMS.filter(i => i.featured)
-    : WARDROBE_ITEMS.filter(i => !isFree(i)).sort((a, b) => (b.priceCents ?? 0) - (a.priceCents ?? 0)), [modeFilter]);
+    ? items.filter(i => i.featured)
+    : items.filter(i => !isFree(i)).sort((a, b) => (b.priceCents ?? 0) - (a.priceCents ?? 0)), [items, modeFilter]);
 
   const showChips = tab === 'kast' && CHIP_CATEGORIES.includes(category);
   const chipLayer = category as WardrobeCategory;
@@ -123,9 +134,10 @@ export default function WardrobeScreen() {
   }, [pending, react]);
 
   const onItem = useCallback((item: WardrobeItem) => {
+    if (!canUseItem(item, staffRoles)) return; // staff-only item without the role: never equipped
     setLastLayer(item.category);
     preview(o => wearItem(o, item), (_n, owned) => isOwned(item, owned) ? [] : [item], 'Item kopen', () => item.name);
-  }, [preview]);
+  }, [preview, staffRoles]);
 
   const onLook = useCallback((look: CuratedLook) => {
     setLastLayer(null);
@@ -322,6 +334,7 @@ const ItemCard = React.memo(function ItemCard({ item, width, height, selected, c
         <CardGlow width={inner} height={imgH}/>
         <ItemThumb item={item} color={color} width={inner} height={imgH}/>
         {!owned && <View style={s.euro}><Text style={s.euroText}>€</Text></View>}
+        {isStaffItem(item) && <View style={s.staffTag} testID={`staff-item:${item.id}`}><Ionicons name="shield-checkmark" size={10} color="#111"/><Text style={s.staffTagText}>STAFF</Text></View>}
       </View>
       <BrandLabel brand={item.brand}/>
     </View>
@@ -353,6 +366,7 @@ const BRAND_STYLE: Record<string, object> = {
   'klompz': { fontWeight: '900', fontStyle: 'italic' },
   'Festive Fashion': { fontFamily: SERIF, fontStyle: 'italic' },
   'FLITS CREW': { fontWeight: '900', letterSpacing: 0.4, fontSize: 10 },
+  'SnapShot X Staff': { fontWeight: '900', letterSpacing: 0.6, fontSize: 9.5, color: '#E8C766' },
   'VERLENGING': { fontWeight: '900', fontStyle: 'italic', letterSpacing: 0.8 },
 };
 
@@ -538,6 +552,8 @@ const s = StyleSheet.create({
   card: { flex: 1, borderRadius: 12, backgroundColor: '#1C1C1E', overflow: 'hidden' },
   euro: { position: 'absolute', right: 6, bottom: 4, width: 21, height: 21, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.78)', alignItems: 'center', justifyContent: 'center' },
   euroText: { color: '#FFF', fontSize: 12, fontWeight: '800', marginTop: -1 },
+  staffTag: { position: 'absolute', left: 5, top: 5, flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 7, backgroundColor: '#E8C766' },
+  staffTagText: { color: '#111', fontSize: 8.5, fontWeight: '900', letterSpacing: 0.6 },
   brand: { color: '#9A9AA0', fontSize: 11.5, textAlign: 'center', height: 28, lineHeight: 26, paddingHorizontal: 4 },
   empty: { color: '#8E8E93', textAlign: 'center', marginTop: 30, fontSize: 14 },
   avatarPanel: { paddingHorizontal: 12, paddingTop: 12 },

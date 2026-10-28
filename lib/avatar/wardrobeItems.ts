@@ -9,6 +9,8 @@ import type { CategoryTab, HairStyle, Layer, WardrobeCategory, WardrobeItem } fr
 
 export type { WardrobeItem } from './outfit';
 
+import { STAFF_OUTFIT_ROLES } from './staffWardrobe';
+
 const item = (id: string, category: WardrobeCategory, brand: string, name: string, priceCents: number | null, colors: string[], preview: WardrobeItem['preview'], featured = false): WardrobeItem =>
   ({ id, category, brand, name, priceCents, colors, preview, featured });
 
@@ -159,6 +161,10 @@ export const WARDROBE_ITEMS: WardrobeItem[] = [
   item('top-ploeg-burgundy-knit', 'top', 'Ploeg & Co', 'Bordeaux kabeltrui', null, ['#6E1A24', '#4A1018'], { variant: 'crew' }),
   item('outer-trivo-windbreaker', 'outerwear', 'trivo', 'Retro windjack', null, ['#1E2B4F', '#F07A1E', '#FFFFFF'], { variant: 'zip' }),
   item('top-kast-lilac-sweater', 'top', 'Kast Studio', 'Lila sweater', null, ['#B9A6EE', '#9C88D9'], { variant: 'crew' }),
+  // ---- staff-only (admin / owner / moderator); hidden from everyone else, see lib/avatar/staffWardrobe
+  { ...item('top-staff-owner-jersey', 'top', 'SnapShot X Staff', 'Owner staffshirt', null, ['#111113', '#D4AF37'], { variant: 'tee' }, false), staffRoles: STAFF_OUTFIT_ROLES.owner },
+  { ...item('top-staff-admin-jersey', 'top', 'SnapShot X Staff', 'Admin staffshirt', null, ['#1C3FA0', '#C9CED6'], { variant: 'tee' }, false), staffRoles: STAFF_OUTFIT_ROLES.admin },
+  { ...item('top-staff-mod-jersey', 'top', 'SnapShot X Staff', 'Moderator staffshirt', null, ['#4B1F8F', '#FFFFFF'], { variant: 'tee' }, false), staffRoles: STAFF_OUTFIT_ROLES.mod },
   item('glasses-trivo-sport', 'glasses', 'trivo', 'Sportzonnebril', 99, ['#FF5B95'], { variant: 'shades' }),
 ];
 

@@ -327,6 +327,10 @@ export class DemoClient {
       if (meta) { Object.assign(this.meta, meta); Object.assign(this.m.profile(ME) ?? {}, { gender: meta.gender === 'female' ? 'female' : 'male', ...(meta.display_name ? { display_name: meta.display_name } : {}), ...(meta.username ? { username: meta.username } : {}) }); }
       if (globalThis.localStorage?.getItem('sx-demo-signed-in') === '1') this.session = this.makeSession();
     } catch {}
+    // Demo-only staff role of the signed-in demo user (default: owner, as seeded). sx-demo-meta.demo_staff_role =
+    // 'none' | 'mod' | 'admin' | 'owner' (used to preview staff-only wardrobe items as a normal user / per role).
+    const role = { none: null, mod: 'r0', admin: 'r2', owner: 'r3' }[String(this.meta.demo_staff_role ?? 'owner') as 'none'];
+    if (role !== undefined) this.m.t.user_roles = [...this.m.table('user_roles').filter(r => r.user_id !== ME), ...(role ? [{ user_id: ME, role_id: role }] : [])];
     if (this.faults.noProfile) this.m.t.profiles = this.m.t.profiles.filter(p => p.id !== ME);
   }
   private makeSession(): Row {
