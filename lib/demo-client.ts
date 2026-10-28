@@ -153,7 +153,19 @@ function seedDemo(m: StaffMock) {
     opened(waiting.id, ME, 27 * H); opened(waiting.id, I.aria, 26 * H);
     opened(mineGone.id, I.aria, 25.9 * H); opened(mineGone.id, I.eva, 25.5 * H); opened(mineGone.id, I.cleo, 25 * H);
     opened(counting.id, ME, 5.5 * H); opened(counting.id, I.aria, 5 * H); opened(counting.id, I.eva, 5 * H);
-    opened(mineWaiting.id, I.aria, 2 * H); }
+    opened(mineWaiting.id, I.aria, 2 * H);
+    // Newest row = a "Na bekijken" chat everyone opened 50 min ago → gone (server: 10 min after the last view). The chat
+    // list must not show it as the preview / time any more (Snapchat): the row falls back to Kevin's "lift" chat.
+    const seen = { ...msg(T.fest, I.eva, 'Zie je zo bij de ingang 👋', 1 * H), retention_mode: 'after_view', expires_at: iso(-40 * 60e3) };
+    m.t.sx_messages.push(seen); opened(seen.id, ME, 0.9 * H); opened(seen.id, I.aria, 0.85 * H); opened(seen.id, I.cleo, 0.83 * H); }
+  // Weekend crew (Kevin = admin): two older chats on "24 uur na bekijken" that everyone EXCEPT Noor opened ~28 h ago.
+  // They wait for Noor (Snapchat: deleted 24 h after everyone viewed). Removing Noor completes "everyone viewed" at that
+  // moment → both show "Nog 23 u" (before the fix they vanished instantly, the timer counted from the old views).
+  { const auto = { ...msg(T.crew, ME, 'Wie heeft er zaterdag een auto? 🚗', 30 * H), retention_mode: '24h', expires_at: iso(31 * D - 30 * H) };
+    const parasol = { ...msg(T.crew, I.eva, 'Ik neem de parasol mee ⛱️', 29.5 * H), retention_mode: '24h', expires_at: iso(31 * D - 29.5 * H) };
+    m.t.sx_messages.push(msg(T.crew, ME, retentionChangeText('Kevin', '24h'), 31 * H, 'system'), auto, parasol, msg(T.crew, ME, retentionChangeText('Kevin', 'keep'), 4 * H, 'system'));
+    opened(auto.id, I.eva, 29 * H); opened(auto.id, I.cleo, 28.5 * H); opened(auto.id, I.aria, 28 * H);
+    opened(parasol.id, ME, 29 * H); opened(parasol.id, I.cleo, 28.5 * H); opened(parasol.id, I.aria, 28 * H); }
   // Kevin already read Eva's chats (Ontvangen), Eva read his (Geopend).
   m.t.sx_messages.filter(x => x.thread_id === T.eva && x.kind === 'text').forEach(x => opened(x.id, x.sender_id === ME ? I.eva : ME, 19 * H));
   m.t.sx_highlight_likes = []; m.t.sx_highlight_shares = [];
@@ -487,6 +499,7 @@ export class DemoClient {
       const gone = this.m.table('sx_members').filter(x => x.thread_id === t.id && x.user_id === target);
       this.m.t.sx_members = this.m.table('sx_members').filter(x => !gone.includes(x));
       gone.forEach(r => this.emit('sx_members', 'DELETE', r));
+      this.retentionAfterLeave(t.id, target);
       Object.assign(t, { is_group: true, member_count: this.memberIds(t.id).length });
       return null;
     },
@@ -503,6 +516,7 @@ export class DemoClient {
       const t = this.lockGroup(a.p_thread_id);
       this.groupLine(t.id, groupLeaveText(this.nameOf(ME)));
       this.m.t.sx_members = this.m.table('sx_members').filter(x => !(x.thread_id === t.id && x.user_id === ME));
+      this.retentionAfterLeave(t.id, ME);
       const rest = this.memberIds(t.id);
       if (!rest.length) this.m.t.sx_threads = this.m.table('sx_threads').filter(x => x.id !== t.id);
       else Object.assign(t, { is_group: true, member_count: rest.length, ...(t.created_by === ME ? { created_by: rest[0] } : {}) });
@@ -538,6 +552,21 @@ export class DemoClient {
     if (option === null) return;
     const row = { message_id: messageId, user_id: userId, option_index: option, created_at: this.m.iso() };
     this.m.table('sx_poll_votes').push(row); this.emit('sx_poll_votes', 'INSERT', row);
+  }
+  /** Mirrors app_private.sx_retention_after_leave (20261028120000_retention_after_leave.sql): a member who leaves / is
+   *  removed without having opened a chat was the last one "everyone" waited for → its timer starts now (never past the 31-day cap). */
+  private retentionAfterLeave(threadId: unknown, leaver: string) {
+    const t = this.m.table('sx_threads').find(x => x.id === threadId), members = this.memberIds(threadId), receipts = this.m.table('sx_receipts'), now = Date.now();
+    const opened = (id: unknown, u: string) => receipts.some(r => r.message_id === id && r.user_id === u && r.opened_at);
+    for (const msg of this.m.table('sx_messages')) {
+      if (msg.thread_id !== threadId || msg.kind === 'snap' || msg.kind === 'system' || msg.saved || msg.sender_id === leaver || opened(msg.id, leaver)) continue;
+      const mode = parseRetention(msg.retention_mode ?? t?.retention_mode);
+      const others = members.filter(u => u !== msg.sender_id);
+      if (mode === 'keep' || !others.length || !others.every(u => opened(msg.id, u))) continue;
+      const cap = unopenedChatDeadline(Date.parse(String(msg.created_at)) || now);
+      msg.expires_at = new Date(Math.min(cap, now + (mode === 'after_view' ? 10 * 60e3 : 24 * H))).toISOString();
+      this.emit('sx_messages', 'UPDATE', msg);
+    }
   }
   private memberIds(threadId: unknown) { return this.m.table('sx_members').filter(x => x.thread_id === threadId).map(x => String(x.user_id)); }
   private nameOf(u: string) { const p = this.m.profile(u); return String(p?.display_name || p?.username || 'Iemand'); }

@@ -91,22 +91,54 @@ export function receiptIndex(receipts: readonly ReceiptRow[]): Record<string, Re
 }
 /** Moment EVERY member except the sender had opened the message (= latest of their first opens), or null while
  *  someone hasn't. Members who left are not waited for. A chat with no other members never starts a timer. */
-export function everyoneViewedAt(senderId: string, memberIds: readonly string[], opens: Readonly<Record<string, number>> | undefined): number | null {
+export function everyoneViewedAt(senderId: string, memberIds: readonly string[], opens: Readonly<Record<string, number>> | undefined, sentAt: number | null = null, leaves: readonly LeaveEvent[] = []): number | null {
   const others = [...new Set(memberIds)].filter(u => u !== senderId);
   if (!others.length || !opens) return null;
   let last = -Infinity;
   for (const u of others) { const t = opens[u]; if (t === undefined) return null; last = Math.max(last, t); }
+  // Members who left after the chat was sent: a viewer counts with their view; someone who left WITHOUT viewing it
+  // completed "everyone viewed" only at the moment they left → the timer starts then (not at an older view, which
+  // made the chat vanish the instant a member left). Unknown leavers (name not resolvable) count as unviewed (later = safe).
+  const current = new Set(others);
+  for (const l of leaves) {
+    if (sentAt === null || l.at < sentAt || l.userId === senderId || (l.userId !== null && current.has(l.userId))) continue;
+    const viewed = l.userId === null ? undefined : opens[l.userId];
+    last = Math.max(last, viewed !== undefined && viewed <= l.at ? viewed : l.at);
+  }
   return last;
+}
+
+/** A member leaving ("X heeft de groep verlaten", sender = the leaver) or being removed ("A heeft X uit de groep verwijderd"). */
+export type LeaveEvent = { at: number; userId: string | null };
+const LEAVE_RE = /^(.+) heeft de groep verlaten$/, REMOVE_RE = /^.+? heeft (.+) uit de groep verwijderd$/;
+/** Leave / remove events from the thread's system lines. `idOfName` resolves a removed member's display name (null = unknown). */
+export function leaveEvents(rows: readonly Pick<RetentionRow, 'kind' | 'body' | 'created_at' | 'sender_id'>[], idOfName: (name: string) => string | null): LeaveEvent[] {
+  const out: LeaveEvent[] = [];
+  for (const r of rows) {
+    if (r.kind !== 'system' || !r.body) continue;
+    const at = Date.parse(r.created_at); if (!Number.isFinite(at)) continue;
+    if (LEAVE_RE.test(r.body)) { out.push({ at, userId: r.sender_id ?? idOfName(r.body.match(LEAVE_RE)![1]) }); continue; }
+    const m = r.body.match(REMOVE_RE); if (m) out.push({ at, userId: idOfName(m[1]) });
+  }
+  return out;
+}
+
+/** Name → id over known people; ambiguous names (two people called "Tim") resolve to null. */
+export function nameResolver(people: readonly { id: string; name: string | null | undefined }[]): (name: string) => string | null {
+  const map = new Map<string, string | null>();
+  for (const p of people) { const n = p.name?.trim(); if (!n) continue; map.set(n, map.has(n) && map.get(n) !== p.id ? null : p.id); }
+  return name => map.get(name.trim()) ?? null;
 }
 /** Deletion-timer start for every non-system message: everyone viewed (from the receipts), with `ownViews` (receipts
  *  just written optimistically by this device) merged in for `me`. Messages nobody finished viewing are absent. */
-export function timerStarts(rows: readonly Pick<RetentionRow, 'id' | 'kind' | 'sender_id'>[], memberIds: readonly string[], idx: Readonly<Record<string, Record<string, number>>>, me: string, ownViews: Readonly<Record<string, number>> = {}): Record<string, number> {
+export function timerStarts(rows: readonly Pick<RetentionRow, 'id' | 'kind' | 'sender_id' | 'created_at'>[], memberIds: readonly string[], idx: Readonly<Record<string, Record<string, number>>>, me: string, ownViews: Readonly<Record<string, number>> = {}, leaves: readonly LeaveEvent[] = []): Record<string, number> {
   const out: Record<string, number> = {};
   for (const r of rows) {
     if (r.kind === 'system' || !r.sender_id) continue;
     const opens = { ...(idx[r.id] ?? {}) };
     if (ownViews[r.id] !== undefined && opens[me] === undefined) opens[me] = ownViews[r.id];
-    const t = everyoneViewedAt(r.sender_id, memberIds, opens);
+    const sent = Date.parse(r.created_at);
+    const t = everyoneViewedAt(r.sender_id, memberIds, opens, Number.isFinite(sent) ? sent : null, leaves);
     if (t !== null) out[r.id] = t;
   }
   return out;
@@ -116,4 +148,15 @@ export function timerStarts(rows: readonly Pick<RetentionRow, 'id' | 'kind' | 's
 export function isVisibleForEveryone(row: RetentionRow, mode: RetentionMode, timerStart: number | null, now: number, sessionStart: number): boolean {
   if (row.kind === 'system') return true;
   return isVisibleAsSent(row, mode, timerStart, now, timerStart !== null && timerStart < sessionStart ? sessionStart : null);
+}
+
+/** Chat list (Snapchat): a row's preview / status / unread dot / time only use chats that still exist for you — the same
+ *  rules as the chat screen (sent-with mode, everyone viewed incl. members who left, server expiry, 31-day cap).
+ *  Before this the list used the newest row even when it had already disappeared ("Nieuwe chat" for a vanished chat).
+ *  Snaps and system lines keep their own (status) rules. Opening the list counts as having left any "Na bekijken" chat. */
+export function listVisibleRows<T extends RetentionRow>(rows: readonly T[], threadMode: RetentionMode, memberIds: readonly string[], receipts: readonly ReceiptRow[], me: string, now: number, idOfName: (name: string) => string | null = () => null): T[] {
+  const modes = sentModes(rows, threadMode);
+  const leaves = leaveEvents(rows, idOfName);
+  const starts = timerStarts(rows.filter(r => r.kind !== 'snap'), memberIds, receiptIndex(receipts), me, {}, leaves);
+  return rows.filter(r => r.kind === 'system' || r.kind === 'snap' || isVisibleForEveryone(r, modes[r.id] ?? threadMode, starts[r.id] ?? null, now, now));
 }

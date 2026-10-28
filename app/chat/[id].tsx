@@ -23,7 +23,7 @@ import {useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {FriendAvatar} from '../../components/avatar/FriendAvatar';
 import {AvatarStickerSheet,ChatAvatarSticker} from '../../components/avatar/AvatarStickerSheet';
 import {chatStickerBody,stickerFromChatBody} from '../../lib/avatar/poses';
-import {isVisibleAsSent,isVisibleForEveryone,pendingOldTimers,receiptIndex,sentModes,timerStarts,type ReceiptRow} from '../../lib/chat-retention';
+import {isVisibleAsSent,isVisibleForEveryone,leaveEvents,nameResolver,pendingOldTimers,receiptIndex,sentModes,timerStarts,type ReceiptRow} from '../../lib/chat-retention';
 import {VOICE_MAX_MS,activeTypers,applyTyping,computeStreak,keepRecording,meterLevel,parseRetention,retentionChangeText,screenshotText,shouldReportScreenshot,shouldSendTyping,toggleReaction,typingText,type Reaction,type RetentionMode,type TypingMap} from '../../lib/chat-features';
 
 import {friendlyError} from '../../lib/db-errors';
@@ -51,6 +51,8 @@ export default function Chat(){
  const [rows,setRows]=useState<Message[]>([]),[body,setBody]=useState(''),[notice,setNotice]=useState(id?'':'Deze chat kon niet worden geopend.'),[busy,setBusy]=useState(false),[opened,setOpened]=useState<Record<string,boolean>>({});
  const [retention,setRetention]=useState<RetentionMode>('24h'),[retentionOpen,setRetentionOpen]=useState(false);
  const [threadReceipts,setThreadReceipts]=useState<ReceiptRow[]>([]);
+ // Names of people with receipts here (also members who left): resolves "A heeft X uit de groep verwijderd" to X's id.
+ const [receiptNames,setReceiptNames]=useState<{id:string;name:string}[]>([]);
  const [viewedAt,setViewedAt]=useState<Record<string,number>>({}),[reactions,setReactions]=useState<Reaction[]>([]);
  // Peilingen: votes on poll messages in this thread (needs migration 20261027150000_chat_polls.sql on a real backend).
  const [votes,setVotes]=useState<PollVote[]>([]),[pollOpen,setPollOpen]=useState(false);
@@ -67,7 +69,7 @@ export default function Chat(){
   if(outgoing.length){const r=await supabase.from('sx_receipts').select('message_id,opened_at').in('message_id',outgoing).neq('user_id',uid);if(!r.error)setPeerOpened(new Set((r.data||[]).filter(x=>x.opened_at).map(x=>x.message_id)))}
   // Snapchat: the deletion timer starts once EVERYONE has viewed a chat → read every member's receipt (RLS sx_receipts_read allows members).
   const chats=list.filter(m=>m.kind!=='system'&&m.kind!=='snap').map(m=>m.id);
-  if(chats.length){const r=await supabase.from('sx_receipts').select('message_id,user_id,opened_at').in('message_id',chats);if(!r.error)setThreadReceipts((r.data||[]) as ReceiptRow[])}
+  if(chats.length){const r=await supabase.from('sx_receipts').select('message_id,user_id,opened_at').in('message_id',chats);if(!r.error){const rs=(r.data||[]) as ReceiptRow[];setThreadReceipts(rs);const who=[...new Set(rs.map(x=>x.user_id))];const p=who.length?await supabase.from('profiles').select('id,display_name').in('id',who):null;if(p&&!p.error)setReceiptNames((p.data||[]).map(x=>({id:x.id as string,name:String(x.display_name??'')})))}}
   // Reactions need migration 20261013150000_chat_step4.sql; without it the query errors and reactions stay empty.
   const ids=list.map(m=>m.id);if(ids.length){const r=await supabase.from('sx_reactions').select('message_id,user_id,emoji').in('message_id',ids);if(!r.error)setReactions((r.data||[]).map(x=>({messageId:x.message_id,userId:x.user_id,emoji:x.emoji})))}
   const polls=list.filter(m=>m.kind==='text'&&parsePoll(m.body)).map(m=>m.id);if(polls.length){const v=await supabase.from('sx_poll_votes').select('message_id,user_id,option_index').in('message_id',polls);if(!v.error)setVotes((v.data||[]).map(x=>({messageId:x.message_id,userId:x.user_id,option:Number(x.option_index)})))}
@@ -108,7 +110,9 @@ export default function Chat(){
  // Snapchat: "deleted 24 hours after EVERYONE in the conversation has viewed the Chat … or 31 days after it was sent".
  // The timer starts at the last member's view (not yours), for your own chats too; snaps keep their own (status line) rules.
  const memberIds=useMemo(()=>members.length?members.map(m=>m.id):[uid,...peers.map(p=>p.id)],[members,peers,uid]);
- const starts=useMemo(()=>timerStarts(rows.filter(m=>m.kind!=='snap'),memberIds,receiptIndex(threadReceipts),uid,viewedAt),[rows,memberIds,threadReceipts,uid,viewedAt]);
+ // A member who leaves / is removed without viewing completes "everyone viewed" at that moment → the 24 h starts then (lib/chat-retention.ts leaveEvents).
+ const leaves=useMemo(()=>leaveEvents(rows,nameResolver([...receiptNames,...members])),[rows,receiptNames,members]);
+ const starts=useMemo(()=>timerStarts(rows.filter(m=>m.kind!=='snap'),memberIds,receiptIndex(threadReceipts),uid,viewedAt,leaves),[rows,memberIds,threadReceipts,uid,viewedAt,leaves]);
  const visible=useMemo(()=>rows.filter(m=>m.kind==='system'||(m.kind==='snap'?m.sender_id===uid||isVisibleAsSent(m,sentWith[m.id]??retention,viewedAt[m.id]??null,now,viewedAt[m.id]!==undefined&&viewedAt[m.id]<sessionStart?sessionStart:null):isVisibleForEveryone(m,sentWith[m.id]??retention,starts[m.id]??null,now,sessionStart))),[rows,uid,retention,sentWith,viewedAt,starts,now,sessionStart]);
  const oldTimers=useMemo(()=>pendingOldTimers(visible,sentWith,retention),[visible,sentWith,retention]);
  const streak=useMemo(()=>computeStreak(rows.filter(m=>m.kind==='snap').map(m=>({senderId:m.sender_id,at:Date.parse(m.created_at)})),uid,peers.length===1?peers[0].id:'',now,-new Date().getTimezoneOffset()),[rows,uid,peers,now]);
