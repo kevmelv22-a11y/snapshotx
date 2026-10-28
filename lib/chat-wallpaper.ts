@@ -54,6 +54,21 @@ export function photoWallpaperChange(current: { id: ChatWallpaperId; photo: Phot
   return { ok: true, photo: { path: next.path, blur: next.blur }, line: samePath ? null : photoWallpaperText(name) };
 }
 
+/** Clean-up (Snapchat keeps no stray uploads): when a photo wallpaper is replaced (new photo / preset / removed), the OLD photo
+ *  is deleted from storage, but only by its uploader (own folder; storage policy 20261028210000, NOT applied) and never when
+ *  the next wallpaper is that same photo (blur toggle). Returns the path to delete, or null. */
+export function staleWallpaperPhoto(prev: PhotoWallpaper | null | undefined, nextPath: string | null | undefined, me: string): string | null {
+  if (!prev || !me || !isPhotoWallpaperPath(prev.path) || prev.path === nextPath) return null;
+  return prev.path.split('/')[0].toLowerCase() === me.toLowerCase() ? prev.path : null;
+}
+
+/** Mirrors policy sx_media_wallpaper_delete (20261028210000): own folder and no longer used by any chat wallpaper,
+ *  chat message, story or memory, so a cleanup can never break media someone can still see. */
+export function canDeleteOwnMedia(path: string, me: string, refs: { wallpapers: unknown[]; media: unknown[] }): boolean {
+  if (!me || typeof path !== 'string' || path.split('/')[0].toLowerCase() !== me.toLowerCase()) return false;
+  return !refs.wallpapers.includes(path) && !refs.media.includes(path);
+}
+
 export const WALLPAPER_IDS: readonly WallpaperId[] = WALLPAPERS.map(w => w.id);
 
 /** Unknown / null / old values → 'none' (the normal chat background). */

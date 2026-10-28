@@ -23,6 +23,11 @@ export async function uploadMedia(uri:string, type:'photo'|'video'|'voice') {
   if (error) throw error;
   return path;
 }
+/** Best-effort delete of my own uploads (e.g. a replaced chat wallpaper photo); never throws, returns true when removed. */
+export async function removeMedia(paths:string[]) {
+  if(!paths.length) return false;
+  try { const {error}=await supabase.storage.from(BUCKET).remove(paths); return !error; } catch { return false; }
+}
 export async function mediaUrl(path:string, ttl=300) {
   const {data,error}=await supabase.storage.from(BUCKET).createSignedUrl(path, ttl);
   if(error) throw error;

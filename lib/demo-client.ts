@@ -14,7 +14,7 @@ import { POLL_ERRORS, parsePoll, pollBody, validateVote } from './chat-polls';
 import { FORWARD_ERRORS, FORWARD_MAX_TARGETS, canForward, forwardBody, forwardExpiry } from './chat-forward';
 import { MEDIA_ERRORS, canReadMedia } from './media-access';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, canRemoveMember, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, groupRightsText, isGroupThread, normalizeGroupTitle } from './group-chat';
-import { WALLPAPER_ERRORS, WALLPAPER_IDS, isPhotoWallpaperPath, wallpaperChangeText } from './chat-wallpaper';
+import { WALLPAPER_ERRORS, WALLPAPER_IDS, canDeleteOwnMedia, isPhotoWallpaperPath, wallpaperChangeText } from './chat-wallpaper';
 
 type Err = { message: string; code?: string; details?: string };
 type Res = { data: unknown; error: Err | null; count?: number | null };
@@ -415,7 +415,7 @@ export class DemoClient {
       this.m.table('sx_messages').push(row); this.emit('sx_messages', 'INSERT', row); return null;
     },
     // Mirrors public.sx_set_wallpaper_photo (20261028180000_chat_wallpaper_photo.sql): member + own uploaded "<uid>/<uuid>.jpg";
-    // only the blur changed = no line; same photo + blur = no-op. X+ is checked client-side in the demo.
+    // only the blur changed = no line; same photo + blur = no-op. Open to every member (no X+).
     sx_set_wallpaper_photo: a => {
       if (!this.memberIds(String(a.p_thread_id)).includes(ME)) throw new Error(WALLPAPER_ERRORS.notMember);
       const path = String(a.p_path ?? ''), blur = a.p_blur === true;
@@ -645,7 +645,15 @@ export class DemoClient {
           return { data: null, error: { message: MEDIA_ERRORS.gone, code: '403' } };
         return { data: { signedUrl: this.uploads[path] || artUrl(path) }, error: null };
       },
-      remove: async (paths: string[]) => ({ data: paths.map(name => ({ name })), error: null }),
+      // Mirrors storage policy sx_media_wallpaper_delete (20261028210000, NOT applied): only my own, no longer used uploads;
+      // like Supabase, objects the policy hides are silently skipped (data lists what was really removed).
+      remove: async (paths: string[]) => {
+        const refs = { wallpapers: this.m.table('sx_threads').map(t => t.wallpaper_path),
+          media: [...this.m.table('sx_messages').map(x => x.media_path), ...this.m.table('sx_stories').map(x => x.media_path), ...this.m.table('memories').map(x => x.storage_path)] };
+        const gone = paths.filter(p => p in this.uploads && canDeleteOwnMedia(p, ME, refs));
+        for (const p of gone) { try { if (this.uploads[p]) URL.revokeObjectURL(this.uploads[p]); } catch {} delete this.uploads[p]; }
+        return { data: gone.map(name => ({ name })), error: null };
+      },
     }),
   };
   functions = { invoke: async (_name: string, _o?: unknown) => ({ data: { ok: true }, error: null }) };

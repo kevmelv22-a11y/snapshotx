@@ -8,7 +8,7 @@ import * as ScreenCapture from 'expo-screen-capture';
 import {AudioModule,RecordingPresets,setAudioModeAsync,useAudioRecorder,useAudioRecorderState} from 'expo-audio';
 import type {RealtimeChannel} from '@supabase/supabase-js';
 import {supabase} from '../../lib/supabase';
-import {uploadMedia,mediaUrl} from '../../lib/media';
+import {uploadMedia,mediaUrl,removeMedia} from '../../lib/media';
 import {useSession} from '../../hooks/useSession';
 import {C} from '../../lib/theme';
 import {Media} from '../../components/Media';
@@ -47,7 +47,7 @@ import {FORWARD_LABEL,canForward} from '../../lib/chat-forward';
 import {isSilentSystemMessageError,systemMessageRow,threadIdFromParam} from '../../lib/chat-ids';
 import {WallpaperSheet} from '../../components/chat/WallpaperSheet';
 import type {WallpaperId} from '../../lib/plus';
-import {PHOTO_WALLPAPER,parseChatWallpaper,photoWallpaperChange,wallpaperChange,wallpaperChangeText,wallpaperErrorText,type ChatWallpaperId,type PhotoWallpaper} from '../../lib/chat-wallpaper';
+import {PHOTO_WALLPAPER,parseChatWallpaper,photoWallpaperChange,staleWallpaperPhoto,wallpaperChange,wallpaperChangeText,wallpaperErrorText,type ChatWallpaperId,type PhotoWallpaper} from '../../lib/chat-wallpaper';
 export default function Chat(){
  const confirm=useConfirmDialog(),insets=useSafeAreaInsets();
  const {id:rawId,sheet}=useLocalSearchParams<{id:string|string[];sheet?:string}>(),id=threadIdFromParam(rawId)??'',{session}=useSession(),uid=session?.user.id??'';
@@ -86,24 +86,29 @@ export default function Chat(){
   let m:{data:{user_id:string;can_remove_members?:boolean|null}[]|null}=await supabase.from('sx_members').select('user_id,can_remove_members').eq('thread_id',id);if((m as {error?:unknown}).error)m=await supabase.from('sx_members').select('user_id').eq('thread_id',id);if(alive())setRemovers((m.data||[]).filter(x=>x.can_remove_members).map(x=>x.user_id));const all=[...new Set((m.data||[]).map(x=>x.user_id as string))];const ids=all.filter(x=>x!==uid);const p=all.length?await supabase.from('profiles').select('id,display_name').in('id',all):null;const names=new Map((p?.data||[]).map(x=>[x.id,x.display_name]));if(!alive())return;
   setPeers(ids.map(x=>({id:x,name:names.get(x)||'Vriend'})));setMembers(all.map(x=>({id:x,name:x===uid?(names.get(x)||session?.user.user_metadata?.display_name||'Jij'):(names.get(x)||'Vriend')})))},[id,uid,session?.user.user_metadata?.display_name]);
  useEffect(()=>{let alive=true;const timer=setTimeout(()=>void loadMeta(()=>alive),0);return()=>{alive=false;clearTimeout(timer)}},[loadMeta]);
+ // Every photo change goes through setPhoto: when MY old wallpaper photo is replaced or removed (by me or another member,
+ // seen live), it is deleted from storage so old wallpaper photos don't pile up (lib/chat-wallpaper.ts staleWallpaperPhoto).
+ const wpPhotoRef=useRef<PhotoWallpaper|null>(null);
+ const setPhoto=useCallback((p:PhotoWallpaper|null)=>{const old=staleWallpaperPhoto(wpPhotoRef.current,p?.path,uid);wpPhotoRef.current=p;setWpPhoto(p);if(old)void removeMedia([old])},[uid]);
  // Separate select: a backend without the wallpaper column just keeps the normal background (retention/title still load).
  // Photo wallpaper (20261028180000): wallpaper_path/_blur; a backend without those columns falls back to the preset-only select.
  const loadWallpaper=useCallback(async(alive:()=>boolean=()=>true)=>{if(!id)return;let w=await supabase.from('sx_threads').select('wallpaper,wallpaper_path,wallpaper_blur').eq('id',id).maybeSingle();if(w.error)w=await supabase.from('sx_threads').select('wallpaper').eq('id',id).maybeSingle();
-  if(alive()&&!w.error){const v=parseChatWallpaper(w.data as {wallpaper?:unknown}|null);setWallpaper(v.id);setWpPhoto(v.photo)}},[id]);
+  if(alive()&&!w.error){const v=parseChatWallpaper(w.data as {wallpaper?:unknown}|null);setWallpaper(v.id);setPhoto(v.photo)}},[id,setPhoto]);
  // Signed URL for the photo (members may read it via sx_media_read); unreadable → normal background.
  useEffect(()=>{const path=wpPhoto?.path;if(!path||wpPhotoUri?.path===path)return;let alive=true;mediaUrl(path,3600).then(uri=>{if(alive)setWpPhotoUri({path,uri})},()=>{});return()=>{alive=false}},[wpPhoto?.path,wpPhotoUri?.path]);
  const photoUri=wpPhoto&&wpPhotoUri?.path===wpPhoto.path?wpPhotoUri.uri:null;
  useEffect(()=>{let alive=true;const timer=setTimeout(()=>void loadWallpaper(()=>alive),0);return()=>{alive=false;clearTimeout(timer)}},[loadWallpaper]);
  async function changeWallpaper(next:WallpaperId){if(wallpaperBusy)return;const c=wallpaperChange(wallpaper,next);if(!c.ok){if(c.error)setNotice(c.error);setWallpaperOpen(false);return}
   const prev=wallpaper;setWallpaper(c.id);setWallpaperOpen(false);setWallpaperBusy(true);
-  try{const {error}=await supabase.rpc('sx_set_wallpaper',{p_thread_id:id,p_wallpaper:c.id,p_text:wallpaperChangeText(session?.user.user_metadata?.display_name||'Iemand',c.id)});if(error){setWallpaper(prev);setNotice(wallpaperErrorText(error)??friendlyError(error))}else{setWpPhoto(null);void load()}}finally{setWallpaperBusy(false)}}
- async function applyPhotoWallpaper(next:PhotoWallpaper){const c=photoWallpaperChange({id:wallpaper,photo:wpPhoto},next,uid,session?.user.user_metadata?.display_name||'Iemand');if(!c.ok){if(c.error)setNotice(c.error);return}
-  const {error}=await supabase.rpc('sx_set_wallpaper_photo',{p_thread_id:id,p_path:c.photo.path,p_blur:c.photo.blur,p_text:c.line});if(error){setNotice(wallpaperErrorText(error)??friendlyError(error));return}
-  setWallpaper(PHOTO_WALLPAPER);setWpPhoto(c.photo);if(c.line)void load()}
+  try{const {error}=await supabase.rpc('sx_set_wallpaper',{p_thread_id:id,p_wallpaper:c.id,p_text:wallpaperChangeText(session?.user.user_metadata?.display_name||'Iemand',c.id)});if(error){setWallpaper(prev);setNotice(wallpaperErrorText(error)??friendlyError(error))}else{setPhoto(null);void load()}}finally{setWallpaperBusy(false)}}
+ async function applyPhotoWallpaper(next:PhotoWallpaper):Promise<boolean>{const c=photoWallpaperChange({id:wallpaper,photo:wpPhoto},next,uid,session?.user.user_metadata?.display_name||'Iemand');if(!c.ok){if(c.error)setNotice(c.error);return false}
+  const {error}=await supabase.rpc('sx_set_wallpaper_photo',{p_thread_id:id,p_path:c.photo.path,p_blur:c.photo.blur,p_text:c.line});if(error){setNotice(wallpaperErrorText(error)??friendlyError(error));return false}
+  setWallpaper(PHOTO_WALLPAPER);setPhoto(c.photo);if(c.line)void load();return true}
  // Snapchat+: pick a photo from the Camera Roll (9:16 crop on iOS/Android), upload it to my own media folder, share it as the chat wallpaper.
- async function pickWallpaperPhoto(){if(wallpaperBusy)return;
+ // An upload that didn't become the wallpaper (rejected / error) is deleted again, so it never lingers in storage.
+ async function pickWallpaperPhoto(){if(wallpaperBusy)return;let unused='';
   try{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],quality:.8,allowsEditing:true,aspect:[9,16]});if(r.canceled||!r.assets?.[0])return;setWallpaperBusy(true);
-   const path=await uploadMedia(r.assets[0].uri,'photo');await applyPhotoWallpaper({path,blur:wpPhoto?.blur??false})}catch(e){setNotice(friendlyError(e))}finally{setWallpaperBusy(false)}}
+   const path=await uploadMedia(r.assets[0].uri,'photo');unused=path;if(await applyPhotoWallpaper({path,blur:wpPhoto?.blur??false}))unused=''}catch(e){setNotice(friendlyError(e))}finally{if(unused)void removeMedia([unused]);setWallpaperBusy(false)}}
  async function setWallpaperBlur(blur:boolean){if(wallpaperBusy||!wpPhoto)return;setWallpaperBusy(true);try{await applyPhotoWallpaper({path:wpPhoto.path,blur})}finally{setWallpaperBusy(false)}}
  useEffect(()=>{if(!id)return;const timer=setTimeout(()=>void load(),0);
   const channel=supabase.channel(`sx-thread-${id}`)
