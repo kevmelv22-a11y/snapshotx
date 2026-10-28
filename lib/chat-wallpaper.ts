@@ -1,19 +1,17 @@
 /** Snapchat+ "Chat-achtergrond" (Chat Wallpaper): one wallpaper per chat that EVERY member sees (friends without X+ too);
- *  only Snapshot X+ members can set, change or clear it, and a grey system line tells the chat who changed it.
+ *  every member (with or without Snapshot X+) can set, change or clear it, and a grey system line tells the chat who changed it.
  *  Source of truth: sx_threads.wallpaper via sx_set_wallpaper (migration 20261028150000_chat_wallpaper.sql, NOT applied). */
 import { WALLPAPERS, type WallpaperId } from './plus';
 
 export const WALLPAPER_COPY = {
   title: 'Chat-achtergrond',
   hint: 'Iedereen in deze chat ziet de achtergrond, ook zonder Snapshot X+.',
-  locked: 'Alleen Snapshot X+-leden kunnen de achtergrond kiezen of wijzigen.',
   clear: 'Achtergrond verwijderen',
 } as const;
 
 export const WALLPAPER_ERRORS = {
   notMember: 'Je zit niet (meer) in deze chat.',
   invalid: 'Deze achtergrond bestaat niet.',
-  needsPlus: 'Alleen Snapshot X+-leden kunnen de achtergrond wijzigen.',
   badPhoto: 'Deze foto kan niet als achtergrond worden gebruikt.',
 } as const;
 
@@ -46,11 +44,10 @@ export function photoWallpaperText(name: string): string {
   return `${name.trim() || 'Iemand'} heeft een foto als chat-achtergrond ingesteld`;
 }
 
-/** Client check before sx_set_wallpaper_photo (server checks member, X+, own folder + object exists again).
+/** Client check before sx_set_wallpaper_photo (server checks member, own folder + object exists again).
  *  line = system text to post (null when only the blur changed). Same photo + same blur = silent no-op. */
-export function photoWallpaperChange(current: { id: ChatWallpaperId; photo: PhotoWallpaper | null }, next: PhotoWallpaper, plus: boolean, me: string, name: string):
+export function photoWallpaperChange(current: { id: ChatWallpaperId; photo: PhotoWallpaper | null }, next: PhotoWallpaper, me: string, name: string):
   { ok: true; photo: PhotoWallpaper; line: string | null } | { ok: false; error: string | null } {
-  if (!plus) return { ok: false, error: WALLPAPER_ERRORS.needsPlus };
   if (!isPhotoWallpaperPath(next.path) || !me || next.path.split('/')[0].toLowerCase() !== me.toLowerCase()) return { ok: false, error: WALLPAPER_ERRORS.badPhoto };
   const samePath = current.id === PHOTO_WALLPAPER && current.photo?.path === next.path;
   if (samePath && current.photo?.blur === next.blur) return { ok: false, error: null };
@@ -83,10 +80,9 @@ export function isWallpaperChangeText(body: string | null | undefined): boolean 
   return !!body && / heeft (de chat-achtergrond (verwijderd|gewijzigd in )|een foto als chat-achtergrond ingesteld)/.test(body);
 }
 
-/** Client-side check before calling the RPC (the server checks membership + X+ again). Picking the current one is a no-op. */
-export function wallpaperChange(current: ChatWallpaperId, next: string, plus: boolean): { ok: true; id: WallpaperId } | { ok: false; error: string | null } {
+/** Client-side check before calling the RPC (the server checks membership again; open to everyone, no X+ needed). Picking the current one is a no-op. */
+export function wallpaperChange(current: ChatWallpaperId, next: string): { ok: true; id: WallpaperId } | { ok: false; error: string | null } {
   if (!(WALLPAPER_IDS as readonly string[]).includes(next)) return { ok: false, error: WALLPAPER_ERRORS.invalid };
-  if (!plus) return { ok: false, error: WALLPAPER_ERRORS.needsPlus };
   if (next === current) return { ok: false, error: null };
   return { ok: true, id: next as WallpaperId };
 }
@@ -97,7 +93,6 @@ export function wallpaperErrorText(e: unknown): string | null {
   for (const t of Object.values(WALLPAPER_ERRORS)) if (m.includes(t)) return t;
   if (/not a member/i.test(m)) return WALLPAPER_ERRORS.notMember;
   if (/invalid wallpaper/i.test(m)) return WALLPAPER_ERRORS.invalid;
-  if (/requires plus|snapshot x\+/i.test(m)) return WALLPAPER_ERRORS.needsPlus;
   if (/invalid (wallpaper )?photo|bad photo/i.test(m)) return WALLPAPER_ERRORS.badPhoto;
   return null;
 }

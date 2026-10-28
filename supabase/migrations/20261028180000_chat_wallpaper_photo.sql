@@ -1,4 +1,4 @@
--- Snapchat+ Chat Wallpaper from the Camera Roll: an X+ member can use one of their own photos (optionally blurred)
+-- Snapchat+ Chat Wallpaper from the Camera Roll: any chat member (no X+ needed) can use one of their own photos (optionally blurred)
 -- as the shared wallpaper of a 1:1 or group chat. Everyone in the chat sees it (friends without X+ too).
 -- NOT APPLIED. Apply AFTER 20261028150000_chat_wallpaper.sql (and 20261028000000_media_read_kept_chats.sql, whose
 -- sx_media_read policy is recreated here with one extra clause). App/demo mirror: lib/chat-wallpaper.ts,
@@ -18,10 +18,6 @@ declare cur text;
 begin
   if not app_private.sx_is_member(p_thread_id) then raise exception 'Je zit niet (meer) in deze chat.'; end if;
   if p_wallpaper is null or p_wallpaper not in ('none','sterren','aurora','oceaan','roze','grafiet') then raise exception 'Deze achtergrond bestaat niet.'; end if;
-  if not (app_private.sx_has_tier(auth.uid(), 'plus') or app_private.sx_has_tier(auth.uid(), 'family')
-          or app_private.sx_has_tier(auth.uid(), 'lens') or app_private.sx_has_tier(auth.uid(), 'platinum')) then
-    raise exception 'Alleen Snapshot X+-leden kunnen de achtergrond wijzigen.';
-  end if;
   select wallpaper into cur from public.sx_threads where id = p_thread_id for update;
   if cur = p_wallpaper then return; end if;
   update public.sx_threads set wallpaper = p_wallpaper, wallpaper_path = null, wallpaper_blur = false where id = p_thread_id;
@@ -38,10 +34,6 @@ language plpgsql security definer set search_path = '' as $$
 declare cur record;
 begin
   if not app_private.sx_is_member(p_thread_id) then raise exception 'Je zit niet (meer) in deze chat.'; end if;
-  if not (app_private.sx_has_tier(auth.uid(), 'plus') or app_private.sx_has_tier(auth.uid(), 'family')
-          or app_private.sx_has_tier(auth.uid(), 'lens') or app_private.sx_has_tier(auth.uid(), 'platinum')) then
-    raise exception 'Alleen Snapshot X+-leden kunnen de achtergrond wijzigen.';
-  end if;
   if p_path is null
      or p_path !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$'
      or split_part(p_path, '/', 1) <> auth.uid()::text
