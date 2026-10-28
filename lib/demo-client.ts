@@ -14,7 +14,7 @@ import { POLL_ERRORS, parsePoll, pollBody, validateVote } from './chat-polls';
 import { FORWARD_ERRORS, FORWARD_MAX_TARGETS, canForward, forwardBody, forwardExpiry } from './chat-forward';
 import { MEDIA_ERRORS, canReadMedia } from './media-access';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, canRemoveMember, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, groupRightsText, isGroupThread, normalizeGroupTitle } from './group-chat';
-import { WALLPAPER_ERRORS, WALLPAPER_IDS, wallpaperChangeText } from './chat-wallpaper';
+import { WALLPAPER_ERRORS, WALLPAPER_IDS, isPhotoWallpaperPath, wallpaperChangeText } from './chat-wallpaper';
 
 type Err = { message: string; code?: string; details?: string };
 type Res = { data: unknown; error: Err | null; count?: number | null };
@@ -191,7 +191,7 @@ function seedDemo(m: StaffMock) {
     { id: newId(), owner_id: ME, storage_path: 'demo/pizza.svg', media_type: 'photo', created_at: iso(-370 * D), private: false, caption: 'Pizza-avond', deleted_at: null }];
   m.t.sx_memory_vault = []; m.t.sx_avatar_outfits = [];
   // Chat-achtergrond (Snapchat+ Chat Wallpaper): Aria (X+) set 'Sterren' on her chat with Kevin, who sees it without X+.
-  m.t.sx_threads.forEach(t => { t.wallpaper ??= 'none'; });
+  m.t.sx_threads.forEach(t => { t.wallpaper ??= 'none'; t.wallpaper_path ??= null; t.wallpaper_blur ??= false; });
   Object.assign(m.t.sx_threads.find(t => t.id === T.aria) ?? {}, { wallpaper: 'sterren' });
   m.t.sx_messages.push(msg(T.aria, I.aria, wallpaperChangeText('Aria', 'sterren'), 5.5 * H, 'system'));
   m.t.sx_messages.forEach(x => stampRetention(m.t.sx_threads, x));
@@ -410,7 +410,21 @@ export class DemoClient {
       if (!this.memberIds(String(a.p_thread_id)).includes(ME)) throw new Error(WALLPAPER_ERRORS.notMember);
       if (!(WALLPAPER_IDS as readonly string[]).includes(String(a.p_wallpaper))) throw new Error(WALLPAPER_ERRORS.invalid);
       const t = this.m.table('sx_threads').find(x => x.id === a.p_thread_id); if (!t || t.wallpaper === a.p_wallpaper) return null;
-      t.wallpaper = a.p_wallpaper;
+      Object.assign(t, { wallpaper: a.p_wallpaper, wallpaper_path: null, wallpaper_blur: false });
+      const row = { id: newId(), thread_id: a.p_thread_id, sender_id: ME, kind: 'system', body: a.p_text, created_at: this.m.iso(), expires_at: null };
+      this.m.table('sx_messages').push(row); this.emit('sx_messages', 'INSERT', row); return null;
+    },
+    // Mirrors public.sx_set_wallpaper_photo (20261028180000_chat_wallpaper_photo.sql): member + own uploaded "<uid>/<uuid>.jpg";
+    // only the blur changed = no line; same photo + blur = no-op. X+ is checked client-side in the demo.
+    sx_set_wallpaper_photo: a => {
+      if (!this.memberIds(String(a.p_thread_id)).includes(ME)) throw new Error(WALLPAPER_ERRORS.notMember);
+      const path = String(a.p_path ?? ''), blur = a.p_blur === true;
+      if (!isPhotoWallpaperPath(path) || path.split('/')[0] !== ME || !(path in this.uploads)) throw new Error(WALLPAPER_ERRORS.badPhoto);
+      const t = this.m.table('sx_threads').find(x => x.id === a.p_thread_id); if (!t) return null;
+      const samePath = t.wallpaper === 'photo' && t.wallpaper_path === path;
+      if (samePath && t.wallpaper_blur === blur) return null;
+      Object.assign(t, { wallpaper: 'photo', wallpaper_path: path, wallpaper_blur: blur });
+      if (samePath) { this.emit('sx_threads', 'UPDATE', t); return null; }
       const row = { id: newId(), thread_id: a.p_thread_id, sender_id: ME, kind: 'system', body: a.p_text, created_at: this.m.iso(), expires_at: null };
       this.m.table('sx_messages').push(row); this.emit('sx_messages', 'INSERT', row); return null;
     },
@@ -620,14 +634,16 @@ export class DemoClient {
   storage = {
     from: (_bucket: string) => ({
       upload: async (path: string, body: unknown, o?: { contentType?: string }) => {
+        this.uploads[path] = '';
         try { this.uploads[path] = URL.createObjectURL(body instanceof Blob ? body : new Blob([body as ArrayBuffer], { type: o?.contentType })); } catch {}
         return { data: { path }, error: null };
       },
       createSignedUrl: async (path: string) => {
         // Same rule as the storage policy sx_media_read (lib/media-access.ts): kept chat media (expires_at NULL) stays readable.
-        if (!this.uploads[path] && !this.m.table('memories').some(x => x.storage_path === path) && !canReadMedia({ path, me: ME, messages: this.m.table('sx_messages') as never, stories: this.m.table('sx_stories') as never, now: Date.now(), legacyNullExpired: this.faults.oldMediaRule }))
+        // + 20261028180000: members may read their chat's photo wallpaper.
+        if (!this.uploads[path] && !this.m.table('sx_threads').some(t => t.wallpaper === 'photo' && t.wallpaper_path === path && this.memberIds(String(t.id)).includes(ME)) && !this.m.table('memories').some(x => x.storage_path === path) && !canReadMedia({ path, me: ME, messages: this.m.table('sx_messages') as never, stories: this.m.table('sx_stories') as never, now: Date.now(), legacyNullExpired: this.faults.oldMediaRule }))
           return { data: null, error: { message: MEDIA_ERRORS.gone, code: '403' } };
-        return { data: { signedUrl: this.uploads[path] ?? artUrl(path) }, error: null };
+        return { data: { signedUrl: this.uploads[path] || artUrl(path) }, error: null };
       },
       remove: async (paths: string[]) => ({ data: paths.map(name => ({ name })), error: null }),
     }),

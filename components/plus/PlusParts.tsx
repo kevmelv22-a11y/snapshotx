@@ -53,6 +53,13 @@ export function WallpaperPicker({value,onChange,locked=false}:{value:string;onCh
     <View style={[s.wp,on&&s.iconOn]}>{w.id==='none'?<View style={[StyleSheet.absoluteFill,{backgroundColor:C.bg,alignItems:'center',justifyContent:'center'}]}><Ionicons name="ban-outline" size={22} color={C.muted}/></View>:<WallpaperBackground colors={w.colors} id={w.id}/>}{locked&&w.id!=='none'&&<Ionicons name="lock-closed" size={14} color="white" style={s.lockIco}/>}{on&&<Ionicons name="checkmark-circle" size={18} color={C.yellow} style={s.checkIco}/>}</View>
     <Text style={[s.iconLabel,on&&{color:C.yellow,fontWeight:'800'}]}>{w.label}</Text></Pressable>})}</View>;
 }
+/** Camera Roll photo as chat wallpaper (Snapchat+): cover-fit, optional blur, plus a dark veil so bubbles stay readable. */
+export function PhotoWallpaperBackground({uri,blur,blurRadius,testID}:{uri:string;blur:boolean;blurRadius:number;testID?:string}){
+  return <View style={[StyleSheet.absoluteFill,{backgroundColor:'#000'}]} pointerEvents="none" testID={testID}>
+    <Image source={{uri}} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={blur?blurRadius:0} accessibilityIgnoresInvertColors/>
+    <View style={[StyleSheet.absoluteFill,{backgroundColor:blur?'#0005':'#0007'}]}/>
+  </View>;
+}
 // Fixed star field (viewBox 0 0 100 200) so the 'Sterren' wallpaper looks the same on every device and render.
 const STARS:readonly [number,number,number][]=[[8,12,.9],[23,31,.6],[41,9,.7],[62,22,1],[84,14,.6],[93,40,.8],[12,55,.7],[35,48,.5],[57,63,.9],[76,52,.6],[90,77,.7],[5,88,.6],[28,94,1],[49,83,.6],[69,99,.8],[86,118,.6],[16,124,.8],[39,137,.6],[60,128,.9],[80,146,.7],[7,160,.6],[31,172,.9],[53,158,.6],[73,181,.8],[94,170,.6],[20,192,.7],[45,197,.5],[88,195,.9]];
 /** Wallpaper layer behind a chat: soft vertical gradient (+ stars for Sterren, glows for the others). */

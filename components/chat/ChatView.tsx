@@ -15,8 +15,8 @@ import {savedLabel} from '../../lib/chat-saves';
 import {QUOTE_GONE,canReply,parseReply,quoteOf,quotedIndex,type ReplyRef} from '../../lib/chat-replies';
 import {editedLabel,isUnsentLine,liveQuoteExcerpt} from '../../lib/chat-edits';
 import {forwardedLabel} from '../../lib/chat-forward';
-import {WallpaperBackground} from '../plus/PlusParts';
-import {isWallpaperChangeText,wallpaperColors} from '../../lib/chat-wallpaper';
+import {PhotoWallpaperBackground,WallpaperBackground} from '../plus/PlusParts';
+import {PHOTO_WALLPAPER,WALLPAPER_BLUR_RADIUS,isWallpaperChangeText,wallpaperColors} from '../../lib/chat-wallpaper';
 import {ReactionChips,ReactionPicker,StreakBadge,StreakWarning,SystemLine,TypingIndicator} from './ChatParts';
 
 /** Header row: title, streak, retention toggle, video call. Shared by the real chat and the dev harness. */
@@ -36,6 +36,8 @@ export function ChatHeaderBar({title,streak,retention,onRetention,onCall,avatar,
 export type ChatViewProps={
   /** Snapchat+ Chat-achtergrond of this thread (sx_threads.wallpaper); 'none'/undefined = normal background. */
   wallpaper?:string;
+  /** wallpaper === 'photo': signed URL of the Camera Roll photo + blur flag (null while loading / unreadable → normal background). */
+  wallpaperPhoto?:{uri:string;blur:boolean}|null;
   rows:Message[];me:string;reactions:Reaction[];retention:RetentionMode;/** Mode a message was sent with (Snapchat: a new setting only applies going forward). Default: `retention`. */retentionOf?:(m:Message)=>RetentionMode;viewedAt:Record<string,number>;/** Deletion-timer start per chat = moment EVERYONE (except the sender) had viewed it (Snapchat; lib/chat-retention.ts timerStarts). When given, the hint counts from here for own and received chats. */timerStart?:Record<string,number>;now:number;
   streak:StreakState;typing:string|null;
   renderContent:(m:Message,mine:boolean)=>React.ReactNode;
@@ -66,7 +68,7 @@ export function ChatView(p:ChatViewProps){
   // Group @mention chip: parent sets jumpRequestId → scroll to that row and flash it (same path as quote taps).
   useEffect(()=>{const id=p.jumpRequestId;if(!id)return;const i=p.rows.findIndex(m=>m.id===id);if(i<0)return;list.current?.scrollToIndex({index:i,viewPosition:.5,animated:true});const t=setTimeout(()=>setFlash(id),0);return()=>clearTimeout(t)},[p.jumpRequestId,p.rows]);
   return <View style={{flex:1}}>
-    {!!p.wallpaper&&p.wallpaper!=='none'&&<WallpaperBackground colors={wallpaperColors(p.wallpaper)} id={p.wallpaper} testID={`wallpaper-bg-${p.wallpaper}`}/>}
+    {p.wallpaper===PHOTO_WALLPAPER?(p.wallpaperPhoto?<PhotoWallpaperBackground uri={p.wallpaperPhoto.uri} blur={p.wallpaperPhoto.blur} blurRadius={WALLPAPER_BLUR_RADIUS} testID={p.wallpaperPhoto.blur?'wallpaper-bg-photo-blur':'wallpaper-bg-photo'}/>:null):!!p.wallpaper&&p.wallpaper!=='none'&&<WallpaperBackground colors={wallpaperColors(p.wallpaper)} id={p.wallpaper} testID={`wallpaper-bg-${p.wallpaper}`}/>}
     <StreakWarning streak={p.streak}/>
     <FlatList ref={list} onScrollToIndexFailed={e=>{list.current?.scrollToOffset({offset:e.averageItemLength*e.index,animated:true});setTimeout(()=>list.current?.scrollToIndex({index:e.index,viewPosition:.5,animated:true}),250)}} data={p.rows} inverted keyboardShouldPersistTaps="handled" keyExtractor={x=>x.id} contentContainerStyle={{padding:15}}
       ListHeaderComponent={<TypingIndicator text={p.typing}/>} ListHeaderComponentStyle={{marginHorizontal:-15}}

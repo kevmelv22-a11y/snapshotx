@@ -46,8 +46,8 @@ import {ForwardSheet} from '../../components/chat/ForwardSheet';
 import {FORWARD_LABEL,canForward} from '../../lib/chat-forward';
 import {isSilentSystemMessageError,systemMessageRow,threadIdFromParam} from '../../lib/chat-ids';
 import {WallpaperSheet} from '../../components/chat/WallpaperSheet';
-import {parseWallpaper,wallpaperChange,wallpaperChangeText,wallpaperErrorText} from '../../lib/chat-wallpaper';
 import type {WallpaperId} from '../../lib/plus';
+import {PHOTO_WALLPAPER,WALLPAPER_ERRORS,parseChatWallpaper,photoWallpaperChange,wallpaperChange,wallpaperChangeText,wallpaperErrorText,type ChatWallpaperId,type PhotoWallpaper} from '../../lib/chat-wallpaper';
 import {useIsPlus} from '../../stores/plus';
 export default function Chat(){
  const confirm=useConfirmDialog(),insets=useSafeAreaInsets();
@@ -55,7 +55,7 @@ export default function Chat(){
  const [rows,setRows]=useState<Message[]>([]),[body,setBody]=useState(''),[notice,setNotice]=useState(id?'':'Deze chat kon niet worden geopend.'),[busy,setBusy]=useState(false),[opened,setOpened]=useState<Record<string,boolean>>({});
  const [retention,setRetention]=useState<RetentionMode>('24h'),[retentionOpen,setRetentionOpen]=useState(false);
  // Snapchat+ Chat-achtergrond: shared by everyone in the chat (sx_threads.wallpaper, migration 20261028150000); only X+ can change it.
- const plus=useIsPlus(),[wallpaper,setWallpaper]=useState<WallpaperId>('none'),[wallpaperOpen,setWallpaperOpen]=useState(sheet==='wallpaper'),[wallpaperBusy,setWallpaperBusy]=useState(false);
+ const plus=useIsPlus(),[wallpaper,setWallpaper]=useState<ChatWallpaperId>('none'),[wpPhoto,setWpPhoto]=useState<PhotoWallpaper|null>(null),[wpPhotoUri,setWpPhotoUri]=useState<{path:string;uri:string}|null>(null),[wallpaperOpen,setWallpaperOpen]=useState(sheet==='wallpaper'),[wallpaperBusy,setWallpaperBusy]=useState(false);
  const [threadReceipts,setThreadReceipts]=useState<ReceiptRow[]>([]);
  // Names of people with receipts here (also members who left): resolves "A heeft X uit de groep verwijderd" to X's id.
  const [receiptNames,setReceiptNames]=useState<{id:string;name:string}[]>([]);
@@ -88,11 +88,24 @@ export default function Chat(){
   setPeers(ids.map(x=>({id:x,name:names.get(x)||'Vriend'})));setMembers(all.map(x=>({id:x,name:x===uid?(names.get(x)||session?.user.user_metadata?.display_name||'Jij'):(names.get(x)||'Vriend')})))},[id,uid,session?.user.user_metadata?.display_name]);
  useEffect(()=>{let alive=true;const timer=setTimeout(()=>void loadMeta(()=>alive),0);return()=>{alive=false;clearTimeout(timer)}},[loadMeta]);
  // Separate select: a backend without the wallpaper column just keeps the normal background (retention/title still load).
- const loadWallpaper=useCallback(async(alive:()=>boolean=()=>true)=>{if(!id)return;const w=await supabase.from('sx_threads').select('wallpaper').eq('id',id).maybeSingle();if(alive()&&!w.error)setWallpaper(parseWallpaper((w.data as {wallpaper?:unknown}|null)?.wallpaper))},[id]);
+ // Photo wallpaper (20261028180000): wallpaper_path/_blur; a backend without those columns falls back to the preset-only select.
+ const loadWallpaper=useCallback(async(alive:()=>boolean=()=>true)=>{if(!id)return;let w=await supabase.from('sx_threads').select('wallpaper,wallpaper_path,wallpaper_blur').eq('id',id).maybeSingle();if(w.error)w=await supabase.from('sx_threads').select('wallpaper').eq('id',id).maybeSingle();
+  if(alive()&&!w.error){const v=parseChatWallpaper(w.data as {wallpaper?:unknown}|null);setWallpaper(v.id);setWpPhoto(v.photo)}},[id]);
+ // Signed URL for the photo (members may read it via sx_media_read); unreadable → normal background.
+ useEffect(()=>{const path=wpPhoto?.path;if(!path||wpPhotoUri?.path===path)return;let alive=true;mediaUrl(path,3600).then(uri=>{if(alive)setWpPhotoUri({path,uri})},()=>{});return()=>{alive=false}},[wpPhoto?.path,wpPhotoUri?.path]);
+ const photoUri=wpPhoto&&wpPhotoUri?.path===wpPhoto.path?wpPhotoUri.uri:null;
  useEffect(()=>{let alive=true;const timer=setTimeout(()=>void loadWallpaper(()=>alive),0);return()=>{alive=false;clearTimeout(timer)}},[loadWallpaper]);
  async function changeWallpaper(next:WallpaperId){if(wallpaperBusy)return;const c=wallpaperChange(wallpaper,next,plus);if(!c.ok){if(c.error)setNotice(c.error);setWallpaperOpen(false);return}
   const prev=wallpaper;setWallpaper(c.id);setWallpaperOpen(false);setWallpaperBusy(true);
-  try{const {error}=await supabase.rpc('sx_set_wallpaper',{p_thread_id:id,p_wallpaper:c.id,p_text:wallpaperChangeText(session?.user.user_metadata?.display_name||'Iemand',c.id)});if(error){setWallpaper(prev);setNotice(wallpaperErrorText(error)??friendlyError(error))}else void load()}finally{setWallpaperBusy(false)}}
+  try{const {error}=await supabase.rpc('sx_set_wallpaper',{p_thread_id:id,p_wallpaper:c.id,p_text:wallpaperChangeText(session?.user.user_metadata?.display_name||'Iemand',c.id)});if(error){setWallpaper(prev);setNotice(wallpaperErrorText(error)??friendlyError(error))}else{setWpPhoto(null);void load()}}finally{setWallpaperBusy(false)}}
+ async function applyPhotoWallpaper(next:PhotoWallpaper){const c=photoWallpaperChange({id:wallpaper,photo:wpPhoto},next,plus,uid,session?.user.user_metadata?.display_name||'Iemand');if(!c.ok){if(c.error)setNotice(c.error);return}
+  const {error}=await supabase.rpc('sx_set_wallpaper_photo',{p_thread_id:id,p_path:c.photo.path,p_blur:c.photo.blur,p_text:c.line});if(error){setNotice(wallpaperErrorText(error)??friendlyError(error));return}
+  setWallpaper(PHOTO_WALLPAPER);setWpPhoto(c.photo);if(c.line)void load()}
+ // Snapchat+: pick a photo from the Camera Roll (9:16 crop on iOS/Android), upload it to my own media folder, share it as the chat wallpaper.
+ async function pickWallpaperPhoto(){if(wallpaperBusy)return;if(!plus){setNotice(WALLPAPER_ERRORS.needsPlus);return}
+  try{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],quality:.8,allowsEditing:true,aspect:[9,16]});if(r.canceled||!r.assets?.[0])return;setWallpaperBusy(true);
+   const path=await uploadMedia(r.assets[0].uri,'photo');await applyPhotoWallpaper({path,blur:wpPhoto?.blur??false})}catch(e){setNotice(friendlyError(e))}finally{setWallpaperBusy(false)}}
+ async function setWallpaperBlur(blur:boolean){if(wallpaperBusy||!wpPhoto)return;setWallpaperBusy(true);try{await applyPhotoWallpaper({path:wpPhoto.path,blur})}finally{setWallpaperBusy(false)}}
  useEffect(()=>{if(!id)return;const timer=setTimeout(()=>void load(),0);
   const channel=supabase.channel(`sx-thread-${id}`)
    .on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_messages',filter:`thread_id=eq.${id}`},()=>{void load();void loadWallpaper()})
@@ -199,7 +212,7 @@ export default function Chat(){
  return <KeyboardAvoidingView style={s.root} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={90}>
   <Stack.Screen options={{headerShown:false,title}}/>
   <ChatHeaderBar onBack={()=>router.canGoBack()?router.back():router.replace('/(tabs)/chats')} topInset={insets.top} title={title} streak={streak} retention={retention} onRetention={()=>setRetentionOpen(true)} onCall={()=>router.push({pathname:'/call/[id]',params:{id:String(id),name:title}})} avatar={!isGroup&&peers.length===1?<FriendAvatar id={peers[0].id} outfit={friendOutfits.get(peers[0].id)} size={34} name={peers[0].name}/>:undefined} onInfo={isGroup?()=>setInfoOpen(true):undefined} onProfile={!isGroup&&peers.length===1?()=>router.push({pathname:'/friend/[id]',params:{id:peers[0].id}}):undefined} memberCount={isGroup?members.length:undefined}/>
-  <ChatView wallpaper={wallpaper} onSenderLongPress={isGroup?sid=>memberMenu.open(members.find(m=>m.id===sid)):undefined} badgeOf={isGroup?sid=><MemberRoleIcon isAdmin={sid===creatorId} canRemove={removers.includes(sid)} size={12}/>:undefined} receipt={(()=>{const last=visible.find(m=>m.kind!=='system');return last&&last.sender_id===uid&&last.kind!=='snap'?{messageId:last.id,status:messageStatus(last,uid,peerOpened.has(last.id),false)}:null})()} rows={visible} me={uid} reactions={reactions} retention={retention} retentionOf={m=>sentWith[m.id]??retention} viewedAt={viewedAt} timerStart={starts} now={now} streak={streak} typing={typing} renderContent={content} onReact={(m,e)=>void react(m,e)} extraActions={menu} onReply={startReply} nameOf={nameOf} avatarOf={avatarOf} memberIds={memberIds} jumpRequestId={jumpRequestId}/>
+  <ChatView wallpaper={wallpaper} wallpaperPhoto={photoUri&&wpPhoto?{uri:photoUri,blur:wpPhoto.blur}:null} onSenderLongPress={isGroup?sid=>memberMenu.open(members.find(m=>m.id===sid)):undefined} badgeOf={isGroup?sid=><MemberRoleIcon isAdmin={sid===creatorId} canRemove={removers.includes(sid)} size={12}/>:undefined} receipt={(()=>{const last=visible.find(m=>m.kind!=='system');return last&&last.sender_id===uid&&last.kind!=='snap'?{messageId:last.id,status:messageStatus(last,uid,peerOpened.has(last.id),false)}:null})()} rows={visible} me={uid} reactions={reactions} retention={retention} retentionOf={m=>sentWith[m.id]??retention} viewedAt={viewedAt} timerStart={starts} now={now} streak={streak} typing={typing} renderContent={content} onReact={(m,e)=>void react(m,e)} extraActions={menu} onReply={startReply} nameOf={nameOf} avatarOf={avatarOf} memberIds={memberIds} jumpRequestId={jumpRequestId}/>
   {isGroup&&!!mentionJumpId&&<Pressable style={s.mentionJump} testID="jump-mention" accessibilityRole="button" accessibilityLabel={MENTION_BADGE} onPress={jumpToMention}><Text style={s.mentionJumpAt}>@</Text><Text style={s.mentionJumpText}>{MENTION_BADGE}</Text></Pressable>}
   {!!notice&&<Text style={s.notice}>{notice}</Text>}
   {recorderState.isRecording?<RecordingBar durationMs={recorderState.durationMillis} level={meterLevel(recorderState.metering)} onCancel={()=>void stopRecording(false)} onStop={()=>void stopRecording(true)}/>:
@@ -207,7 +220,7 @@ export default function Chat(){
   <AvatarStickerSheet visible={stickerOpen} outfit={ownOutfit} onPick={st=>void sendSticker(st.id)} onClose={()=>setStickerOpen(false)}/>
   {isGroup&&<PollComposer visible={pollOpen} onClose={()=>setPollOpen(false)} onSend={b=>void sendPoll(b)}/>}
   {forwarding&&<ForwardSheet me={uid} myName={(session?.user.user_metadata?.display_name as string|undefined)??null} threadId={id} messageId={forwarding.id} excerpt={quoteOf(forwarding).excerpt} onClose={()=>setForwarding(null)} onDone={t=>{setForwarding(null);setNotice(t);setTimeout(()=>setNotice(n=>n===t?'':n),3500)}}/>}
-  <WallpaperSheet visible={wallpaperOpen} current={wallpaper} plus={plus} busy={wallpaperBusy} onPick={w=>void changeWallpaper(w)} onUpgrade={()=>{setWallpaperOpen(false);router.push('/plus')}} onClose={()=>setWallpaperOpen(false)}/>
+  <WallpaperSheet visible={wallpaperOpen} current={wallpaper} plus={plus} busy={wallpaperBusy} onPick={w=>void changeWallpaper(w)} photo={wpPhoto?{uri:photoUri,blur:wpPhoto.blur}:null} onPickPhoto={()=>void pickWallpaperPhoto()} onBlur={b=>void setWallpaperBlur(b)} onUpgrade={()=>{setWallpaperOpen(false);router.push('/plus')}} onClose={()=>setWallpaperOpen(false)}/>
   <RetentionSheet visible={retentionOpen} mode={retention} oldTimers={oldTimers} onPick={m=>void changeRetention(m)} onClose={()=>setRetentionOpen(false)}/>
   {isGroup&&memberMenu.sheet}
   {isGroup&&infoOpen&&<GroupInfoSheet visible threadId={id} me={uid} title={title} creatorId={creatorId} members={members} removers={removers} onClose={()=>setInfoOpen(false)} onChanged={()=>{void loadMeta();void load()}} onLeft={()=>{setInfoOpen(false);router.replace('/(tabs)/chats')}} wallpaperLabel={wallpaper} onWallpaper={()=>{setInfoOpen(false);setWallpaperOpen(true)}}/>}

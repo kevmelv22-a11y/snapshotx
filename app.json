@@ -21,6 +21,7 @@
         "NSCameraUsageDescription": "SnapShot X gebruikt je camera voor foto’s, video’s en videogesprekken.",
         "NSMicrophoneUsageDescription": "SnapShot X gebruikt je microfoon voor video, spraakberichten en (video)gesprekken.",
         "NSPhotoLibraryAddUsageDescription": "Bewaar snaps in je fotobibliotheek.",
+        "NSPhotoLibraryUsageDescription": "SnapShot X opent je fotobibliotheek zodat je foto’s en video’s kunt versturen of een foto als chat-achtergrond kunt kiezen.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
