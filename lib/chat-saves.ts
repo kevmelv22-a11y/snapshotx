@@ -3,7 +3,7 @@
  *  Only the person who saved it, or the original sender, can unsave it ("Niet meer opslaan"); after that the normal
  *  retention applies again. Server side: RPC public.sx_set_message_saved (migration 20261022150000_chat_saves.sql,
  *  NOT applied yet). Snaps and system lines cannot be saved. No I/O. */
-import type { RetentionMode } from './chat-features';
+import { unopenedChatDeadline, type RetentionMode } from './chat-features';
 
 export type SaveableMessage = { id: string; sender_id: string; kind: string; saved?: boolean | null; saved_by?: string | null };
 export const SAVE_LABEL = { save: 'Opslaan in chat', unsave: 'Niet meer opslaan' } as const;
@@ -40,10 +40,14 @@ export function savedLabel(m: SaveableMessage, me: string, nameOf: (id: string) 
 export function applySaved<T extends SaveableMessage>(rows: readonly T[], id: string, saved: boolean, me: string): T[] {
   return rows.map(r => (r.id === id ? { ...r, saved, saved_by: saved ? me : null } : r));
 }
-/** expires_at the server sets when a message is UNSAVED again (mirrors the migration): keep → never,
- *  otherwise 24 h from now (the client already hides viewed messages per the chat's setting). */
-export function unsaveExpiry(mode: RetentionMode, now: number): string | null {
-  return mode === 'keep' ? null : new Date(now + 86400000).toISOString();
+/** expires_at the server sets when a message is UNSAVED again (mirrors sx_set_message_saved in
+ *  20261028060000_unopened_chats_31d.sql): keep → never; not yet opened by everyone → 31 days after it was sent
+ *  (Snapchat's unopened cap); opened by everyone → 24 h from now, never later than that 31-day cap. */
+export function unsaveExpiry(mode: RetentionMode, now: number, opts: { createdAt?: number | null; openedByAll?: boolean } = {}): string | null {
+  if (mode === 'keep') return null;
+  const cap = unopenedChatDeadline(opts.createdAt != null && Number.isFinite(opts.createdAt) ? opts.createdAt : now);
+  if (opts.openedByAll === false) return new Date(cap).toISOString();
+  return new Date(Math.min(now + 86400000, cap)).toISOString();
 }
 /** Counter for the friendship profile / chat header: how many messages in this chat are saved. */
 export function savedCount(rows: readonly SaveableMessage[]): number {

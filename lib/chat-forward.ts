@@ -10,6 +10,7 @@
  *  copies the row (incl. a friend's photo) after checking membership, blocks, expiry and kind. The demo client mirrors
  *  it with the same rules + Dutch errors. No I/O. */
 import { parseReply } from './chat-replies';
+import { unopenedChatDeadline } from './chat-features';
 import { isPollText } from './chat-polls';
 
 export const FORWARD_MAX_TARGETS = 10;
@@ -92,7 +93,9 @@ export function validateSelection(selected: readonly string[]): string | null {
   if (selected.length > FORWARD_MAX_TARGETS) return FORWARD_ERRORS.tooMany;
   return null;
 }
-/** expires_at the copy gets in a target chat (mirrors the RPC): 'keep' → never, otherwise 24 h from now. */
+/** expires_at the copy gets in a target chat (mirrors the sx_stamp_retention trigger of 20261028060000_unopened_chats_31d.sql):
+ *  'keep' → never, otherwise the unopened cap of 31 days; opening it later shortens this to 24 h after everyone viewed it.
+ *  (Was 24 h from now, so a forwarded chat vanished after a day even if nobody had opened it.) */
 export function forwardExpiry(retentionMode: string | null | undefined, now: number): string | null {
-  return retentionMode === 'keep' ? null : new Date(now + 86400000).toISOString();
+  return retentionMode === 'keep' ? null : new Date(unopenedChatDeadline(now)).toISOString();
 }

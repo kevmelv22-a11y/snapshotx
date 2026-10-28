@@ -26,8 +26,10 @@ const ROWS: Row[] = [
   { id: 'f', label: 'Chat Aria · "Na bekijken"', item: { kind: 'chat', createdAt: T0, viewedAt: T0, leftAt: T0, retention: 'after_view' } },
   { id: 'g', label: 'Chat Bram · "24 uur"', item: { kind: 'chat', createdAt: T0, viewedAt: T0, retention: '24h' } },
   { id: 'h', label: 'Chat Cleo · "Bewaren"', item: { kind: 'chat', createdAt: T0, viewedAt: T0, retention: 'keep' } },
+  { id: 'i', label: 'Chat Eva · "24 uur", 3 dagen ongeopend', item: { kind: 'chat', createdAt: T0 - 3 * DAY, viewedAt: null, retention: '24h' } },
+  { id: 'j', label: 'Chat Finn · "24 uur", 31 dagen ongeopend', item: { kind: 'chat', createdAt: T0 - 31 * DAY, viewedAt: null, retention: '24h' } },
 ];
-const REASON: Record<string, string> = { viewed: 'bekeken + timer', 'unopened-30d': '30 dagen ongeopend', 'story-24h': '24 uur', 'chat-retention': 'chatinstelling' };
+const REASON: Record<string, string> = { viewed: 'bekeken + timer', 'unopened-30d': '30 dagen ongeopend', 'story-24h': '24 uur', 'chat-retention': 'chatinstelling', 'chat-unopened-31d': '31 dagen ongeopend' };
 
 export default function DevBackend() {
   const q = useLocalSearchParams<{ push?: string; t?: string }>();

@@ -14,15 +14,24 @@ const DAY_MS = 86400000;
 export function parseRetention(v: unknown): RetentionMode {
   return v === 'after_view' || v === '24h' || v === 'keep' ? v : '24h';
 }
-/** Expiry (ms epoch) for a message. Unviewed messages never expire client-side (server fallback handles unopened ones).
+/** Snapchat: "Chats are automatically deleted 24 hours after everyone has viewed the Chat … or 31 days after the Chat
+ *  was sent, whichever is sooner." Unopened chats therefore stay up to 31 days (not 24 h). Mirrored server-side by
+ *  migration 20261028060000_unopened_chats_31d.sql. */
+export const UNOPENED_CHAT_TTL_MS = 31 * DAY_MS;
+/** Latest moment a (non-kept, unsaved) chat sent at `createdAt` may exist: created + 31 days. */
+export function unopenedChatDeadline(createdAt: number): number { return createdAt + UNOPENED_CHAT_TTL_MS; }
+/** Expiry (ms epoch) for a message.
  *  after_view: expires when the viewer leaves the chat (`leftAt`), or immediately if viewed in an earlier session.
- *  24h: viewedAt + 24 h. keep: never. Saved messages never expire. */
-export function messageExpiry(mode: RetentionMode, viewedAt: number | null, opts: { saved?: boolean; leftAt?: number | null } = {}): number | null {
-  if (opts.saved || mode === 'keep' || viewedAt === null) return null;
-  if (mode === '24h') return viewedAt + DAY_MS;
-  return opts.leftAt ?? null;
+ *  24h: viewedAt + 24 h. keep: never. Saved messages never expire.
+ *  With `createdAt`, every non-kept chat is also capped at 31 days after sending (unopened chats included). */
+export function messageExpiry(mode: RetentionMode, viewedAt: number | null, opts: { saved?: boolean; leftAt?: number | null; createdAt?: number | null } = {}): number | null {
+  if (opts.saved || mode === 'keep') return null;
+  const viewed = viewedAt === null ? null : mode === '24h' ? viewedAt + DAY_MS : opts.leftAt ?? null;
+  const cap = opts.createdAt != null && Number.isFinite(opts.createdAt) ? unopenedChatDeadline(opts.createdAt) : null;
+  if (cap === null) return viewed;
+  return viewed === null ? cap : Math.min(viewed, cap);
 }
-export function isMessageVisible(mode: RetentionMode, viewedAt: number | null, now: number, opts: { saved?: boolean; leftAt?: number | null } = {}): boolean {
+export function isMessageVisible(mode: RetentionMode, viewedAt: number | null, now: number, opts: { saved?: boolean; leftAt?: number | null; createdAt?: number | null } = {}): boolean {
   const exp = messageExpiry(mode, viewedAt, opts);
   return exp === null || now < exp;
 }

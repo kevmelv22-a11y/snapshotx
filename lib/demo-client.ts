@@ -8,7 +8,7 @@ import { StaffMock, seedStaffMock, MOCK_IDS, type Row } from './staff-mock';
 import { parseReply, replyBody } from './chat-replies';
 import { mentionLabel, mentionedIds } from './chat-mentions';
 import { SAVE_ERRORS, canSave, unsaveExpiry } from './chat-saves';
-import { parseRetention, retentionChangeText } from './chat-features';
+import { parseRetention, retentionChangeText, unopenedChatDeadline } from './chat-features';
 import { EDIT_ERRORS, EDIT_WINDOW_MS, editableText, editedBody, isNoopEdit, isStickerText, unsentText, validateEdit } from './chat-edits';
 import { POLL_ERRORS, parsePoll, pollBody, validateVote } from './chat-polls';
 import { FORWARD_ERRORS, FORWARD_MAX_TARGETS, canForward, forwardBody, forwardExpiry } from './chat-forward';
@@ -171,6 +171,8 @@ function stampRetention(threads: Row[], row: Row) {
   if (row.kind === 'system' || row.retention_mode != null) return;
   const mode = parseRetention(threads.find(t => t.id === row.thread_id)?.retention_mode);
   row.retention_mode = mode; if (mode === 'keep' && !row.saved && row.kind !== 'snap') row.expires_at = null;
+  // 20261028060000_unopened_chats_31d.sql: other chats are deleted 31 days after sending at the latest (Snapchat).
+  else if (row.kind !== 'snap' && !row.saved && row.expires_at == null) row.expires_at = new Date(unopenedChatDeadline(Date.parse(String(row.created_at)) || Date.now())).toISOString();
 }
 
 const PK: Record<string, string[]> = {
@@ -381,7 +383,9 @@ export class DemoClient {
       if (!msg.saved) return false;
       if (msg.saved_by && msg.saved_by !== ME && msg.sender_id !== ME) throw new Error(SAVE_ERRORS.notYours);
       const mode = parseRetention(msg.retention_mode ?? this.m.table('sx_threads').find(t => t.id === msg.thread_id)?.retention_mode);
-      Object.assign(msg, { saved: false, saved_by: null, saved_at: null, expires_at: unsaveExpiry(mode, Date.now()) }); this.emit('sx_messages', 'UPDATE', msg);
+      const receipts = this.m.table('sx_receipts');
+      const openedByAll = this.memberIds(msg.thread_id).filter(u => u !== msg.sender_id).every(u => receipts.some(r => r.message_id === msg.id && r.user_id === u && r.opened_at));
+      Object.assign(msg, { saved: false, saved_by: null, saved_at: null, expires_at: unsaveExpiry(mode, Date.now(), { createdAt: Date.parse(String(msg.created_at)), openedByAll }) }); this.emit('sx_messages', 'UPDATE', msg);
       return false;
     },
     // Bewerken / Verwijderen: mirrors public.sx_edit_message + sx_unsend_message (migration 20261027090000_chat_edit_unsend.sql).

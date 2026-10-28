@@ -50,10 +50,11 @@ export function serverExpired(row: RetentionRow, now: number): boolean {
   return Number.isFinite(t) && t <= now;
 }
 
-/** Visibility of a received message: its own (sent-with) mode + the server's expiry. */
+/** Visibility of a received message: its own (sent-with) mode + the server's expiry + Snapchat's 31-day cap. */
 export function isVisibleAsSent(row: RetentionRow, mode: RetentionMode, viewedAt: number | null, now: number, leftAt: number | null): boolean {
   if (serverExpired(row, now)) return false;
-  return isMessageVisible(mode, viewedAt, now, { saved: row.saved, leftAt });
+  const createdAt = Date.parse(row.created_at);
+  return isMessageVisible(mode, viewedAt, now, { saved: row.saved, leftAt, createdAt: Number.isFinite(createdAt) ? createdAt : null });
 }
 
 /** Messages that still disappear on their old timer although the chat is now set to `threadMode`
@@ -63,6 +64,7 @@ export function pendingOldTimers(rows: readonly RetentionRow[], modes: Record<st
   return rows.filter(r => r.kind !== 'system' && r.kind !== 'snap' && !r.saved && (modes[r.id] ?? threadMode) !== 'keep').length;
 }
 
+export const UNOPENED_NOTE = 'Ongeopende chats worden na 31 dagen verwijderd.';
 export const RETENTION_FORWARD_NOTE = 'Een nieuwe instelling geldt voor chats die vanaf nu worden verstuurd. Eerdere chats verdwijnen volgens de instelling van toen.';
 export function pendingOldTimersText(n: number): string | null {
   if (n <= 0) return null;

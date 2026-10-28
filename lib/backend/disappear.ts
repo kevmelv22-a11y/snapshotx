@@ -4,6 +4,8 @@ import type { RetentionMode } from '../chat-features';
 
 export const MIN = 60_000, HOUR = 3_600_000, DAY = 86_400_000;
 export const UNOPENED_SNAP_TTL_MS = 30 * DAY;
+/** Snapchat: chats are deleted 24 h after everyone viewed them OR 31 days after sending, whichever is sooner. */
+export const UNOPENED_CHAT_TTL_MS = 31 * DAY;
 export const STORY_TTL_MS = 24 * HOUR;
 export const AFTER_VIEW_GRACE_MS = 10 * MIN;
 export const MAX_SNAP_TIMER_S = 10;
@@ -28,18 +30,19 @@ export function expiresAt(x: Ephemeral): number | null {
       if (x.openedAt == null) return x.createdAt + UNOPENED_SNAP_TTL_MS;
       return x.openedAt + snapViewMs(x.timerS) * (x.replayed ? 2 : 1);
     case 'chat':
-      if (x.saved || x.retention === 'keep' || x.viewedAt == null) return null;
-      if (x.retention === '24h') return x.viewedAt + DAY;
-      return (x.leftAt ?? x.viewedAt) + AFTER_VIEW_GRACE_MS;
+      if (x.saved || x.retention === 'keep') return null;
+      { const cap = x.createdAt + UNOPENED_CHAT_TTL_MS;
+        if (x.viewedAt == null) return cap;
+        return Math.min(cap, x.retention === '24h' ? x.viewedAt + DAY : (x.leftAt ?? x.viewedAt) + AFTER_VIEW_GRACE_MS); }
   }
 }
 
 export function isExpired(x: Ephemeral, now: number): boolean { const e = expiresAt(x); return e != null && e <= now; }
 
-export type Reason = 'viewed' | 'unopened-30d' | 'story-24h' | 'chat-retention';
+export type Reason = 'viewed' | 'unopened-30d' | 'story-24h' | 'chat-retention' | 'chat-unopened-31d';
 export function expiryReason(x: Ephemeral): Reason {
   if (x.kind === 'story') return 'story-24h';
-  if (x.kind === 'chat') return 'chat-retention';
+  if (x.kind === 'chat') return x.viewedAt == null && !x.saved && x.retention !== 'keep' ? 'chat-unopened-31d' : 'chat-retention';
   return x.openedAt == null ? 'unopened-30d' : 'viewed';
 }
 
