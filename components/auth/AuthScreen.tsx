@@ -6,6 +6,7 @@ import { supabase, DEMO_MODE } from '../../lib/supabase';
 import { DEMO_EMAIL } from '../../lib/demo-client';
 import { friendlyError } from '../../lib/db-errors';
 import { classifyIdentifier, validateRegister } from '../../lib/auth-form';
+import { LEGAL_CONSENT, LEGAL_LINKS } from '../../lib/legal';
 
 export type AuthMode = 'login' | 'register';
 const CYAN = '#2EE6FF';
@@ -123,12 +124,14 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
             <Field label="Geboortedatum" placeholder="DD-MM-JJJJ" value={birthdate} onChangeText={setBirthdate} keyboardType="numbers-and-punctuation" maxLength={10} autoComplete="birthdate-full"/>
             <Field label="Mobiel nummer (optioneel)" placeholder="+31612345678" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber"/>
             <Text style={s.hint}>Minimaal 13 jaar. Voor 13–17 jaar gelden automatisch strengere privacy-instellingen.</Text>
+            <Text style={s.hint} testID="auth-legal">{LEGAL_CONSENT.before}<Text style={s.legalLink} accessibilityRole="link" onPress={() => router.push(LEGAL_LINKS.terms.route)}>{LEGAL_CONSENT.terms}</Text>{LEGAL_CONSENT.middle}<Text style={s.legalLink} accessibilityRole="link" onPress={() => router.push(LEGAL_LINKS.privacy.route)}>{LEGAL_CONSENT.privacy}</Text>{LEGAL_CONSENT.after}</Text>
           </>}
           {!!notice && <Text style={s.notice}>{notice}</Text>}
           <Pressable onPress={() => void (isLogin ? login() : register())} disabled={!canSubmit} style={({ pressed }) => [s.cta, (!canSubmit || pressed) && { opacity: busy ? 0.6 : pressed ? 0.85 : 1 }]} accessibilityRole="button" testID="auth-submit">
             <Text style={s.ctaText}>{isLogin ? 'Inloggen' : 'Account aanmaken'}</Text>
           </Pressable>
           {isLogin && <Pressable onPress={() => void recover()} disabled={busy} style={s.linkBtn}><Text style={s.link}>Wachtwoord vergeten?</Text></Pressable>}
+          {isLogin && <Text style={[s.legalSmall, s.linkBtn]} testID="auth-privacy"><Text accessibilityRole="link" onPress={() => router.push(LEGAL_LINKS.privacy.route)}>{LEGAL_LINKS.privacy.label}</Text>{'  ·  '}<Text accessibilityRole="link" onPress={() => router.push(LEGAL_LINKS.terms.route)}>{LEGAL_LINKS.terms.label}</Text></Text>}
           {DEMO_MODE && isLogin && <Pressable onPress={() => { void supabase.auth.signInWithPassword({ email: DEMO_EMAIL, password: 'demo' }).then(() => router.replace('/(tabs)')); }} style={s.linkBtn} testID="auth-demo"><Text style={s.link}>Start demo als Kevin</Text></Pressable>}
         </View>
       </ScrollView>
@@ -158,4 +161,6 @@ const s = StyleSheet.create({
   ctaText: { color: '#000', fontSize: 18, fontWeight: '700' },
   linkBtn: { alignSelf: 'center', paddingVertical: 12, marginTop: 6 },
   link: { color: 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'center' },
+  legalLink: { color: 'white', fontWeight: '700', textDecorationLine: 'underline' },
+  legalSmall: { color: 'rgba(255,255,255,0.55)', fontSize: 12, textAlign: 'center' },
 });

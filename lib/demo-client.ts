@@ -14,7 +14,7 @@ import { POLL_ERRORS, parsePoll, pollBody, validateVote } from './chat-polls';
 import { FORWARD_ERRORS, FORWARD_MAX_TARGETS, canForward, forwardBody, forwardExpiry } from './chat-forward';
 import { MEDIA_ERRORS, canReadMedia } from './media-access';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, canRemoveMember, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, groupRightsText, isGroupThread, normalizeGroupTitle } from './group-chat';
-import { WALLPAPER_ERRORS, WALLPAPER_IDS, canDeleteOwnMedia, isPhotoWallpaperPath, wallpaperChangeText } from './chat-wallpaper';
+import { WALLPAPER_ERRORS, WALLPAPER_IDS, canDeleteOwnMedia, isPhotoWallpaperPath, wallpaperChangeText, wallpaperUploader } from './chat-wallpaper';
 
 type Err = { message: string; code?: string; details?: string };
 type Res = { data: unknown; error: Err | null; count?: number | null };
@@ -342,6 +342,9 @@ export class DemoClient {
     try { globalThis.localStorage?.setItem('sx-demo-signed-in', s ? '1' : '0'); globalThis.localStorage?.setItem('sx-demo-meta', JSON.stringify(this.meta)); } catch {}
     this.authCbs.forEach(cb => setTimeout(() => cb(event, s), 0));
   }
+  /** Same rule as policy sx_messages_send: blocked with any other member (either direction). */
+  blockedInThread(threadId: string): boolean { return this.memberIds(threadId).some(u => u !== ME && this.blockedWith(u)); }
+  blockedWith(u: unknown): boolean { return this.m.table('sx_blocks').some(b => (b.blocker_id === ME && b.blocked_id === u) || (b.blocker_id === u && b.blocked_id === ME)); }
   removers(threadId: unknown): string[] { return this.m.table('sx_members').filter(x => x.thread_id === threadId && x.can_remove_members).map(x => String(x.user_id)); }
   emit(table: string, event: string, row: Row) {
     if (table === 'sx_messages' && event === 'INSERT') stampRetention(this.m.table('sx_threads'), row);
@@ -408,6 +411,7 @@ export class DemoClient {
     // The X+ check is client-side here (the demo has no server entitlements); the real RPC checks sx_has_tier.
     sx_set_wallpaper: a => {
       if (!this.memberIds(String(a.p_thread_id)).includes(ME)) throw new Error(WALLPAPER_ERRORS.notMember);
+      if (this.blockedInThread(String(a.p_thread_id))) throw new Error(WALLPAPER_ERRORS.blocked);
       if (!(WALLPAPER_IDS as readonly string[]).includes(String(a.p_wallpaper))) throw new Error(WALLPAPER_ERRORS.invalid);
       const t = this.m.table('sx_threads').find(x => x.id === a.p_thread_id); if (!t || t.wallpaper === a.p_wallpaper) return null;
       Object.assign(t, { wallpaper: a.p_wallpaper, wallpaper_path: null, wallpaper_blur: false });
@@ -418,6 +422,7 @@ export class DemoClient {
     // only the blur changed = no line; same photo + blur = no-op. Open to every member (no X+).
     sx_set_wallpaper_photo: a => {
       if (!this.memberIds(String(a.p_thread_id)).includes(ME)) throw new Error(WALLPAPER_ERRORS.notMember);
+      if (this.blockedInThread(String(a.p_thread_id))) throw new Error(WALLPAPER_ERRORS.blocked);
       const path = String(a.p_path ?? ''), blur = a.p_blur === true;
       if (!isPhotoWallpaperPath(path) || path.split('/')[0] !== ME || !(path in this.uploads)) throw new Error(WALLPAPER_ERRORS.badPhoto);
       const t = this.m.table('sx_threads').find(x => x.id === a.p_thread_id); if (!t) return null;
@@ -641,6 +646,8 @@ export class DemoClient {
       createSignedUrl: async (path: string) => {
         // Same rule as the storage policy sx_media_read (lib/media-access.ts): kept chat media (expires_at NULL) stays readable.
         // + 20261028180000: members may read their chat's photo wallpaper.
+        // Blocking: media uploaded by someone I blocked / who blocked me is never readable (messages, stories, wallpaper photo).
+        if (!this.uploads[path] && this.blockedWith(wallpaperUploader(path))) return { data: null, error: { message: MEDIA_ERRORS.gone, code: '403' } };
         if (!this.uploads[path] && !this.m.table('sx_threads').some(t => t.wallpaper === 'photo' && t.wallpaper_path === path && this.memberIds(String(t.id)).includes(ME)) && !this.m.table('memories').some(x => x.storage_path === path) && !canReadMedia({ path, me: ME, messages: this.m.table('sx_messages') as never, stories: this.m.table('sx_stories') as never, now: Date.now(), legacyNullExpired: this.faults.oldMediaRule }))
           return { data: null, error: { message: MEDIA_ERRORS.gone, code: '403' } };
         return { data: { signedUrl: this.uploads[path] || artUrl(path) }, error: null };

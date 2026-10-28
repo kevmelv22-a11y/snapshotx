@@ -13,6 +13,7 @@ export const WALLPAPER_ERRORS = {
   notMember: 'Je zit niet (meer) in deze chat.',
   invalid: 'Deze achtergrond bestaat niet.',
   badPhoto: 'Deze foto kan niet als achtergrond worden gebruikt.',
+  blocked: 'Je kunt de achtergrond van deze chat niet wijzigen.',
 } as const;
 
 /** Snapchat+ also lets you use a photo from your Camera Roll as the chat wallpaper (optionally blurred for readability).
@@ -69,6 +70,24 @@ export function canDeleteOwnMedia(path: string, me: string, refs: { wallpapers: 
   return !refs.wallpapers.includes(path) && !refs.media.includes(path);
 }
 
+/** Blocking + Chat-achtergrond, same rule as sending a message (policy sx_messages_send): in a chat with someone you
+ *  blocked (or who blocked you) you cannot change the wallpaper, and a photo wallpaper uploaded by someone you blocked
+ *  is not shown to you (normal background instead). blocked = ids of users I blocked (or that blocked me, when known). */
+export function wallpaperUploader(path: string | null | undefined): string | null {
+  return isPhotoWallpaperPath(path) ? path.split('/')[0].toLowerCase() : null;
+}
+export function photoHiddenByBlock(photo: PhotoWallpaper | null | undefined, blocked: Iterable<string>): boolean {
+  const who = wallpaperUploader(photo?.path);
+  if (!who) return false;
+  for (const b of blocked) if (String(b).toLowerCase() === who) return true;
+  return false;
+}
+/** null = allowed; otherwise the Dutch notice to show (members = everyone in the chat, me included). */
+export function wallpaperBlockedError(members: readonly string[], me: string, blocked: Iterable<string>): string | null {
+  const set = new Set([...blocked].map(b => String(b).toLowerCase()));
+  return members.some(m => m && m.toLowerCase() !== me.toLowerCase() && set.has(m.toLowerCase())) ? WALLPAPER_ERRORS.blocked : null;
+}
+
 export const WALLPAPER_IDS: readonly WallpaperId[] = WALLPAPERS.map(w => w.id);
 
 /** Unknown / null / old values → 'none' (the normal chat background). */
@@ -109,5 +128,6 @@ export function wallpaperErrorText(e: unknown): string | null {
   if (/not a member/i.test(m)) return WALLPAPER_ERRORS.notMember;
   if (/invalid wallpaper/i.test(m)) return WALLPAPER_ERRORS.invalid;
   if (/invalid (wallpaper )?photo|bad photo/i.test(m)) return WALLPAPER_ERRORS.badPhoto;
+  if (/interaction blocked/i.test(m)) return WALLPAPER_ERRORS.blocked;
   return null;
 }

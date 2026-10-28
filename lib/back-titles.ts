@@ -34,4 +34,6 @@ export const HIDDEN_HEADER_TITLES: Readonly<Record<string, string>> = {
   'avatar/kast': 'Kast',
   'blocked-users': 'Geblokkeerd',
   'reset-password': 'Wachtwoord',
+  privacy: 'Privacybeleid',
+  voorwaarden: 'Voorwaarden',
 };
