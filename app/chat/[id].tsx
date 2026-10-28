@@ -23,7 +23,7 @@ import {useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {FriendAvatar} from '../../components/avatar/FriendAvatar';
 import {AvatarStickerSheet,ChatAvatarSticker} from '../../components/avatar/AvatarStickerSheet';
 import {chatStickerBody,stickerFromChatBody} from '../../lib/avatar/poses';
-import {isVisibleAsSent,pendingOldTimers,sentModes} from '../../lib/chat-retention';
+import {isVisibleAsSent,isVisibleForEveryone,pendingOldTimers,receiptIndex,sentModes,timerStarts,type ReceiptRow} from '../../lib/chat-retention';
 import {VOICE_MAX_MS,activeTypers,applyTyping,computeStreak,keepRecording,meterLevel,parseRetention,retentionChangeText,screenshotText,shouldReportScreenshot,shouldSendTyping,toggleReaction,typingText,type Reaction,type RetentionMode,type TypingMap} from '../../lib/chat-features';
 
 import {friendlyError} from '../../lib/db-errors';
@@ -50,6 +50,7 @@ export default function Chat(){
  const {id:rawId}=useLocalSearchParams<{id:string|string[]}>(),id=threadIdFromParam(rawId)??'',{session}=useSession(),uid=session?.user.id??'';
  const [rows,setRows]=useState<Message[]>([]),[body,setBody]=useState(''),[notice,setNotice]=useState(id?'':'Deze chat kon niet worden geopend.'),[busy,setBusy]=useState(false),[opened,setOpened]=useState<Record<string,boolean>>({});
  const [retention,setRetention]=useState<RetentionMode>('24h'),[retentionOpen,setRetentionOpen]=useState(false);
+ const [threadReceipts,setThreadReceipts]=useState<ReceiptRow[]>([]);
  const [viewedAt,setViewedAt]=useState<Record<string,number>>({}),[reactions,setReactions]=useState<Reaction[]>([]);
  // Peilingen: votes on poll messages in this thread (needs migration 20261027150000_chat_polls.sql on a real backend).
  const [votes,setVotes]=useState<PollVote[]>([]),[pollOpen,setPollOpen]=useState(false);
@@ -64,6 +65,9 @@ export default function Chat(){
   if(incoming.length){const r=await supabase.from('sx_receipts').select('message_id,opened_at,replay_count').eq('user_id',uid).in('message_id',incoming);if(!r.error){const seen=(r.data||[]).filter(x=>x.opened_at);setViewedAt(Object.fromEntries(seen.map(x=>[x.message_id,Date.parse(x.opened_at)])));setReplays(Object.fromEntries(seen.map(x=>[x.message_id,Number(x.replay_count)||0])))}}
   const outgoing=list.filter(m=>m.sender_id===uid&&m.kind!=='system').map(m=>m.id);
   if(outgoing.length){const r=await supabase.from('sx_receipts').select('message_id,opened_at').in('message_id',outgoing).neq('user_id',uid);if(!r.error)setPeerOpened(new Set((r.data||[]).filter(x=>x.opened_at).map(x=>x.message_id)))}
+  // Snapchat: the deletion timer starts once EVERYONE has viewed a chat → read every member's receipt (RLS sx_receipts_read allows members).
+  const chats=list.filter(m=>m.kind!=='system'&&m.kind!=='snap').map(m=>m.id);
+  if(chats.length){const r=await supabase.from('sx_receipts').select('message_id,user_id,opened_at').in('message_id',chats);if(!r.error)setThreadReceipts((r.data||[]) as ReceiptRow[])}
   // Reactions need migration 20261013150000_chat_step4.sql; without it the query errors and reactions stay empty.
   const ids=list.map(m=>m.id);if(ids.length){const r=await supabase.from('sx_reactions').select('message_id,user_id,emoji').in('message_id',ids);if(!r.error)setReactions((r.data||[]).map(x=>({messageId:x.message_id,userId:x.user_id,emoji:x.emoji})))}
   const polls=list.filter(m=>m.kind==='text'&&parsePoll(m.body)).map(m=>m.id);if(polls.length){const v=await supabase.from('sx_poll_votes').select('message_id,user_id,option_index').in('message_id',polls);if(!v.error)setVotes((v.data||[]).map(x=>({messageId:x.message_id,userId:x.user_id,option:Number(x.option_index)})))}
@@ -101,7 +105,11 @@ export default function Chat(){
 
  // Snapchat: each chat keeps the "Chats verwijderen" setting it was SENT with; a new setting only applies going forward (lib/chat-retention.ts).
  const sentWith=useMemo(()=>sentModes(rows,retention),[rows,retention]);
- const visible=useMemo(()=>rows.filter(m=>m.sender_id===uid||m.kind==='system'||isVisibleAsSent(m,sentWith[m.id]??retention,viewedAt[m.id]??null,now,viewedAt[m.id]!==undefined&&viewedAt[m.id]<sessionStart?sessionStart:null)),[rows,uid,retention,sentWith,viewedAt,now,sessionStart]);
+ // Snapchat: "deleted 24 hours after EVERYONE in the conversation has viewed the Chat … or 31 days after it was sent".
+ // The timer starts at the last member's view (not yours), for your own chats too; snaps keep their own (status line) rules.
+ const memberIds=useMemo(()=>members.length?members.map(m=>m.id):[uid,...peers.map(p=>p.id)],[members,peers,uid]);
+ const starts=useMemo(()=>timerStarts(rows.filter(m=>m.kind!=='snap'),memberIds,receiptIndex(threadReceipts),uid,viewedAt),[rows,memberIds,threadReceipts,uid,viewedAt]);
+ const visible=useMemo(()=>rows.filter(m=>m.kind==='system'||(m.kind==='snap'?m.sender_id===uid||isVisibleAsSent(m,sentWith[m.id]??retention,viewedAt[m.id]??null,now,viewedAt[m.id]!==undefined&&viewedAt[m.id]<sessionStart?sessionStart:null):isVisibleForEveryone(m,sentWith[m.id]??retention,starts[m.id]??null,now,sessionStart))),[rows,uid,retention,sentWith,viewedAt,starts,now,sessionStart]);
  const oldTimers=useMemo(()=>pendingOldTimers(visible,sentWith,retention),[visible,sentWith,retention]);
  const streak=useMemo(()=>computeStreak(rows.filter(m=>m.kind==='snap').map(m=>({senderId:m.sender_id,at:Date.parse(m.created_at)})),uid,peers.length===1?peers[0].id:'',now,-new Date().getTimezoneOffset()),[rows,uid,peers,now]);
  const typing=typingText(activeTypers(typingMap,now,uid).map(u=>peers.find(p=>p.id===u)?.name||'Iemand'));
@@ -174,7 +182,7 @@ export default function Chat(){
  return <KeyboardAvoidingView style={s.root} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={90}>
   <Stack.Screen options={{headerShown:false,title}}/>
   <ChatHeaderBar onBack={()=>router.canGoBack()?router.back():router.replace('/(tabs)/chats')} topInset={insets.top} title={title} streak={streak} retention={retention} onRetention={()=>setRetentionOpen(true)} onCall={()=>router.push({pathname:'/call/[id]',params:{id:String(id),name:title}})} avatar={!isGroup&&peers.length===1?<FriendAvatar id={peers[0].id} outfit={friendOutfits.get(peers[0].id)} size={34} name={peers[0].name}/>:undefined} onInfo={isGroup?()=>setInfoOpen(true):undefined} onProfile={!isGroup&&peers.length===1?()=>router.push({pathname:'/friend/[id]',params:{id:peers[0].id}}):undefined} memberCount={isGroup?members.length:undefined}/>
-  <ChatView onSenderLongPress={isGroup?sid=>memberMenu.open(members.find(m=>m.id===sid)):undefined} badgeOf={isGroup?sid=><MemberRoleIcon isAdmin={sid===creatorId} canRemove={removers.includes(sid)} size={12}/>:undefined} receipt={(()=>{const last=visible.find(m=>m.kind!=='system');return last&&last.sender_id===uid&&last.kind!=='snap'?{messageId:last.id,status:messageStatus(last,uid,peerOpened.has(last.id),false)}:null})()} rows={visible} me={uid} reactions={reactions} retention={retention} retentionOf={m=>sentWith[m.id]??retention} viewedAt={viewedAt} now={now} streak={streak} typing={typing} renderContent={content} onReact={(m,e)=>void react(m,e)} extraActions={menu} onReply={startReply} nameOf={nameOf} avatarOf={avatarOf} memberIds={members.length?members.map(m=>m.id):[uid,...peers.map(p=>p.id)]} jumpRequestId={jumpRequestId}/>
+  <ChatView onSenderLongPress={isGroup?sid=>memberMenu.open(members.find(m=>m.id===sid)):undefined} badgeOf={isGroup?sid=><MemberRoleIcon isAdmin={sid===creatorId} canRemove={removers.includes(sid)} size={12}/>:undefined} receipt={(()=>{const last=visible.find(m=>m.kind!=='system');return last&&last.sender_id===uid&&last.kind!=='snap'?{messageId:last.id,status:messageStatus(last,uid,peerOpened.has(last.id),false)}:null})()} rows={visible} me={uid} reactions={reactions} retention={retention} retentionOf={m=>sentWith[m.id]??retention} viewedAt={viewedAt} timerStart={starts} now={now} streak={streak} typing={typing} renderContent={content} onReact={(m,e)=>void react(m,e)} extraActions={menu} onReply={startReply} nameOf={nameOf} avatarOf={avatarOf} memberIds={memberIds} jumpRequestId={jumpRequestId}/>
   {isGroup&&!!mentionJumpId&&<Pressable style={s.mentionJump} testID="jump-mention" accessibilityRole="button" accessibilityLabel={MENTION_BADGE} onPress={jumpToMention}><Text style={s.mentionJumpAt}>@</Text><Text style={s.mentionJumpText}>{MENTION_BADGE}</Text></Pressable>}
   {!!notice&&<Text style={s.notice}>{notice}</Text>}
   {recorderState.isRecording?<RecordingBar durationMs={recorderState.durationMillis} level={meterLevel(recorderState.metering)} onCancel={()=>void stopRecording(false)} onStop={()=>void stopRecording(true)}/>:

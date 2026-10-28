@@ -70,3 +70,50 @@ export function pendingOldTimersText(n: number): string | null {
   if (n <= 0) return null;
   return `${n === 1 ? '1 eerdere chat verdwijnt' : `${n} eerdere chats verdwijnen`} nog volgens de oude instelling. Houd een chat ingedrukt en kies Opslaan in chat om hem te bewaren.`;
 }
+
+/** Snapchat (support, "When does Snapchat delete Snaps and Chats?", checked 2026-10-28): "Chats are automatically
+ *  deleted by default 24 hours after EVERYONE in the conversation has viewed the Chat … or 31 days after the Chat was
+ *  sent, whichever is sooner." The server already starts the timer at the last member's receipt
+ *  (app_private.sx_apply_retention, 20261028060000_unopened_chats_31d.sql). Before this, the app started the 24 h at
+ *  YOUR OWN view, so in a group a chat vanished for you while others still hadn't opened it (and the sender kept it forever).
+ *  Now the deletion timer starts when the last other member (everyone except the sender) has opened the chat. */
+export type ReceiptRow = { message_id: string; user_id: string; opened_at: string | null };
+/** Per message: user id → opened-at (ms). Unopened / invalid receipts are skipped. */
+export function receiptIndex(receipts: readonly ReceiptRow[]): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {};
+  for (const r of receipts) {
+    if (!r.opened_at) continue;
+    const t = Date.parse(r.opened_at); if (!Number.isFinite(t)) continue;
+    const per = (out[r.message_id] ??= {});
+    per[r.user_id] = per[r.user_id] === undefined ? t : Math.min(per[r.user_id], t);
+  }
+  return out;
+}
+/** Moment EVERY member except the sender had opened the message (= latest of their first opens), or null while
+ *  someone hasn't. Members who left are not waited for. A chat with no other members never starts a timer. */
+export function everyoneViewedAt(senderId: string, memberIds: readonly string[], opens: Readonly<Record<string, number>> | undefined): number | null {
+  const others = [...new Set(memberIds)].filter(u => u !== senderId);
+  if (!others.length || !opens) return null;
+  let last = -Infinity;
+  for (const u of others) { const t = opens[u]; if (t === undefined) return null; last = Math.max(last, t); }
+  return last;
+}
+/** Deletion-timer start for every non-system message: everyone viewed (from the receipts), with `ownViews` (receipts
+ *  just written optimistically by this device) merged in for `me`. Messages nobody finished viewing are absent. */
+export function timerStarts(rows: readonly Pick<RetentionRow, 'id' | 'kind' | 'sender_id'>[], memberIds: readonly string[], idx: Readonly<Record<string, Record<string, number>>>, me: string, ownViews: Readonly<Record<string, number>> = {}): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const r of rows) {
+    if (r.kind === 'system' || !r.sender_id) continue;
+    const opens = { ...(idx[r.id] ?? {}) };
+    if (ownViews[r.id] !== undefined && opens[me] === undefined) opens[me] = ownViews[r.id];
+    const t = everyoneViewedAt(r.sender_id, memberIds, opens);
+    if (t !== null) out[r.id] = t;
+  }
+  return out;
+}
+/** Visibility in the chat (own and received): the sent-with mode's timer counts from `timerStart` (everyone viewed).
+ *  "Na bekijken": gone once everyone had viewed it before this chat session started. Snaps keep their own rules. */
+export function isVisibleForEveryone(row: RetentionRow, mode: RetentionMode, timerStart: number | null, now: number, sessionStart: number): boolean {
+  if (row.kind === 'system') return true;
+  return isVisibleAsSent(row, mode, timerStart, now, timerStart !== null && timerStart < sessionStart ? sessionStart : null);
+}

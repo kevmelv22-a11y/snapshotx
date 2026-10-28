@@ -139,6 +139,21 @@ function seedDemo(m: StaffMock) {
     Object.assign(noorHi, { retention_mode: 'keep' }); Object.assign(was24, { retention_mode: '24h', expires_at: iso(24 * H - 4.5 * H) }); Object.assign(kept, { retention_mode: 'keep' });
     m.t.sx_messages.push(msg(T.noor, EXTRA.noor, retentionChangeText('Noor El Amrani', '24h'), 6 * H, 'system'), was24, msg(T.noor, ME, retentionChangeText('Kevin', 'keep'), 2 * H, 'system'), kept);
     opened(was24.id, ME, 4.5 * H); opened(kept.id, ME, 50 * 60e3); }
+  // Festival squad (group, 24 uur na bekijken) — Snapchat: a chat is deleted 24 h after EVERYONE has viewed it.
+  // Gone: opened by all 27 h ago (also Kevin's own chat, opened by all 25 h ago). Stays: Kevin read Eva's chat 27 h
+  // ago but Cleo hasn't yet. Counting: everyone opened Cleo's chat 5 h ago → "Nog 19 u". Mirrors sx_apply_retention.
+  { const f = m.t.sx_threads.find(t => t.id === T.fest); if (f) f.retention_mode = '24h';
+    const gone = { ...msg(T.fest, I.aria, 'Wie heeft de tickets al geprint? 🎟️', 30 * H), expires_at: iso(-3 * H) };
+    const waiting = msg(T.fest, I.eva, 'Ik neem zonnebrand mee ☀️', 28 * H);
+    const mineGone = { ...msg(T.fest, ME, 'Ik sta om 10:00 bij de ingang', 26 * H), expires_at: iso(-1 * H) };
+    const counting = msg(T.fest, I.cleo, 'Treinkaartjes zijn binnen 🚆', 6 * H);
+    const mineWaiting = msg(T.fest, ME, 'Wie wil er een lift? 🚗', 3 * H);
+    m.t.sx_messages.push(msg(T.fest, I.aria, retentionChangeText('Aria de Vries', '24h'), 40 * H, 'system'), gone, waiting, mineGone, counting, mineWaiting);
+    opened(gone.id, ME, 29 * H); opened(gone.id, I.eva, 28 * H); opened(gone.id, I.cleo, 27 * H);
+    opened(waiting.id, ME, 27 * H); opened(waiting.id, I.aria, 26 * H);
+    opened(mineGone.id, I.aria, 25.9 * H); opened(mineGone.id, I.eva, 25.5 * H); opened(mineGone.id, I.cleo, 25 * H);
+    opened(counting.id, ME, 5.5 * H); opened(counting.id, I.aria, 5 * H); opened(counting.id, I.eva, 5 * H);
+    opened(mineWaiting.id, I.aria, 2 * H); }
   // Kevin already read Eva's chats (Ontvangen), Eva read his (Geopend).
   m.t.sx_messages.filter(x => x.thread_id === T.eva && x.kind === 'text').forEach(x => opened(x.id, x.sender_id === ME ? I.eva : ME, 19 * H));
   m.t.sx_highlight_likes = []; m.t.sx_highlight_shares = [];

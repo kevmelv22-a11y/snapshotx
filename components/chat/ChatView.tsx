@@ -32,7 +32,7 @@ export function ChatHeaderBar({title,streak,retention,onRetention,onCall,avatar,
 }
 
 export type ChatViewProps={
-  rows:Message[];me:string;reactions:Reaction[];retention:RetentionMode;/** Mode a message was sent with (Snapchat: a new setting only applies going forward). Default: `retention`. */retentionOf?:(m:Message)=>RetentionMode;viewedAt:Record<string,number>;now:number;
+  rows:Message[];me:string;reactions:Reaction[];retention:RetentionMode;/** Mode a message was sent with (Snapchat: a new setting only applies going forward). Default: `retention`. */retentionOf?:(m:Message)=>RetentionMode;viewedAt:Record<string,number>;/** Deletion-timer start per chat = moment EVERYONE (except the sender) had viewed it (Snapchat; lib/chat-retention.ts timerStarts). When given, the hint counts from here for own and received chats. */timerStart?:Record<string,number>;now:number;
   streak:StreakState;typing:string|null;
   renderContent:(m:Message,mine:boolean)=>React.ReactNode;
   onReact:(messageId:string,emoji:string)=>void;
@@ -70,7 +70,7 @@ export function ChatView(p:ChatViewProps){
         const mine=item.sender_id===p.me,color=colorFor(item.sender_id,colors),start=starts.has(item.id)||days.has(item.id);
         // Opslaan in chat: saved messages get Snapchat's grey highlight + "Opgeslagen (door …)" instead of a timer.
         const saved=savedLabel(item,p.me,id=>p.nameOf?.(id));
-        const hint=saved?null:retentionHint(p.retentionOf?.(item)??p.retention,mine?null:p.viewedAt[item.id]??null,p.now,!!item.saved);
+        const hint=saved?null:retentionHint(p.retentionOf?.(item)??p.retention,p.timerStart&&item.kind!=='snap'?p.timerStart[item.id]??null:mine?null:p.viewedAt[item.id]??null,p.now,!!item.saved);
         const time=new Date(item.created_at).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
         const open=()=>setPicker(item.id);
         // Web: right-click opens the same menu as a long-press (mobile).
