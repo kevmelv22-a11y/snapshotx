@@ -121,6 +121,8 @@ export const WARDROBE_ITEMS: WardrobeItem[] = [
   item('top-groningen-jersey', 'top', 'FC Groningen', 'Groen-wit gestreept FC Groningen-thuisshirt', null, ['#00813E', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
   item('top-sparta-jersey', 'top', 'Sparta Rotterdam', 'Rood-wit gestreept Sparta-thuisshirt', null, ['#D8141E', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
   item('top-heerenveen-jersey', 'top', 'sc Heerenveen', 'Blauw-wit gestreept Heerenveen-thuisshirt', null, ['#0055A4', '#FFFFFF', '#E1061B'], { variant: 'tee', pattern: 'stripes' }),
+  item('top-vitesse-jersey', 'top', 'Vitesse', 'Geel-zwart gestreept Vitesse-thuisshirt', null, ['#FFD200', '#000000'], { variant: 'tee', pattern: 'stripes' }),
+  item('top-willem2-jersey', 'top', 'Willem II', 'Rood-wit-blauw gestreept Willem II-thuisshirt', null, ['#D8141E', '#FFFFFF', '#1B2A5C'], { variant: 'tee', pattern: 'stripes' }),
   item('top-acmilan-jersey', 'top', 'AC Milan', 'Rood-zwart gestreept voetbalshirt', null, ['#D0102B', '#000000'], { variant: 'tee', pattern: 'stripes' }),
   item('top-juventus-jersey', 'top', 'Juventus', 'Zwart-wit gestreept Juventus-shirt', null, ['#000000', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
   item('top-inter-jersey', 'top', 'Inter', 'Blauw-zwart gestreept voetbalshirt', null, ['#0068A8', '#000000'], { variant: 'tee', pattern: 'stripes' }),
@@ -156,6 +158,7 @@ export const WARDROBE_ITEMS: WardrobeItem[] = [
   item('shoes-royaums-luisa-white', 'shoes', 'Royaums', 'Luisa wit met driehoekstuds', 159, ['#F4F4F6', '#C41822'], { variant: 'sneaker' }),
   item('top-ploeg-burgundy-knit', 'top', 'Ploeg & Co', 'Bordeaux kabeltrui', null, ['#6E1A24', '#4A1018'], { variant: 'crew' }),
   item('outer-trivo-windbreaker', 'outerwear', 'trivo', 'Retro windjack', null, ['#1E2B4F', '#F07A1E', '#FFFFFF'], { variant: 'zip' }),
+  item('top-kast-lilac-sweater', 'top', 'Kast Studio', 'Lila sweater', null, ['#B9A6EE', '#9C88D9'], { variant: 'crew' }),
   item('glasses-trivo-sport', 'glasses', 'trivo', 'Sportzonnebril', 99, ['#FF5B95'], { variant: 'shades' }),
 ];
 
