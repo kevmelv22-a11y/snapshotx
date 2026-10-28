@@ -10,15 +10,16 @@ import {FriendAvatar} from '../avatar/FriendAvatar';
 import {OwnAvatar} from '../avatar/OwnAvatar';
 import {useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {MemberRoleIcon,useMemberActions} from './MemberActionSheet';
+import {wallpaperLabel} from '../../lib/chat-wallpaper';
 import {GROUP_MAX_MEMBERS,GROUP_TITLE_MAX,addableFriends,canAddMembers,canRename,canSelectMore,groupErrorText,normalizeGroupTitle,sortMembers,validateAdd} from '../../lib/group-chat';
 
 export type GroupMember={id:string;name:string};
-type Props={visible:boolean;threadId:string;me:string;title:string;creatorId:string|null;members:GroupMember[];/** Members with can_remove_members (migration 20261027200000). */removers?:string[];onClose:()=>void;/** Reload thread meta + messages after a change. */onChanged:()=>void;/** Called after leaving; the chat screen navigates back to the chat list. */onLeft:()=>void};
+type Props={/** Current Chat-achtergrond id (shows its label) + opens the wallpaper sheet. */wallpaperLabel?:string;onWallpaper?:()=>void;visible:boolean;threadId:string;me:string;title:string;creatorId:string|null;members:GroupMember[];/** Members with can_remove_members (migration 20261027200000). */removers?:string[];onClose:()=>void;/** Reload thread meta + messages after a change. */onChanged:()=>void;/** Called after leaving; the chat screen navigates back to the chat list. */onLeft:()=>void};
 const violet='#B629E2';
 const errText=(e:unknown)=>groupErrorText(e)??friendlyError(e);
 
 /** Snapchat-style "Groepsinfo": members (long-press → acties), rename, add friends, leave. Mount it only while open (fresh state each time). */
-export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,removers=[],onClose,onChanged,onLeft}:Props){
+export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,removers=[],onClose,onChanged,onLeft,wallpaperLabel:wp,onWallpaper}:Props){
  const insets=useSafeAreaInsets(),confirm=useConfirmDialog();
  const [mode,setMode]=useState<'info'|'rename'|'add'>('info'),[draft,setDraft]=useState(title),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
  const [friends,setFriends]=useState<GroupMember[]|null>(null),[picked,setPicked]=useState<string[]>([]);
@@ -44,6 +45,7 @@ export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,remo
      <Text style={s.groupName} numberOfLines={2}>{title}</Text><Text style={s.sub}>{count} {count===1?'lid':'leden'} · max {GROUP_MAX_MEMBERS}</Text></View>
     <View style={s.card}>
      {canRename(isMember)&&<Row icon="pencil" label="Groepsnaam wijzigen" onPress={()=>{setDraft(title);setNotice('');setMode('rename')}}/>}
+     {isMember&&!!onWallpaper&&<Row icon="image" testID="group-info-wallpaper" label="Chat-achtergrond" hint={wp&&wp!=='none'?wallpaperLabel(wp):'Geen'} onPress={onWallpaper}/>}
      {isMember&&<Row icon="person-add" label="Leden toevoegen" hint={canAddMembers(isMember,count)?`Nog ${GROUP_MAX_MEMBERS-count} plekken`:'Groep is vol'} disabled={!canAddMembers(isMember,count)} onPress={()=>{setNotice('');setPicked([]);setMode('add')}}/>}
     </View>
     <Text style={s.section}>LEDEN ({count})</Text>
@@ -77,8 +79,8 @@ export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,remo
   </View></View></Modal>;
 }
 
-function Row({icon,label,hint,onPress,disabled}:{icon:React.ComponentProps<typeof Ionicons>['name'];label:string;hint?:string;onPress:()=>void;disabled?:boolean}){
- return <Pressable onPress={onPress} disabled={disabled} style={[s.row,disabled&&{opacity:.45}]} accessibilityLabel={label}><View style={s.rowIcon}><Ionicons name={icon} size={18} color="#E9D3FA"/></View><Text style={s.rowLabel}>{label}</Text>{!!hint&&<Text style={s.rowHint}>{hint}</Text>}<Ionicons name="chevron-forward" size={18} color={C.muted}/></Pressable>;
+function Row({icon,label,hint,onPress,disabled,testID}:{icon:React.ComponentProps<typeof Ionicons>['name'];label:string;hint?:string;onPress:()=>void;disabled?:boolean;testID?:string}){
+ return <Pressable onPress={onPress} disabled={disabled} testID={testID} style={[s.row,disabled&&{opacity:.45}]} accessibilityLabel={label}><View style={s.rowIcon}><Ionicons name={icon} size={18} color="#E9D3FA"/></View><Text style={s.rowLabel}>{label}</Text>{!!hint&&<Text style={s.rowHint}>{hint}</Text>}<Ionicons name="chevron-forward" size={18} color={C.muted}/></Pressable>;
 }
 
 const s=StyleSheet.create({

@@ -14,6 +14,7 @@ import { POLL_ERRORS, parsePoll, pollBody, validateVote } from './chat-polls';
 import { FORWARD_ERRORS, FORWARD_MAX_TARGETS, canForward, forwardBody, forwardExpiry } from './chat-forward';
 import { MEDIA_ERRORS, canReadMedia } from './media-access';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, canRemoveMember, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, groupRightsText, isGroupThread, normalizeGroupTitle } from './group-chat';
+import { WALLPAPER_ERRORS, WALLPAPER_IDS, wallpaperChangeText } from './chat-wallpaper';
 
 type Err = { message: string; code?: string; details?: string };
 type Res = { data: unknown; error: Err | null; count?: number | null };
@@ -189,6 +190,10 @@ function seedDemo(m: StaffMock) {
   m.t.memories = [{ id: newId(), owner_id: ME, storage_path: 'demo/zonsondergang.svg', media_type: 'photo', created_at: iso(-40 * D), private: false, caption: null, deleted_at: null },
     { id: newId(), owner_id: ME, storage_path: 'demo/pizza.svg', media_type: 'photo', created_at: iso(-370 * D), private: false, caption: 'Pizza-avond', deleted_at: null }];
   m.t.sx_memory_vault = []; m.t.sx_avatar_outfits = [];
+  // Chat-achtergrond (Snapchat+ Chat Wallpaper): Aria (X+) set 'Sterren' on her chat with Kevin, who sees it without X+.
+  m.t.sx_threads.forEach(t => { t.wallpaper ??= 'none'; });
+  Object.assign(m.t.sx_threads.find(t => t.id === T.aria) ?? {}, { wallpaper: 'sterren' });
+  m.t.sx_messages.push(msg(T.aria, I.aria, wallpaperChangeText('Aria', 'sterren'), 5.5 * H, 'system'));
   m.t.sx_messages.forEach(x => stampRetention(m.t.sx_threads, x));
 }
 
@@ -394,6 +399,16 @@ export class DemoClient {
       if (r) { if (Number(r.replay_count) >= 1) return false; r.replay_count = Number(r.replay_count) + 1; r.opened_at = this.m.iso(); return true; }
       const row = { message_id: msg.id, user_id: ME, opened_at: this.m.iso(), replay_count: 0 };
       this.m.table('sx_receipts').push(row); this.emit('sx_receipts', 'INSERT', row); return true;
+    },
+    // Mirrors public.sx_set_wallpaper (20261028150000_chat_wallpaper.sql): member + valid id; same id = no-op.
+    // The X+ check is client-side here (the demo has no server entitlements); the real RPC checks sx_has_tier.
+    sx_set_wallpaper: a => {
+      if (!this.memberIds(String(a.p_thread_id)).includes(ME)) throw new Error(WALLPAPER_ERRORS.notMember);
+      if (!(WALLPAPER_IDS as readonly string[]).includes(String(a.p_wallpaper))) throw new Error(WALLPAPER_ERRORS.invalid);
+      const t = this.m.table('sx_threads').find(x => x.id === a.p_thread_id); if (!t || t.wallpaper === a.p_wallpaper) return null;
+      t.wallpaper = a.p_wallpaper;
+      const row = { id: newId(), thread_id: a.p_thread_id, sender_id: ME, kind: 'system', body: a.p_text, created_at: this.m.iso(), expires_at: null };
+      this.m.table('sx_messages').push(row); this.emit('sx_messages', 'INSERT', row); return null;
     },
     sx_set_retention: a => {
       const t = this.m.table('sx_threads').find(x => x.id === a.p_thread_id); if (t) t.retention_mode = a.p_mode;

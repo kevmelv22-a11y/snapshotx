@@ -18,7 +18,7 @@ export default function PlusSettings(){
     <View style={s.cur} testID="app-icon-current"><AppIconBadge id={icon} size={56}/><View style={{flex:1}}><Text style={s.curLabel}>{appIconInfo(icon).label}</Text><Text style={s.note}>{plus?'Huidig icoon':'Standaard is gratis. Andere iconen zijn voor Snapshot X+.'}</Text></View></View>
     <AppIconPicker value={icon} plus={plus} onChange={st.setAppIcon}/>
     <Text style={s.note}>In de web-app verandert het icoon (tabblad en beginscherm-snelkoppeling) meteen. Op iPhone verandert het icoon op je beginscherm vanaf de volgende app-versie.</Text>
-    <Text style={s.h}>Chat-achtergronden</Text><Text style={s.note}>Kies een achtergrond via het menu in een chat.</Text>
+    <Text style={s.h}>Chat-achtergronden</Text><Text style={s.note}>Houd een chat in je chatfeed ingedrukt → Chat-achtergrond (of Groepsinfo in een groep). Iedereen in die chat ziet de achtergrond, ook zonder Snapshot X+.</Text>
     <Text style={s.h}>Vaste #1 beste vriend</Text><Text style={s.note}>{st.bffPinId?'Je hebt een vriend vastgepind.':'Pin een vriend vanuit je vriendenlijst.'}</Text>
     <View style={{height:30}}/></ScrollView>;
 }

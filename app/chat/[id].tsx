@@ -45,11 +45,17 @@ import {POLL_LABEL,applyVote,nextVote,parsePoll,tallyPoll,type PollVote} from '.
 import {ForwardSheet} from '../../components/chat/ForwardSheet';
 import {FORWARD_LABEL,canForward} from '../../lib/chat-forward';
 import {isSilentSystemMessageError,systemMessageRow,threadIdFromParam} from '../../lib/chat-ids';
+import {WallpaperSheet} from '../../components/chat/WallpaperSheet';
+import {parseWallpaper,wallpaperChange,wallpaperChangeText,wallpaperErrorText} from '../../lib/chat-wallpaper';
+import type {WallpaperId} from '../../lib/plus';
+import {useIsPlus} from '../../stores/plus';
 export default function Chat(){
  const confirm=useConfirmDialog(),insets=useSafeAreaInsets();
- const {id:rawId}=useLocalSearchParams<{id:string|string[]}>(),id=threadIdFromParam(rawId)??'',{session}=useSession(),uid=session?.user.id??'';
+ const {id:rawId,sheet}=useLocalSearchParams<{id:string|string[];sheet?:string}>(),id=threadIdFromParam(rawId)??'',{session}=useSession(),uid=session?.user.id??'';
  const [rows,setRows]=useState<Message[]>([]),[body,setBody]=useState(''),[notice,setNotice]=useState(id?'':'Deze chat kon niet worden geopend.'),[busy,setBusy]=useState(false),[opened,setOpened]=useState<Record<string,boolean>>({});
  const [retention,setRetention]=useState<RetentionMode>('24h'),[retentionOpen,setRetentionOpen]=useState(false);
+ // Snapchat+ Chat-achtergrond: shared by everyone in the chat (sx_threads.wallpaper, migration 20261028150000); only X+ can change it.
+ const plus=useIsPlus(),[wallpaper,setWallpaper]=useState<WallpaperId>('none'),[wallpaperOpen,setWallpaperOpen]=useState(sheet==='wallpaper'),[wallpaperBusy,setWallpaperBusy]=useState(false);
  const [threadReceipts,setThreadReceipts]=useState<ReceiptRow[]>([]);
  // Names of people with receipts here (also members who left): resolves "A heeft X uit de groep verwijderd" to X's id.
  const [receiptNames,setReceiptNames]=useState<{id:string;name:string}[]>([]);
@@ -81,9 +87,16 @@ export default function Chat(){
   let m:{data:{user_id:string;can_remove_members?:boolean|null}[]|null}=await supabase.from('sx_members').select('user_id,can_remove_members').eq('thread_id',id);if((m as {error?:unknown}).error)m=await supabase.from('sx_members').select('user_id').eq('thread_id',id);if(alive())setRemovers((m.data||[]).filter(x=>x.can_remove_members).map(x=>x.user_id));const all=[...new Set((m.data||[]).map(x=>x.user_id as string))];const ids=all.filter(x=>x!==uid);const p=all.length?await supabase.from('profiles').select('id,display_name').in('id',all):null;const names=new Map((p?.data||[]).map(x=>[x.id,x.display_name]));if(!alive())return;
   setPeers(ids.map(x=>({id:x,name:names.get(x)||'Vriend'})));setMembers(all.map(x=>({id:x,name:x===uid?(names.get(x)||session?.user.user_metadata?.display_name||'Jij'):(names.get(x)||'Vriend')})))},[id,uid,session?.user.user_metadata?.display_name]);
  useEffect(()=>{let alive=true;const timer=setTimeout(()=>void loadMeta(()=>alive),0);return()=>{alive=false;clearTimeout(timer)}},[loadMeta]);
+ // Separate select: a backend without the wallpaper column just keeps the normal background (retention/title still load).
+ const loadWallpaper=useCallback(async(alive:()=>boolean=()=>true)=>{if(!id)return;const w=await supabase.from('sx_threads').select('wallpaper').eq('id',id).maybeSingle();if(alive()&&!w.error)setWallpaper(parseWallpaper((w.data as {wallpaper?:unknown}|null)?.wallpaper))},[id]);
+ useEffect(()=>{let alive=true;const timer=setTimeout(()=>void loadWallpaper(()=>alive),0);return()=>{alive=false;clearTimeout(timer)}},[loadWallpaper]);
+ async function changeWallpaper(next:WallpaperId){if(wallpaperBusy)return;const c=wallpaperChange(wallpaper,next,plus);if(!c.ok){if(c.error)setNotice(c.error);setWallpaperOpen(false);return}
+  const prev=wallpaper;setWallpaper(c.id);setWallpaperOpen(false);setWallpaperBusy(true);
+  try{const {error}=await supabase.rpc('sx_set_wallpaper',{p_thread_id:id,p_wallpaper:c.id,p_text:wallpaperChangeText(session?.user.user_metadata?.display_name||'Iemand',c.id)});if(error){setWallpaper(prev);setNotice(wallpaperErrorText(error)??friendlyError(error))}else void load()}finally{setWallpaperBusy(false)}}
  useEffect(()=>{if(!id)return;const timer=setTimeout(()=>void load(),0);
   const channel=supabase.channel(`sx-thread-${id}`)
-   .on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_messages',filter:`thread_id=eq.${id}`},()=>void load())
+   .on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_messages',filter:`thread_id=eq.${id}`},()=>{void load();void loadWallpaper()})
+   .on('postgres_changes',{event:'UPDATE',schema:'public',table:'sx_threads',filter:`id=eq.${id}`},()=>void loadWallpaper())
    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'sx_messages',filter:`thread_id=eq.${id}`},()=>void load())
    .on('postgres_changes',{event:'*',schema:'public',table:'sx_members'},()=>void loadMeta())
    .on('postgres_changes',{event:'*',schema:'public',table:'sx_reactions'},()=>void load())
@@ -91,7 +104,7 @@ export default function Chat(){
    .on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_receipts'},()=>void load())
    .on('broadcast',{event:'typing'},({payload})=>{const p=payload as {user:string;typing:boolean};if(p?.user)setTypingMap(m=>applyTyping(m,p.user,!!p.typing,Date.now()))})
    .subscribe();channelRef.current=channel;
-  return()=>{clearTimeout(timer);channelRef.current=null;void supabase.removeChannel(channel)}},[id,load,loadMeta]);
+  return()=>{clearTimeout(timer);channelRef.current=null;void supabase.removeChannel(channel)}},[id,load,loadMeta,loadWallpaper]);
  useEffect(()=>{const t=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(t)},[]);
  // Text and ordinary attachments become read when this conversation is open.
  // One-time snaps are deliberately excluded: their receipt is claimed only by sx_claim_snap.
@@ -186,7 +199,7 @@ export default function Chat(){
  return <KeyboardAvoidingView style={s.root} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={90}>
   <Stack.Screen options={{headerShown:false,title}}/>
   <ChatHeaderBar onBack={()=>router.canGoBack()?router.back():router.replace('/(tabs)/chats')} topInset={insets.top} title={title} streak={streak} retention={retention} onRetention={()=>setRetentionOpen(true)} onCall={()=>router.push({pathname:'/call/[id]',params:{id:String(id),name:title}})} avatar={!isGroup&&peers.length===1?<FriendAvatar id={peers[0].id} outfit={friendOutfits.get(peers[0].id)} size={34} name={peers[0].name}/>:undefined} onInfo={isGroup?()=>setInfoOpen(true):undefined} onProfile={!isGroup&&peers.length===1?()=>router.push({pathname:'/friend/[id]',params:{id:peers[0].id}}):undefined} memberCount={isGroup?members.length:undefined}/>
-  <ChatView onSenderLongPress={isGroup?sid=>memberMenu.open(members.find(m=>m.id===sid)):undefined} badgeOf={isGroup?sid=><MemberRoleIcon isAdmin={sid===creatorId} canRemove={removers.includes(sid)} size={12}/>:undefined} receipt={(()=>{const last=visible.find(m=>m.kind!=='system');return last&&last.sender_id===uid&&last.kind!=='snap'?{messageId:last.id,status:messageStatus(last,uid,peerOpened.has(last.id),false)}:null})()} rows={visible} me={uid} reactions={reactions} retention={retention} retentionOf={m=>sentWith[m.id]??retention} viewedAt={viewedAt} timerStart={starts} now={now} streak={streak} typing={typing} renderContent={content} onReact={(m,e)=>void react(m,e)} extraActions={menu} onReply={startReply} nameOf={nameOf} avatarOf={avatarOf} memberIds={memberIds} jumpRequestId={jumpRequestId}/>
+  <ChatView wallpaper={wallpaper} onSenderLongPress={isGroup?sid=>memberMenu.open(members.find(m=>m.id===sid)):undefined} badgeOf={isGroup?sid=><MemberRoleIcon isAdmin={sid===creatorId} canRemove={removers.includes(sid)} size={12}/>:undefined} receipt={(()=>{const last=visible.find(m=>m.kind!=='system');return last&&last.sender_id===uid&&last.kind!=='snap'?{messageId:last.id,status:messageStatus(last,uid,peerOpened.has(last.id),false)}:null})()} rows={visible} me={uid} reactions={reactions} retention={retention} retentionOf={m=>sentWith[m.id]??retention} viewedAt={viewedAt} timerStart={starts} now={now} streak={streak} typing={typing} renderContent={content} onReact={(m,e)=>void react(m,e)} extraActions={menu} onReply={startReply} nameOf={nameOf} avatarOf={avatarOf} memberIds={memberIds} jumpRequestId={jumpRequestId}/>
   {isGroup&&!!mentionJumpId&&<Pressable style={s.mentionJump} testID="jump-mention" accessibilityRole="button" accessibilityLabel={MENTION_BADGE} onPress={jumpToMention}><Text style={s.mentionJumpAt}>@</Text><Text style={s.mentionJumpText}>{MENTION_BADGE}</Text></Pressable>}
   {!!notice&&<Text style={s.notice}>{notice}</Text>}
   {recorderState.isRecording?<RecordingBar durationMs={recorderState.durationMillis} level={meterLevel(recorderState.metering)} onCancel={()=>void stopRecording(false)} onStop={()=>void stopRecording(true)}/>:
@@ -194,9 +207,10 @@ export default function Chat(){
   <AvatarStickerSheet visible={stickerOpen} outfit={ownOutfit} onPick={st=>void sendSticker(st.id)} onClose={()=>setStickerOpen(false)}/>
   {isGroup&&<PollComposer visible={pollOpen} onClose={()=>setPollOpen(false)} onSend={b=>void sendPoll(b)}/>}
   {forwarding&&<ForwardSheet me={uid} myName={(session?.user.user_metadata?.display_name as string|undefined)??null} threadId={id} messageId={forwarding.id} excerpt={quoteOf(forwarding).excerpt} onClose={()=>setForwarding(null)} onDone={t=>{setForwarding(null);setNotice(t);setTimeout(()=>setNotice(n=>n===t?'':n),3500)}}/>}
+  <WallpaperSheet visible={wallpaperOpen} current={wallpaper} plus={plus} busy={wallpaperBusy} onPick={w=>void changeWallpaper(w)} onUpgrade={()=>{setWallpaperOpen(false);router.push('/plus')}} onClose={()=>setWallpaperOpen(false)}/>
   <RetentionSheet visible={retentionOpen} mode={retention} oldTimers={oldTimers} onPick={m=>void changeRetention(m)} onClose={()=>setRetentionOpen(false)}/>
   {isGroup&&memberMenu.sheet}
-  {isGroup&&infoOpen&&<GroupInfoSheet visible threadId={id} me={uid} title={title} creatorId={creatorId} members={members} removers={removers} onClose={()=>setInfoOpen(false)} onChanged={()=>{void loadMeta();void load()}} onLeft={()=>{setInfoOpen(false);router.replace('/(tabs)/chats')}}/>}
+  {isGroup&&infoOpen&&<GroupInfoSheet visible threadId={id} me={uid} title={title} creatorId={creatorId} members={members} removers={removers} onClose={()=>setInfoOpen(false)} onChanged={()=>{void loadMeta();void load()}} onLeft={()=>{setInfoOpen(false);router.replace('/(tabs)/chats')}} wallpaperLabel={wallpaper} onWallpaper={()=>{setInfoOpen(false);setWallpaperOpen(true)}}/>}
   {confirm.dialog}</KeyboardAvoidingView>
 }
 function AudioClip({path,seed,mine}:{path:string;seed:string;mine:boolean}){const [url,setUrl]=useState<string|null>(null);const [gonePath,setGonePath]=useState<string|null>(null);useEffect(()=>{let alive=true;mediaUrl(path).then(v=>{if(alive)setUrl(v)}).catch(()=>{if(alive)setGonePath(path)});return()=>{alive=false}},[path]);return url?<VoiceNotePlayer uri={url} seed={seed} mine={mine}/>:<Hint>{gonePath===path?`🔇 ${MEDIA_LABEL.gone}`:'Audio laden…'}</Hint>}

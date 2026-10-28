@@ -15,6 +15,8 @@ import {savedLabel} from '../../lib/chat-saves';
 import {QUOTE_GONE,canReply,parseReply,quoteOf,quotedIndex,type ReplyRef} from '../../lib/chat-replies';
 import {editedLabel,isUnsentLine,liveQuoteExcerpt} from '../../lib/chat-edits';
 import {forwardedLabel} from '../../lib/chat-forward';
+import {WallpaperBackground} from '../plus/PlusParts';
+import {isWallpaperChangeText,wallpaperColors} from '../../lib/chat-wallpaper';
 import {ReactionChips,ReactionPicker,StreakBadge,StreakWarning,SystemLine,TypingIndicator} from './ChatParts';
 
 /** Header row: title, streak, retention toggle, video call. Shared by the real chat and the dev harness. */
@@ -32,6 +34,8 @@ export function ChatHeaderBar({title,streak,retention,onRetention,onCall,avatar,
 }
 
 export type ChatViewProps={
+  /** Snapchat+ Chat-achtergrond of this thread (sx_threads.wallpaper); 'none'/undefined = normal background. */
+  wallpaper?:string;
   rows:Message[];me:string;reactions:Reaction[];retention:RetentionMode;/** Mode a message was sent with (Snapchat: a new setting only applies going forward). Default: `retention`. */retentionOf?:(m:Message)=>RetentionMode;viewedAt:Record<string,number>;/** Deletion-timer start per chat = moment EVERYONE (except the sender) had viewed it (Snapchat; lib/chat-retention.ts timerStarts). When given, the hint counts from here for own and received chats. */timerStart?:Record<string,number>;now:number;
   streak:StreakState;typing:string|null;
   renderContent:(m:Message,mine:boolean)=>React.ReactNode;
@@ -62,11 +66,12 @@ export function ChatView(p:ChatViewProps){
   // Group @mention chip: parent sets jumpRequestId → scroll to that row and flash it (same path as quote taps).
   useEffect(()=>{const id=p.jumpRequestId;if(!id)return;const i=p.rows.findIndex(m=>m.id===id);if(i<0)return;list.current?.scrollToIndex({index:i,viewPosition:.5,animated:true});const t=setTimeout(()=>setFlash(id),0);return()=>clearTimeout(t)},[p.jumpRequestId,p.rows]);
   return <View style={{flex:1}}>
+    {!!p.wallpaper&&p.wallpaper!=='none'&&<WallpaperBackground colors={wallpaperColors(p.wallpaper)} id={p.wallpaper} testID={`wallpaper-bg-${p.wallpaper}`}/>}
     <StreakWarning streak={p.streak}/>
     <FlatList ref={list} onScrollToIndexFailed={e=>{list.current?.scrollToOffset({offset:e.averageItemLength*e.index,animated:true});setTimeout(()=>list.current?.scrollToIndex({index:e.index,viewPosition:.5,animated:true}),250)}} data={p.rows} inverted keyboardShouldPersistTaps="handled" keyExtractor={x=>x.id} contentContainerStyle={{padding:15}}
       ListHeaderComponent={<TypingIndicator text={p.typing}/>} ListHeaderComponentStyle={{marginHorizontal:-15}}
       renderItem={({item})=>{
-        if(item.kind==='system')return <View testID={isUnsentLine(item)?'msg-unsent':undefined}>{divider(item)}<SystemLine text={item.body??''} icon={isUnsentLine(item)?'🗑':isGroupChangeText(item.body)?'👥':item.body?.includes('screenshot')?'📸':retentionFromChangeText(item.body)?'⏱':item.body?.includes('gesprek')?'📹':'⏱'}/></View>;
+        if(item.kind==='system')return <View testID={isUnsentLine(item)?'msg-unsent':undefined}>{divider(item)}<SystemLine text={item.body??''} icon={isUnsentLine(item)?'🗑':isWallpaperChangeText(item.body)?'🖼':isGroupChangeText(item.body)?'👥':item.body?.includes('screenshot')?'📸':retentionFromChangeText(item.body)?'⏱':item.body?.includes('gesprek')?'📹':'⏱'}/></View>;
         const mine=item.sender_id===p.me,color=colorFor(item.sender_id,colors),start=starts.has(item.id)||days.has(item.id);
         // Opslaan in chat: saved messages get Snapchat's grey highlight + "Opgeslagen (door …)" instead of a timer.
         const saved=savedLabel(item,p.me,id=>p.nameOf?.(id));

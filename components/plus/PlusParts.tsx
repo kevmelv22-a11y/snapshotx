@@ -1,6 +1,7 @@
 import React from 'react';
 import {Image,Pressable,StyleSheet,Text,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
+import Svg,{Circle,Defs,LinearGradient,RadialGradient,Rect,Stop} from 'react-native-svg';
 import {C} from '../../lib/theme';
 import {TierIcon,TierWordmark} from './TierBrand';
 import {TIER_BRAND,isBrandTier} from '../../lib/tier-brand';
@@ -46,11 +47,24 @@ export function AppIconPicker({value,plus,onChange}:{value:string;plus:boolean;o
 }
 /** The chosen app icon as a small rounded badge. */
 export function AppIconBadge({id,size=28}:{id:AppIconId;size?:number}){return <Image source={APP_ICON_PREVIEW[id]} style={{width:size,height:size,borderRadius:size*.24}} accessibilityLabel={`App-icoon ${appIconInfo(id).label}`}/>}
-export function WallpaperPicker({value,onChange}:{value:string;onChange:(id:string)=>void}){
-  return <View style={s.grid}>{WALLPAPERS.map(w=><Pressable key={w.id} onPress={()=>onChange(w.id)} style={s.iconCell} accessibilityLabel={`Achtergrond ${w.label}`}><View style={[s.wp,{backgroundColor:w.colors[0]},value===w.id&&s.iconOn]}><View style={[s.wpHalf,{backgroundColor:w.colors[1]}]}/>{w.id==='sterren'&&<Text style={s.stars}>✦ · ✧</Text>}</View><Text style={s.iconLabel}>{w.label}</Text></Pressable>)}</View>;
+/** Wallpaper tiles (gradient previews). `locked` (no X+): tiles are shown but cannot be picked. */
+export function WallpaperPicker({value,onChange,locked=false}:{value:string;onChange:(id:string)=>void;locked?:boolean}){
+  return <View style={s.grid} accessibilityRole="radiogroup">{WALLPAPERS.map(w=>{const on=value===w.id;return <Pressable key={w.id} disabled={locked} onPress={()=>onChange(w.id)} style={[s.iconCell,locked&&{opacity:.5}]} testID={`wallpaper-${w.id}`} accessibilityRole="radio" accessibilityLabel={`Achtergrond ${w.label}${locked?' (alleen Snapshot X+)':''}`} accessibilityState={{checked:on,disabled:locked}}>
+    <View style={[s.wp,on&&s.iconOn]}>{w.id==='none'?<View style={[StyleSheet.absoluteFill,{backgroundColor:C.bg,alignItems:'center',justifyContent:'center'}]}><Ionicons name="ban-outline" size={22} color={C.muted}/></View>:<WallpaperBackground colors={w.colors} id={w.id}/>}{locked&&w.id!=='none'&&<Ionicons name="lock-closed" size={14} color="white" style={s.lockIco}/>}{on&&<Ionicons name="checkmark-circle" size={18} color={C.yellow} style={s.checkIco}/>}</View>
+    <Text style={[s.iconLabel,on&&{color:C.yellow,fontWeight:'800'}]}>{w.label}</Text></Pressable>})}</View>;
 }
-/** Wallpaper layer behind a chat. */
-export function WallpaperBackground({colors}:{colors:[string,string]}){return <View style={StyleSheet.absoluteFill} pointerEvents="none"><View style={{flex:1,backgroundColor:colors[0]}}/><View style={{flex:1,backgroundColor:colors[1]}}/></View>}
+// Fixed star field (viewBox 0 0 100 200) so the 'Sterren' wallpaper looks the same on every device and render.
+const STARS:readonly [number,number,number][]=[[8,12,.9],[23,31,.6],[41,9,.7],[62,22,1],[84,14,.6],[93,40,.8],[12,55,.7],[35,48,.5],[57,63,.9],[76,52,.6],[90,77,.7],[5,88,.6],[28,94,1],[49,83,.6],[69,99,.8],[86,118,.6],[16,124,.8],[39,137,.6],[60,128,.9],[80,146,.7],[7,160,.6],[31,172,.9],[53,158,.6],[73,181,.8],[94,170,.6],[20,192,.7],[45,197,.5],[88,195,.9]];
+/** Wallpaper layer behind a chat: soft vertical gradient (+ stars for Sterren, glows for the others). */
+export function WallpaperBackground({colors,id,testID}:{colors:[string,string];id?:string;testID?:string}){
+  const g=`wp-${React.useId().replace(/[^a-zA-Z0-9_-]/g,'')}`;
+  return <View style={StyleSheet.absoluteFill} pointerEvents="none" testID={testID}><Svg width="100%" height="100%" viewBox="0 0 100 200" preserveAspectRatio="xMidYMid slice">
+    <Defs><LinearGradient id={`${g}-l`} x1="0" y1="0" x2="0.35" y2="1"><Stop offset="0" stopColor={colors[0]}/><Stop offset="1" stopColor={colors[1]}/></LinearGradient>
+      <RadialGradient id={`${g}-r`} cx="0.5" cy="0.5" r="0.5"><Stop offset="0" stopColor="#ffffff" stopOpacity=".16"/><Stop offset="1" stopColor="#ffffff" stopOpacity="0"/></RadialGradient></Defs>
+    <Rect x="-50" y="-50" width="200" height="300" fill={`url(#${g}-l)`}/>
+    {id==='sterren'?STARS.map(([x,y,r],i)=><Circle key={i} cx={x} cy={y} r={r*.55} fill="#ffffff" opacity={.35+r*.45}/>):id&&id!=='none'?<><Circle cx="18" cy="40" r="45" fill={`url(#${g}-r)`}/><Circle cx="88" cy="150" r="55" fill={`url(#${g}-r)`}/></>:null}
+  </Svg></View>;
+}
 
 const s=StyleSheet.create({
   badge:{marginLeft:6,alignSelf:'center'},badgeText:{color:C.bg,fontWeight:'900'},
@@ -68,5 +82,5 @@ const s=StyleSheet.create({
   locked:{flexDirection:'row',gap:8,alignItems:'center',backgroundColor:C.cardBg,borderRadius:12,padding:12},lockedText:{color:C.text,fontWeight:'600'},
   grid:{flexDirection:'row',flexWrap:'wrap',gap:12},iconCell:{alignItems:'center',width:76},icon:{width:64,height:64,borderRadius:16,overflow:'hidden',alignItems:'center',justifyContent:'center',backgroundColor:'#000'},iconImg:{width:'100%',height:'100%'},checkIco:{position:'absolute',bottom:2,right:2},
   iconOn:{borderWidth:3,borderColor:C.yellow},lockIco:{position:'absolute',top:4,right:4},iconLabel:{color:C.text,fontSize:12,marginTop:4,textAlign:'center'},
-  wp:{width:64,height:96,borderRadius:12,borderWidth:1,borderColor:C.border,overflow:'hidden',alignItems:'center',justifyContent:'center'},wpHalf:{position:'absolute',bottom:0,left:0,right:0,height:48},stars:{color:'white',fontSize:14},
+  wp:{width:64,height:96,borderRadius:12,borderWidth:1,borderColor:C.border,overflow:'hidden',alignItems:'center',justifyContent:'center'},
 });
