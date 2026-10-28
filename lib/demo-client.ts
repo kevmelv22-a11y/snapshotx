@@ -8,7 +8,7 @@ import { StaffMock, seedStaffMock, MOCK_IDS, type Row } from './staff-mock';
 import { parseReply, replyBody } from './chat-replies';
 import { mentionLabel, mentionedIds } from './chat-mentions';
 import { SAVE_ERRORS, canSave, unsaveExpiry } from './chat-saves';
-import { parseRetention } from './chat-features';
+import { parseRetention, retentionChangeText } from './chat-features';
 import { EDIT_ERRORS, EDIT_WINDOW_MS, editableText, editedBody, isNoopEdit, isStickerText, unsentText, validateEdit } from './chat-edits';
 import { POLL_ERRORS, parsePoll, pollBody, validateVote } from './chat-polls';
 import { FORWARD_ERRORS, FORWARD_MAX_TARGETS, canForward, forwardBody, forwardExpiry } from './chat-forward';
@@ -133,6 +133,12 @@ function seedDemo(m: StaffMock) {
   m.t.sx_messages.push(...history, noorHi, noorSnap);
   history.forEach(x => m.t.sx_receipts.push({ message_id: x.id, user_id: x.sender_id === ME ? (x.thread_id === T.aria ? I.aria : I.eva) : ME, opened_at: x.created_at, replay_count: 0 }));
   opened(noorHi.id, ME, 29 * H); opened(noorSnap.id, EXTRA.noor, 8 * H);
+  // Chats verwijderen (Snapchat: a new setting only applies going forward): Noor set the chat to 24 h, sent a chat Kevin
+  // read 4.5 h ago, then Kevin switched back to Bewaren → that chat still shows "Nog 19 u", the newer one is kept.
+  { const was24 = msg(T.noor, EXTRA.noor, 'Stuur je de foto\'s van gisteren nog? 📸', 5 * H), kept = msg(T.noor, EXTRA.noor, 'Top, dan blijft alles staan 👍', 1 * H);
+    Object.assign(noorHi, { retention_mode: 'keep' }); Object.assign(was24, { retention_mode: '24h', expires_at: iso(24 * H - 4.5 * H) }); Object.assign(kept, { retention_mode: 'keep' });
+    m.t.sx_messages.push(msg(T.noor, EXTRA.noor, retentionChangeText('Noor El Amrani', '24h'), 6 * H, 'system'), was24, msg(T.noor, ME, retentionChangeText('Kevin', 'keep'), 2 * H, 'system'), kept);
+    opened(was24.id, ME, 4.5 * H); opened(kept.id, ME, 50 * 60e3); }
   // Kevin already read Eva's chats (Ontvangen), Eva read his (Geopend).
   m.t.sx_messages.filter(x => x.thread_id === T.eva && x.kind === 'text').forEach(x => opened(x.id, x.sender_id === ME ? I.eva : ME, 19 * H));
   m.t.sx_highlight_likes = []; m.t.sx_highlight_shares = [];
@@ -156,6 +162,15 @@ function seedDemo(m: StaffMock) {
   m.t.memories = [{ id: newId(), owner_id: ME, storage_path: 'demo/zonsondergang.svg', media_type: 'photo', created_at: iso(-40 * D), private: false, caption: null, deleted_at: null },
     { id: newId(), owner_id: ME, storage_path: 'demo/pizza.svg', media_type: 'photo', created_at: iso(-370 * D), private: false, caption: 'Pizza-avond', deleted_at: null }];
   m.t.sx_memory_vault = []; m.t.sx_avatar_outfits = [];
+  m.t.sx_messages.forEach(x => stampRetention(m.t.sx_threads, x));
+}
+
+/** Mirrors the sx_messages_stamp_retention trigger (20261028030000_message_retention_mode.sql): every new chat carries the
+ *  chat's current "Chats verwijderen" mode; Bewaren → no expiry. System lines and already-stamped rows are left alone. */
+function stampRetention(threads: Row[], row: Row) {
+  if (row.kind === 'system' || row.retention_mode != null) return;
+  const mode = parseRetention(threads.find(t => t.id === row.thread_id)?.retention_mode);
+  row.retention_mode = mode; if (mode === 'keep' && !row.saved && row.kind !== 'snap') row.expires_at = null;
 }
 
 const PK: Record<string, string[]> = {
@@ -291,6 +306,7 @@ export class DemoClient {
   }
   removers(threadId: unknown): string[] { return this.m.table('sx_members').filter(x => x.thread_id === threadId && x.can_remove_members).map(x => String(x.user_id)); }
   emit(table: string, event: string, row: Row) {
+    if (table === 'sx_messages' && event === 'INSERT') stampRetention(this.m.table('sx_threads'), row);
     for (const l of this.listeners) {
       if (l.table !== table || (l.event !== '*' && l.event !== event)) continue;
       if (l.filter) { const [k, v] = l.filter.split('=eq.'); if (String(row[k]) !== v) continue; }
@@ -364,7 +380,7 @@ export class DemoClient {
       if (a.p_saved) { if (!msg.saved) { Object.assign(msg, { saved: true, saved_by: ME, saved_at: this.m.iso(), expires_at: null }); this.emit('sx_messages', 'UPDATE', msg); } return true; }
       if (!msg.saved) return false;
       if (msg.saved_by && msg.saved_by !== ME && msg.sender_id !== ME) throw new Error(SAVE_ERRORS.notYours);
-      const mode = parseRetention(this.m.table('sx_threads').find(t => t.id === msg.thread_id)?.retention_mode);
+      const mode = parseRetention(msg.retention_mode ?? this.m.table('sx_threads').find(t => t.id === msg.thread_id)?.retention_mode);
       Object.assign(msg, { saved: false, saved_by: null, saved_at: null, expires_at: unsaveExpiry(mode, Date.now()) }); this.emit('sx_messages', 'UPDATE', msg);
       return false;
     },

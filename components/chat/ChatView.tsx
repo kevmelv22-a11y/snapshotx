@@ -5,6 +5,7 @@ import {C} from '../../lib/theme';
 import {isGroupChangeText} from '../../lib/group-chat';
 import {Hint} from '../UI';
 import type {Message} from '../../lib/types';
+import {retentionFromChangeText} from '../../lib/chat-retention';
 import {RETENTION_SHORT,retentionHint,summarizeReactions,type Reaction,type RetentionMode,type StreakState} from '../../lib/chat-features';
 import {dayDivider,dividerStarts,type ChatStatus} from '../../lib/chat-status';
 import {StatusIcon} from './StatusIcon';
@@ -31,7 +32,7 @@ export function ChatHeaderBar({title,streak,retention,onRetention,onCall,avatar,
 }
 
 export type ChatViewProps={
-  rows:Message[];me:string;reactions:Reaction[];retention:RetentionMode;viewedAt:Record<string,number>;now:number;
+  rows:Message[];me:string;reactions:Reaction[];retention:RetentionMode;/** Mode a message was sent with (Snapchat: a new setting only applies going forward). Default: `retention`. */retentionOf?:(m:Message)=>RetentionMode;viewedAt:Record<string,number>;now:number;
   streak:StreakState;typing:string|null;
   renderContent:(m:Message,mine:boolean)=>React.ReactNode;
   onReact:(messageId:string,emoji:string)=>void;
@@ -65,11 +66,11 @@ export function ChatView(p:ChatViewProps){
     <FlatList ref={list} onScrollToIndexFailed={e=>{list.current?.scrollToOffset({offset:e.averageItemLength*e.index,animated:true});setTimeout(()=>list.current?.scrollToIndex({index:e.index,viewPosition:.5,animated:true}),250)}} data={p.rows} inverted keyboardShouldPersistTaps="handled" keyExtractor={x=>x.id} contentContainerStyle={{padding:15}}
       ListHeaderComponent={<TypingIndicator text={p.typing}/>} ListHeaderComponentStyle={{marginHorizontal:-15}}
       renderItem={({item})=>{
-        if(item.kind==='system')return <View testID={isUnsentLine(item)?'msg-unsent':undefined}>{divider(item)}<SystemLine text={item.body??''} icon={isUnsentLine(item)?'🗑':isGroupChangeText(item.body)?'👥':item.body?.includes('screenshot')?'📸':item.body?.includes('gesprek')?'📹':'⏱'}/></View>;
+        if(item.kind==='system')return <View testID={isUnsentLine(item)?'msg-unsent':undefined}>{divider(item)}<SystemLine text={item.body??''} icon={isUnsentLine(item)?'🗑':isGroupChangeText(item.body)?'👥':item.body?.includes('screenshot')?'📸':retentionFromChangeText(item.body)?'⏱':item.body?.includes('gesprek')?'📹':'⏱'}/></View>;
         const mine=item.sender_id===p.me,color=colorFor(item.sender_id,colors),start=starts.has(item.id)||days.has(item.id);
         // Opslaan in chat: saved messages get Snapchat's grey highlight + "Opgeslagen (door …)" instead of a timer.
         const saved=savedLabel(item,p.me,id=>p.nameOf?.(id));
-        const hint=saved?null:retentionHint(p.retention,mine?null:p.viewedAt[item.id]??null,p.now,!!item.saved);
+        const hint=saved?null:retentionHint(p.retentionOf?.(item)??p.retention,mine?null:p.viewedAt[item.id]??null,p.now,!!item.saved);
         const time=new Date(item.created_at).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
         const open=()=>setPicker(item.id);
         // Web: right-click opens the same menu as a long-press (mobile).

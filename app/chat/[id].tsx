@@ -23,7 +23,8 @@ import {useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {FriendAvatar} from '../../components/avatar/FriendAvatar';
 import {AvatarStickerSheet,ChatAvatarSticker} from '../../components/avatar/AvatarStickerSheet';
 import {chatStickerBody,stickerFromChatBody} from '../../lib/avatar/poses';
-import {VOICE_MAX_MS,activeTypers,applyTyping,computeStreak,isMessageVisible,keepRecording,meterLevel,parseRetention,retentionChangeText,screenshotText,shouldReportScreenshot,shouldSendTyping,toggleReaction,typingText,type Reaction,type RetentionMode,type TypingMap} from '../../lib/chat-features';
+import {isVisibleAsSent,pendingOldTimers,sentModes} from '../../lib/chat-retention';
+import {VOICE_MAX_MS,activeTypers,applyTyping,computeStreak,keepRecording,meterLevel,parseRetention,retentionChangeText,screenshotText,shouldReportScreenshot,shouldSendTyping,toggleReaction,typingText,type Reaction,type RetentionMode,type TypingMap} from '../../lib/chat-features';
 
 import {friendlyError} from '../../lib/db-errors';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -98,7 +99,10 @@ export default function Chat(){
  // Auto-stop voice notes at the max length.
  useEffect(()=>{if(recorderState.isRecording&&recorderState.durationMillis>=VOICE_MAX_MS)void stopRecording(true)},[recorderState.isRecording,recorderState.durationMillis]); // eslint-disable-line react-hooks/exhaustive-deps
 
- const visible=useMemo(()=>rows.filter(m=>m.sender_id===uid||m.kind==='system'||isMessageVisible(retention,viewedAt[m.id]??null,now,{saved:m.saved,leftAt:viewedAt[m.id]!==undefined&&viewedAt[m.id]<sessionStart?sessionStart:null})),[rows,uid,retention,viewedAt,now,sessionStart]);
+ // Snapchat: each chat keeps the "Chats verwijderen" setting it was SENT with; a new setting only applies going forward (lib/chat-retention.ts).
+ const sentWith=useMemo(()=>sentModes(rows,retention),[rows,retention]);
+ const visible=useMemo(()=>rows.filter(m=>m.sender_id===uid||m.kind==='system'||isVisibleAsSent(m,sentWith[m.id]??retention,viewedAt[m.id]??null,now,viewedAt[m.id]!==undefined&&viewedAt[m.id]<sessionStart?sessionStart:null)),[rows,uid,retention,sentWith,viewedAt,now,sessionStart]);
+ const oldTimers=useMemo(()=>pendingOldTimers(visible,sentWith,retention),[visible,sentWith,retention]);
  const streak=useMemo(()=>computeStreak(rows.filter(m=>m.kind==='snap').map(m=>({senderId:m.sender_id,at:Date.parse(m.created_at)})),uid,peers.length===1?peers[0].id:'',now,-new Date().getTimezoneOffset()),[rows,uid,peers,now]);
  const typing=typingText(activeTypers(typingMap,now,uid).map(u=>peers.find(p=>p.id===u)?.name||'Iemand'));
  // Avatars (step 8): header portrait for 1-op-1, sticker messages drawn with the sender's outfit.
@@ -170,7 +174,7 @@ export default function Chat(){
  return <KeyboardAvoidingView style={s.root} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={90}>
   <Stack.Screen options={{headerShown:false,title}}/>
   <ChatHeaderBar onBack={()=>router.canGoBack()?router.back():router.replace('/(tabs)/chats')} topInset={insets.top} title={title} streak={streak} retention={retention} onRetention={()=>setRetentionOpen(true)} onCall={()=>router.push({pathname:'/call/[id]',params:{id:String(id),name:title}})} avatar={!isGroup&&peers.length===1?<FriendAvatar id={peers[0].id} outfit={friendOutfits.get(peers[0].id)} size={34} name={peers[0].name}/>:undefined} onInfo={isGroup?()=>setInfoOpen(true):undefined} onProfile={!isGroup&&peers.length===1?()=>router.push({pathname:'/friend/[id]',params:{id:peers[0].id}}):undefined} memberCount={isGroup?members.length:undefined}/>
-  <ChatView onSenderLongPress={isGroup?sid=>memberMenu.open(members.find(m=>m.id===sid)):undefined} badgeOf={isGroup?sid=><MemberRoleIcon isAdmin={sid===creatorId} canRemove={removers.includes(sid)} size={12}/>:undefined} receipt={(()=>{const last=visible.find(m=>m.kind!=='system');return last&&last.sender_id===uid&&last.kind!=='snap'?{messageId:last.id,status:messageStatus(last,uid,peerOpened.has(last.id),false)}:null})()} rows={visible} me={uid} reactions={reactions} retention={retention} viewedAt={viewedAt} now={now} streak={streak} typing={typing} renderContent={content} onReact={(m,e)=>void react(m,e)} extraActions={menu} onReply={startReply} nameOf={nameOf} avatarOf={avatarOf} memberIds={members.length?members.map(m=>m.id):[uid,...peers.map(p=>p.id)]} jumpRequestId={jumpRequestId}/>
+  <ChatView onSenderLongPress={isGroup?sid=>memberMenu.open(members.find(m=>m.id===sid)):undefined} badgeOf={isGroup?sid=><MemberRoleIcon isAdmin={sid===creatorId} canRemove={removers.includes(sid)} size={12}/>:undefined} receipt={(()=>{const last=visible.find(m=>m.kind!=='system');return last&&last.sender_id===uid&&last.kind!=='snap'?{messageId:last.id,status:messageStatus(last,uid,peerOpened.has(last.id),false)}:null})()} rows={visible} me={uid} reactions={reactions} retention={retention} retentionOf={m=>sentWith[m.id]??retention} viewedAt={viewedAt} now={now} streak={streak} typing={typing} renderContent={content} onReact={(m,e)=>void react(m,e)} extraActions={menu} onReply={startReply} nameOf={nameOf} avatarOf={avatarOf} memberIds={members.length?members.map(m=>m.id):[uid,...peers.map(p=>p.id)]} jumpRequestId={jumpRequestId}/>
   {isGroup&&!!mentionJumpId&&<Pressable style={s.mentionJump} testID="jump-mention" accessibilityRole="button" accessibilityLabel={MENTION_BADGE} onPress={jumpToMention}><Text style={s.mentionJumpAt}>@</Text><Text style={s.mentionJumpText}>{MENTION_BADGE}</Text></Pressable>}
   {!!notice&&<Text style={s.notice}>{notice}</Text>}
   {recorderState.isRecording?<RecordingBar durationMs={recorderState.durationMillis} level={meterLevel(recorderState.metering)} onCancel={()=>void stopRecording(false)} onStop={()=>void stopRecording(true)}/>:
@@ -178,7 +182,7 @@ export default function Chat(){
   <AvatarStickerSheet visible={stickerOpen} outfit={ownOutfit} onPick={st=>void sendSticker(st.id)} onClose={()=>setStickerOpen(false)}/>
   {isGroup&&<PollComposer visible={pollOpen} onClose={()=>setPollOpen(false)} onSend={b=>void sendPoll(b)}/>}
   {forwarding&&<ForwardSheet me={uid} myName={(session?.user.user_metadata?.display_name as string|undefined)??null} threadId={id} messageId={forwarding.id} excerpt={quoteOf(forwarding).excerpt} onClose={()=>setForwarding(null)} onDone={t=>{setForwarding(null);setNotice(t);setTimeout(()=>setNotice(n=>n===t?'':n),3500)}}/>}
-  <RetentionSheet visible={retentionOpen} mode={retention} onPick={m=>void changeRetention(m)} onClose={()=>setRetentionOpen(false)}/>
+  <RetentionSheet visible={retentionOpen} mode={retention} oldTimers={oldTimers} onPick={m=>void changeRetention(m)} onClose={()=>setRetentionOpen(false)}/>
   {isGroup&&memberMenu.sheet}
   {isGroup&&infoOpen&&<GroupInfoSheet visible threadId={id} me={uid} title={title} creatorId={creatorId} members={members} removers={removers} onClose={()=>setInfoOpen(false)} onChanged={()=>{void loadMeta();void load()}} onLeft={()=>{setInfoOpen(false);router.replace('/(tabs)/chats')}}/>}
   {confirm.dialog}</KeyboardAvoidingView>

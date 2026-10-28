@@ -5,6 +5,7 @@ import {C} from '../../lib/theme';
 import {useSession} from '../../hooks/useSession';
 import {useFriendEmojis} from '../../stores/friendEmojis';
 import {emojiFor} from '../../lib/friend-emojis';
+import {RETENTION_FORWARD_NOTE,pendingOldTimersText} from '../../lib/chat-retention';
 import {REACTION_EMOJIS,RETENTION_LABEL,RETENTION_MODES,formatDuration,streakHint,streakLabel,waveform,type RetentionMode,type StreakState} from '../../lib/chat-features';
 
 /** 🔥 counter (+ ⌛ when the streak is about to expire). Renders nothing without a streak. */
@@ -58,13 +59,15 @@ export function ReactionChips({items,mine}:{items:{emoji:string;count:number;min
 }
 
 /** Per-chat retention setting. */
-export function RetentionSheet({visible,mode,onPick,onClose}:{visible:boolean;mode:RetentionMode;onPick:(m:RetentionMode)=>void;onClose:()=>void}){
+export function RetentionSheet({visible,mode,onPick,onClose,oldTimers=0}:{visible:boolean;mode:RetentionMode;onPick:(m:RetentionMode)=>void;onClose:()=>void;/** Chats that still disappear on the setting they were sent with (lib/chat-retention.ts). */oldTimers?:number}){
+  const pending=pendingOldTimersText(oldTimers);
   const sub:Record<RetentionMode,string>={after_view:'Chats verdwijnen zodra iedereen ze heeft gezien en de chat sluit.','24h':'Chats verdwijnen 24 uur nadat ze bekeken zijn.',keep:'Chats blijven staan tot iemand ze verwijdert.'};
   return <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
     <Pressable style={[s.backdrop,{justifyContent:'flex-end'}]} onPress={onClose}>
       <View style={s.sheet} testID="retention-sheet"><Text style={s.sheetTitle}>Chats verwijderen</Text>
         {RETENTION_MODES.map(m=><Pressable key={m} onPress={()=>{onPick(m);onClose()}} style={s.option}><View style={{flex:1}}><Text style={s.optTitle}>{RETENTION_LABEL[m]}</Text><Text style={s.optSub}>{sub[m]}</Text></View><Text style={s.radio}>{mode===m?'◉':'○'}</Text></Pressable>)}
-        <Text style={s.optSub}>Geldt voor iedereen in dit gesprek. Snaps blijven altijd eenmalig.</Text>
+        <Text style={s.optSub} testID="retention-forward-note">Geldt voor iedereen in dit gesprek. {RETENTION_FORWARD_NOTE} Snaps blijven altijd eenmalig.</Text>
+        {!!pending&&<Text style={[s.optSub,{color:C.yellow,marginTop:6}]} testID="retention-old-timers">⏱ {pending}</Text>}
       </View>
     </Pressable>
   </Modal>;
