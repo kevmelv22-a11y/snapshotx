@@ -20,6 +20,8 @@ import {AppIconBadge,PlusBadge} from '../../components/plus/PlusParts';
 import {useEffectiveAppIcon,usePlusStore,useTier} from '../../stores/plus';
 import {appIconInfo,entitlementLabel} from '../../lib/plus';
 import {useNow} from '../../hooks/useNow';
+import {useMyCountdowns} from '../../stores/countdowns';
+import {profileTimers} from '../../lib/countdowns';
 
 /** Profile (step 8 layout: see components/profile/ProfileHome). Data: profile, 4 friends + story rings, own story count, location sharing. */
 export default function Profile(){
@@ -45,11 +47,12 @@ export default function Profile(){
  })();return()=>{active=false}},[uid]));
  const nowMs=useNow(),start=useStartOutfit(uid),tier=useTier(),ents=usePlusStore(x=>x.entitlements),appIcon=useEffectiveAppIcon(),mine=ents.find(e=>e.tier===tier);
  // Same art as the doll (OutfitArt), cropped to head+shoulders: updates with every Kast / look change.
+ const countdowns=useMyCountdowns(uid),timers=profileTimers(countdowns,nowMs);
  const hero=<YellowAvatarCircle size={230}><AvatarBust outfit={start} size={230} testID="profile-bust-art"/></YellowAvatarCircle>;
  const tile=(icon:keyof typeof Ionicons.glyphMap,label:string,to:Parameters<typeof router.push>[0])=><Pressable key={label} style={s.tile} onPress={()=>router.push(to)}><Ionicons name={icon} color="#FFF" size={22}/><Text style={s.tileText}>{label}</Text><Ionicons name="chevron-forward" color="#C7C7CC" size={20}/></Pressable>;
  return <ProfileHome username={own?(own.hasUsername||own.source==='metadata'?own.handle:own.displayName):'Mijn profiel'} nameBadge={tier&&tier!=='storage'?<PlusBadge tier={tier} size={22}/>:null} score={own?.activityScore??0} hero={hero} ownOutfit={start} storyCount={stories} sharingLocation={sharing} topInset={insets.top}
   friends={friends.map(f=>{const o=outfits.get(f.id);return {...f,outfit:o&&o!=='pending'?o:null,fallback:<MapAvatar id={f.id} size={70}/>}})}
-  onMenu={()=>router.back()} onSettings={()=>router.push('/settings')} onAvatar={()=>router.push('/avatar/mode')} onStory={()=>router.push('/(tabs)/stories')} onFriends={()=>router.push('/(tabs)/friends')} onMap={()=>router.push('/map')} onTimers={()=>setNotice('Afteltimers komen binnenkort.')}
+  onMenu={()=>router.back()} onSettings={()=>router.push('/settings')} onAvatar={()=>router.push('/avatar/mode')} onStory={()=>router.push('/(tabs)/stories')} onFriends={()=>router.push('/(tabs)/friends')} onMap={()=>router.push('/map')} onTimers={()=>router.push('/countdowns')} timers={timers}
   footer={<View style={{marginTop:6}}>
    <TierBanner tier={tier} status={mine?entitlementLabel(mine,nowMs):undefined} onPress={()=>router.push(tier&&tier!=='storage'?'/plus-manage':'/plus')}/>
    <Pressable testID="profile-app-icon" onPress={()=>router.push('/plus-settings')} accessibilityLabel={`App-icoon ${appIconInfo(appIcon).label}`} style={{flexDirection:'row',alignItems:'center',gap:12,backgroundColor:C.cardBg,borderRadius:14,padding:12,marginTop:8}}><AppIconBadge id={appIcon} size={36}/><Text style={{color:C.text,fontWeight:'700',flex:1}}>App-icoon: {appIconInfo(appIcon).label}</Text><Ionicons name="chevron-forward" size={18} color={C.muted}/></Pressable>

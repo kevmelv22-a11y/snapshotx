@@ -16,6 +16,7 @@ export type ProfileFriend = { id: string; name: string; outfit: Outfit | null; r
 type Props = {
   username: string; nameBadge?: React.ReactNode; score: number; hero: React.ReactNode; ownOutfit: Outfit | null; friends: ProfileFriend[]; storyCount: number; sharingLocation: boolean;
   topInset?: number; onMenu: () => void; onSettings: () => void; onAvatar: () => void; onStory: () => void; onFriends: () => void; onFriend?: (id: string) => void; onMap: () => void; onTimers: () => void;
+  /** Up to 3 upcoming Afteltimers (emoji, title, "Nog 12 dagen"). */ timers?: { id: string; emoji: string; title: string; label: string }[];
   footer?: React.ReactNode;
 };
 
@@ -57,7 +58,9 @@ export function ProfileHome(p: Props) {
 
     <View style={s.card2}>
       <Pressable onPress={p.onTimers} style={s.cardHead}><Text style={s.cardTitle}>Afteltimers</Text><Text style={s.link}>Bekijk alle  ›</Text></Pressable>
-      <View style={{ alignItems: 'center', paddingVertical: 6 }}><View style={s.clock}><Ionicons name="time-outline" size={34} color="#C7C7CC"/></View><Text style={s.cardSub}>Nog geen timers</Text></View>
+      {p.timers?.length ? <View style={{ gap: 8 }}>{p.timers.slice(0, 3).map(t => <Pressable key={t.id} onPress={p.onTimers} style={s.timer} accessibilityLabel={`${t.title}, ${t.label}`} testID={`profile-timer-${t.id}`}>
+        <Text style={{ fontSize: 26 }}>{t.emoji}</Text><Text style={s.timerTitle} numberOfLines={1}>{t.title}</Text><Text style={s.timerLeft}>{t.label}</Text>
+      </Pressable>)}</View> : <Pressable onPress={p.onTimers} style={{ alignItems: 'center', paddingVertical: 6 }}><View style={s.clock}><Ionicons name="time-outline" size={34} color="#C7C7CC"/></View><Text style={s.cardSub}>Nog geen timers</Text></Pressable>}
     </View>
     {p.footer}
   </ScrollView>;
@@ -80,6 +83,9 @@ function MiniMap() {
 }
 
 const s = StyleSheet.create({
+  timer: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFFFFF14', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 9 },
+  timerTitle: { flex: 1, color: '#FFF', fontSize: 16, fontWeight: '700' },
+  timerLeft: { color: '#FFE11A', fontSize: 14, fontWeight: '800' },
   root: { flex: 1, backgroundColor: '#0F2A1A' },
   top: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   user: { color: '#FFF', fontSize: 28, fontWeight: '900', fontStyle: 'italic' },
