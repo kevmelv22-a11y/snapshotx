@@ -22,6 +22,9 @@ export type ReportSnapshot = {
   backfilled?: boolean | null;
   sender_id?: string | null;
   owner_id?: string | null;
+  /** type 'profile' (account report): display name / username at report time. */
+  display_name?: string | null;
+  username?: string | null;
 };
 
 export type ReportLike = {
@@ -55,8 +58,12 @@ const KIND_LABEL: Record<string, string> = { text: 'Tekstbericht', photo: 'Foto'
 export type SnapshotView = { title: string; text: string | null; media: string | null; meta: string[]; missing: boolean };
 
 /** Human readable view of the captured content (text first, media only as an indicator). */
-export function describeSnapshot(report: Pick<ReportLike, 'message_id' | 'story_id' | 'content_snapshot'>): SnapshotView {
+export function describeSnapshot(report: Pick<ReportLike, 'message_id' | 'story_id' | 'content_snapshot'> & { target_user_id?: string | null }): SnapshotView {
   const s = report.content_snapshot;
+  if (s?.type === 'profile') {
+    const who = [s.display_name?.trim(), s.username ? `@${s.username}` : null].filter(Boolean).join(' · ');
+    return { title: 'Account', text: who || null, media: null, meta: s.backfilled ? ['Achteraf vastgelegd'] : [], missing: false };
+  }
   const isStory = s?.type === 'story' || (!s && !!report.story_id);
   if (!s) {
     return { title: isStory ? 'Story' : 'Chatbericht', text: null, media: null, missing: true,
@@ -135,10 +142,11 @@ export function reportOutcomeLabel(report: Pick<ReportLike, 'status' | 'action_t
 }
 
 /** Report queue category: snap (view-once chat media), story (friends), highlight (Uitgelicht: public story), chat. */
-export type ReportCategory = 'snap' | 'story' | 'highlight' | 'chat';
-export const REPORT_CATEGORY_LABEL: Record<ReportCategory, string> = { snap: 'Snap', story: 'Story', highlight: 'Uitgelicht', chat: 'Chat' };
-export function reportCategory(r: Pick<ReportLike, 'message_id' | 'story_id' | 'content_snapshot'>): ReportCategory {
+export type ReportCategory = 'snap' | 'story' | 'highlight' | 'chat' | 'account';
+export const REPORT_CATEGORY_LABEL: Record<ReportCategory, string> = { snap: 'Snap', story: 'Story', highlight: 'Uitgelicht', chat: 'Chat', account: 'Account' };
+export function reportCategory(r: Pick<ReportLike, 'message_id' | 'story_id' | 'content_snapshot'> & { target_user_id?: string | null }): ReportCategory {
   const s = r.content_snapshot;
+  if (s?.type === 'profile' || (!r.message_id && !r.story_id && r.target_user_id)) return 'account';
   if (s?.type === 'story' || (!s && r.story_id)) return s?.visibility === 'everyone' ? 'highlight' : 'story';
   return s?.kind === 'snap' ? 'snap' : 'chat';
 }

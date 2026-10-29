@@ -47,6 +47,6 @@ export default function Uitgelicht(){
    // supabase-js builders are lazy: without await/then the request is never sent (likes were silently dropped before).
    onLike={(i,liked)=>{if(!me)return;void(async()=>{const {error}=liked?await supabase.from('sx_highlight_likes').upsert({story_id:i.id,user_id:me}):await supabase.from('sx_highlight_likes').delete().eq('story_id',i.id).eq('user_id',me);if(error)setErr(friendlyError(error,'Leuk vinden'))})()}}
    onShare={async i=>{try{const r=await Share.share({message:shareText(names[i.owner_id]||'een maker',i.caption)});if(r.action!==Share.sharedAction)return false;if(me)await supabase.from('sx_highlight_shares').insert({story_id:i.id,user_id:me});return true}catch{return false}}}
-   onReport={i=>router.push({pathname:'/report',params:{story_id:i.id}})}/>
+   onReport={i=>router.push({pathname:'/report',params:{story_id:i.id,user_id:i.owner_id,name:names[i.owner_id]??''}})}/>
   {!!err&&<Text style={{color:'#FFE14D',position:'absolute',bottom:20,left:20,right:20}}>{err}</Text>}</>}</View>;
 }

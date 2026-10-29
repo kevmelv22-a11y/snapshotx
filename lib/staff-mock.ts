@@ -287,6 +287,7 @@ export function seedStaffMock(m: StaffMock) {
     rep('d0000000-0000-4000-8000-000000000003', I.aria, I.cleo, 'Spam of oplichting', 5 * H, null, 'f0000000-0000-4000-8000-000000000001', { type: 'story', caption: 'Koop volgers via mijn link 💸', media_type: 'photo', visibility: 'friends', owner_id: I.cleo }),
     rep('d0000000-0000-4000-8000-000000000004', I.bram, I.daan, 'Gevaarlijke handelingen', 7 * H, null, 'f0000000-0000-4000-8000-000000000002', { type: 'story', caption: 'Gevaarlijke stunt op het spoor', media_type: 'video', visibility: 'everyone', owner_id: I.daan }),
     rep('d0000000-0000-4000-8000-000000000005', I.cleo, I.eva, 'Ik vind dit gewoon niet leuk', 9 * H, 'e0000000-0000-4000-8000-000000000004', null, { type: 'message', kind: 'text', body: 'Zaterdag strand?', sender_id: I.eva }),
+    rep('d0000000-0000-4000-8000-000000000006', I.eva, I.cleo, 'Doet zich voor als iemand anders: gebruikt mijn foto’s en naam', 1 * H, null, null, { type: 'profile', display_name: 'Cleo', username: 'cleo_echt', user_id: I.cleo }),
   ];
   m.t.sx_entitlements = [{ id: 'en000001', user_id: I.eva, tier: 'plus', source: 'app_store', status: 'active', starts_at: m.iso(-20 * D), expires_at: m.iso(10 * D), will_renew: true }];
   m.t.sx_staff_bans = []; m.t.audit_logs = []; m.t.sx_staff_warnings = [];
