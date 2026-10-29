@@ -36,6 +36,7 @@ export const HIDDEN_HEADER_TITLES: Readonly<Record<string, string>> = {
   'my-data': 'Mijn gegevens',
   notifications: 'Meldingen',
   'reset-password': 'Wachtwoord',
+  'change-password': 'Wachtwoord',
   privacy: 'Privacybeleid',
   voorwaarden: 'Voorwaarden',
 };

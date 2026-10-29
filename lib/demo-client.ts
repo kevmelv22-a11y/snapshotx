@@ -333,6 +333,8 @@ export class DemoClient {
     if (role !== undefined) this.m.t.user_roles = [...this.m.table('user_roles').filter(r => r.user_id !== ME), ...(role ? [{ user_id: ME, role_id: role }] : [])];
     if (this.faults.noProfile) this.m.t.profiles = this.m.t.profiles.filter(p => p.id !== ME);
   }
+  /** Demo: any password signs in; after "Wachtwoord wijzigen" the new one is checked when re-entering it (memory only). */
+  private demoPassword: string | null = null;
   private makeSession(): Row {
     return { access_token: 'demo', refresh_token: 'demo', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600,
       user: { id: ME, email: DEMO_EMAIL, aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: this.meta, created_at: this.m.iso(-400 * D) } };
@@ -671,7 +673,12 @@ export class DemoClient {
     },
     getSession: async () => ({ data: { session: this.session }, error: null }),
     getUser: async () => ({ data: { user: (this.session?.user as Row) ?? null }, error: null }),
-    signInWithPassword: async (_c: { email: string; password: string }) => {
+    signInWithPassword: async (c: { email: string; password: string }) => {
+      // Already signed in = re-checking the current password (Instellingen › Wachtwoord): no reset, no auth event.
+      if (this.session) {
+        if (this.demoPassword !== null && c?.password !== this.demoPassword) return { data: { session: null, user: null }, error: { name: 'AuthApiError', code: 'invalid_credentials', status: 400, message: 'Invalid login credentials' } };
+        return { data: { session: this.session, user: (this.session.user as Row) ?? null }, error: null };
+      }
       // Logging in = Kevin (male start look) again.
       Object.assign(this.meta, { display_name: 'Kevin', gender: 'male' }); delete this.meta.demo_account; delete this.meta.username; Object.assign(this.m.profile(ME) ?? {}, { gender: 'male', username: 'kv.savage', display_name: 'Kevin' }); const s = this.makeSession(); this.setSession(s, 'SIGNED_IN'); return { data: { session: s, user: s.user }, error: null }; },
     signUp: async (c: { options?: { data?: Row } }) => {
@@ -681,9 +688,9 @@ export class DemoClient {
       this.meta.demo_account = String(d.username ?? d.display_name ?? newId()).toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40) || newId();
       const p = this.m.profile(ME); if (p) Object.assign(p, { gender: d.gender === 'female' ? 'female' : 'male', ...(d.display_name ? { display_name: d.display_name } : {}), ...(d.username ? { username: d.username } : {}) });
       const s = this.makeSession(); this.setSession(s, 'SIGNED_IN'); return { data: { session: s, user: s.user }, error: null }; },
-    signOut: async () => { this.setSession(null, 'SIGNED_OUT'); return { error: null }; },
+    signOut: async (o?: { scope?: 'global' | 'local' | 'others' }) => { if (o?.scope === 'others') return { error: null }; this.setSession(null, 'SIGNED_OUT'); return { error: null }; }, // 'others' keeps this device signed in
     resetPasswordForEmail: async () => ({ data: {}, error: null }),
-    updateUser: async (u: { data?: Row }) => { if (u?.data) Object.assign(this.meta, u.data); const s = this.makeSession(); this.setSession(s, 'USER_UPDATED'); return { data: { user: s.user }, error: null }; }, // persisted + USER_UPDATED, like Supabase
+    updateUser: async (u: { data?: Row; password?: string }) => { if (typeof u?.password === 'string') this.demoPassword = u.password; if (u?.data) Object.assign(this.meta, u.data); const s = this.makeSession(); this.setSession(s, 'USER_UPDATED'); return { data: { user: s.user }, error: null }; }, // persisted + USER_UPDATED, like Supabase
     exchangeCodeForSession: async () => ({ data: { session: this.session }, error: null }),
     setSession: async () => ({ data: { session: this.session }, error: null }),
     startAutoRefresh: () => {}, stopAutoRefresh: () => {},
