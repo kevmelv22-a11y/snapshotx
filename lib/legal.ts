@@ -44,6 +44,7 @@ export const PRIVACY: LegalDoc = {
     ] },
     { heading: 'Jouw rechten en keuzes', body: [
       'Je kunt je naam, privacy-instellingen, locatie delen en vindbaarheid in vriendensuggesties zelf aanpassen in Instellingen.',
+      'Je kunt via Instellingen › Mijn gegevens meteen een kopie van je gegevens downloaden (JSON-bestand).',
       'Je kunt je account en je inhoud op elk moment zelf definitief verwijderen via Instellingen › Account verwijderen.',
       'Je hebt het recht op inzage, correctie, verwijdering, beperking en bezwaar (AVG). Je kunt ook een klacht indienen bij de Autoriteit Persoonsgegevens.',
     ] },
