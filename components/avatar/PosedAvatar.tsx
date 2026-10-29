@@ -21,7 +21,7 @@ export const PosedAvatar = React.memo(function PosedAvatar(props: { outfit: Outf
   const art = poseArtFor(outfit, pose);
   if (art) return <View style={{ width, height }} pointerEvents="none" testID={`posed-avatar:${getPose(pose).id}`}>
     {bust ? <ArtImage art={bust} width={width} height={height} fit="top" zoom={1.05} offsetY={0.02}/>
-      : upper ? <ArtImage art={art} width={width} height={height} fit="top" zoom={pose === 'cheer' || pose === 'shrug' ? 1 : 1.25} offsetY={0.02}/>
+      : upper ? <ArtImage art={art} width={width} height={height} fit="top" zoom={WIDE_POSES.has(pose) ? 1 : 1.25} offsetY={0.02}/>
       : <ArtImage art={art} width={width} height={height}/>}
   </View>;
   // Personalised outfit (no pose art): the same Avatar-kast art (OutfitArt), standing; `upper` crops the top part.
@@ -31,6 +31,9 @@ export const PosedAvatar = React.memo(function PosedAvatar(props: { outfit: Outf
     <View style={{ width: figW, height: figH, marginTop: height * 0.02 }}><OutfitArt outfit={outfit} width={figW} height={figH}/></View>
   </View>;
 });
+
+/** Poses whose hands reach the sides of the image (raised arms, horns sign, crossed fingers): sticker framing without the 1.25 head zoom. */
+const WIDE_POSES: ReadonlySet<string> = new Set(['cheer', 'shrug', 'rock', 'crossed']);
 
 /** Height / width of the full-figure art (Kast preview box: w × 1.77w). */
 const ART_ASPECT = 1.77;

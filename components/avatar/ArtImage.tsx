@@ -44,6 +44,9 @@ export const ART: Record<ArtKey, { src: number; w: number; h: number }> = {
   'pose-shush': { src: require('../../assets/avatar-art/pose-shush.png'), w: 290, h: 692 },
   'pose-callme': { src: require('../../assets/avatar-art/pose-callme.png'), w: 319, h: 692 },
   'pose-flex': { src: require('../../assets/avatar-art/pose-flex.png'), w: 373, h: 692 },
+  'pose-rock': { src: require('../../assets/avatar-art/pose-rock.png'), w: 282, h: 692 },
+  'pose-salute': { src: require('../../assets/avatar-art/pose-salute.png'), w: 295, h: 692 },
+  'pose-crossed': { src: require('../../assets/avatar-art/pose-crossed.png'), w: 273, h: 692 },
   'pose-wink': { src: require('../../assets/avatar-art/pose-wink.png'), w: 244, h: 690 },
   // Female set (src/girl/*.jpg → rembg cut → pngquant; see src/girl/cut.py, deswoosh.py)
   'girl/bust': { src: require('../../assets/avatar-art/girl/bust.png'), w: 501, h: 692 },
@@ -66,6 +69,9 @@ export const ART: Record<ArtKey, { src: number; w: number; h: number }> = {
   'girl/pose-shush': { src: require('../../assets/avatar-art/girl/pose-shush.png'), w: 276, h: 692 },
   'girl/pose-callme': { src: require('../../assets/avatar-art/girl/pose-callme.png'), w: 295, h: 692 },
   'girl/pose-flex': { src: require('../../assets/avatar-art/girl/pose-flex.png'), w: 345, h: 692 },
+  'girl/pose-rock': { src: require('../../assets/avatar-art/girl/pose-rock.png'), w: 288, h: 692 },
+  'girl/pose-salute': { src: require('../../assets/avatar-art/girl/pose-salute.png'), w: 288, h: 692 },
+  'girl/pose-crossed': { src: require('../../assets/avatar-art/girl/pose-crossed.png'), w: 263, h: 692 },
   'girl/pose-wink': { src: require('../../assets/avatar-art/girl/pose-wink.png'), w: 253, h: 696 },
 };
 export const FRIEND_ART: Record<FriendArtKey, number> = {
