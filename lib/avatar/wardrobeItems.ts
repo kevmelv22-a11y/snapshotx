@@ -210,7 +210,7 @@ export function swatchesFor(layer: Layer | null): string[] {
 }
 
 export const HAIR_STYLE_LABELS: Record<HairStyle, string> = {
-  curly: 'Krullen', short: 'Kort', wavy: 'Golvend', buzz: 'Buzzcut', long: 'Lang', afro: 'Afro', bun: 'Knot', curtain: 'Curtain', 'curtain-short': 'Curtain kort', kuif: 'Kuif', twists: 'Twists',
+  curly: 'Krullen', short: 'Kort', wavy: 'Golvend', buzz: 'Buzzcut', long: 'Lang', afro: 'Afro', bun: 'Knot', curtain: 'Curtain', 'curtain-short': 'Curtain kort', kuif: 'Kuif', twists: 'Twists', hanenkam: 'Hanenkam', manbun: 'Man bun',
 };
 
 export type CuratedLook = { id: string; name: string; tagline: string; items: Partial<Record<WardrobeCategory, string>> };

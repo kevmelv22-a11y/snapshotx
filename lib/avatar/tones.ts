@@ -34,7 +34,7 @@ export const ART_HAIRSTYLE: Record<Gender, { id: 'curly' | 'wavy'; label: string
  *  Female: the reference art re-drawn with the new hair; its long art hair is baked into the top bands, so a style shows
  *  with the clothes that have hair-free bands (scripts/worn-bands/female, lib/avatar/combo comboStyle `supports`). */
 export const HAIRSTYLES: Record<Gender, readonly { id: HairStyle; label: string }[]> = {
-  male: [ART_HAIRSTYLE.male, { id: 'short', label: 'Kort' }, { id: 'wavy', label: 'Golvend' }, { id: 'buzz', label: 'Fade' }, { id: 'afro', label: 'Afro' }, { id: 'curtain', label: 'Curtain' }, { id: 'curtain-short', label: 'Curtain kort' }, { id: 'kuif', label: 'Kuif' }, { id: 'twists', label: 'Twists' }],
+  male: [ART_HAIRSTYLE.male, { id: 'short', label: 'Kort' }, { id: 'wavy', label: 'Golvend' }, { id: 'buzz', label: 'Fade' }, { id: 'afro', label: 'Afro' }, { id: 'curtain', label: 'Curtain' }, { id: 'curtain-short', label: 'Curtain kort' }, { id: 'kuif', label: 'Kuif' }, { id: 'twists', label: 'Twists' }, { id: 'hanenkam', label: 'Hanenkam' }, { id: 'manbun', label: 'Man bun' }],
   female: [ART_HAIRSTYLE.female, { id: 'long', label: 'Lang stijl' }, { id: 'bun', label: 'Knot' }, { id: 'short', label: 'Bob' }],
 };
 
