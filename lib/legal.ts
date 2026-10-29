@@ -52,6 +52,7 @@ export const PRIVACY: LegalDoc = {
   ],
 };
 
+// TODO(Kevin): support e-mail/URL for App Store Connect + this Contact section is still missing. Do not invent one — fill in once Kevin provides it.
 const CONTACT: LegalSection = { heading: 'Contact', body: ['Vragen, of een verzoek over je gegevens? Neem contact met ons op via de supportgegevens in de App Store-vermelding van Snapshot X.'] };
 PRIVACY.sections.push(CONTACT);
 

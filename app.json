@@ -41,6 +41,20 @@
     "plugins": [
       "expo-router",
       [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#08090E",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "android": {
+            "backgroundColor": "#08090E",
+            "image": "./assets/splash-icon.png",
+            "imageWidth": 200
+          }
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "SnapShot X gebruikt je camera om snaps te maken en voor videogesprekken.",

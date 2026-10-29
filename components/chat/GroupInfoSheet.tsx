@@ -11,6 +11,7 @@ import {OwnAvatar} from '../avatar/OwnAvatar';
 import {useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {MemberRoleIcon,useMemberActions} from './MemberActionSheet';
 import {wallpaperLabel} from '../../lib/chat-wallpaper';
+import {checkName} from '../../lib/name-filter';
 import {GROUP_MAX_MEMBERS,GROUP_TITLE_MAX,addableFriends,canAddMembers,canRename,canSelectMore,groupErrorText,normalizeGroupTitle,sortMembers,validateAdd} from '../../lib/group-chat';
 
 export type GroupMember={id:string;name:string};
@@ -31,7 +32,7 @@ export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,remo
  useEffect(()=>{if(mode!=='add'||friends)return;let alive=true;void (async()=>{const r=await supabase.from('sx_friends').select('friend_id').eq('user_id',me);if(!alive)return;if(r.error){setNotice(friendlyError(r.error,'Je vrienden'));setFriends([]);return}const ids=(r.data||[]).map(x=>x.friend_id);if(!ids.length){setFriends([]);return}const p=await supabase.from('profiles').select('id,display_name').in('id',ids);if(!alive)return;const names=new Map((p.data||[]).map(x=>[x.id,x.display_name]));setFriends(ids.map(id=>({id,name:names.get(id)||'Vriend'})).sort((a,b)=>a.name.localeCompare(b.name,'nl')))})();return()=>{alive=false}},[mode,friends,me]);
 
  async function run(fn:()=>PromiseLike<{error:unknown}>,after?:()=>void){if(busy)return;setBusy(true);setNotice('');try{const {error}=await fn();if(error){setNotice(errText(error));return}after?.();onChanged()}catch(e){setNotice(errText(e))}finally{setBusy(false)}}
- function saveName(){const t=normalizeGroupTitle(draft);if(!t){setNotice(`Geef de groep een naam (max ${GROUP_TITLE_MAX} tekens).`);return}if(t===title){setMode('info');return}void run(()=>supabase.rpc('sx_rename_group',{p_thread_id:threadId,p_title:t}),()=>setMode('info'))}
+ function saveName(){const t=normalizeGroupTitle(draft);if(!t){setNotice(`Geef de groep een naam (max ${GROUP_TITLE_MAX} tekens).`);return}const nameOk=checkName(t,'group');if(!nameOk.ok){setNotice(nameOk.error);return}if(t===title){setMode('info');return}void run(()=>supabase.rpc('sx_rename_group',{p_thread_id:threadId,p_title:t}),()=>setMode('info'))}
  function addPicked(){const why=validateAdd(count,picked);if(why){setNotice(why);return}void run(()=>supabase.rpc('sx_add_group_members',{p_thread_id:threadId,p_user_ids:picked}),()=>{setPicked([]);setMode('info')})}
  function togglePick(id:string){setNotice('');setPicked(v=>v.includes(id)?v.filter(x=>x!==id):canSelectMore(count,v.length)?[...v,id]:(setNotice(validateAdd(count,[...v,id])??''),v))}
  function askLeave(){confirm.ask({title:'Groep verlaten?',message:`Je verlaat "${title}". Je ziet deze groep en de berichten niet meer, tenzij iemand je opnieuw toevoegt.`,confirmLabel:'Verlaten',destructive:true},async()=>{const {error}=await supabase.rpc('sx_leave_group',{p_thread_id:threadId});if(error)return errText(error);onLeft();return null})}

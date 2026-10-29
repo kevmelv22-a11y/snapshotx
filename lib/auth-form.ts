@@ -1,3 +1,5 @@
+import { checkName } from './name-filter';
+
 /** Pure helpers for the login/register screen (no React Native imports, so they run under `npx tsx --test`). */
 export type LoginIdentifier = { kind: 'email'; email: string } | { kind: 'phone'; phone: string } | { kind: 'username'; username: string };
 
@@ -53,6 +55,8 @@ export type RegisterCheck = { ok: true; username: string; email: string; birthda
 export function validateRegister(i: RegisterInput, now = new Date()): RegisterCheck {
   const username = i.username.trim().replace(/^@/, '').toLowerCase();
   if (!/^[a-z0-9._]{3,24}$/.test(username)) return { ok: false, error: 'Gebruikersnaam: 3–24 tekens (letters, cijfers, . of _).' };
+  const nameOk = checkName(username, 'username');
+  if (!nameOk.ok) return { ok: false, error: nameOk.error };
   const email = i.email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Vul een geldig e-mailadres in.' };
   if (i.password.length < 8) return { ok: false, error: 'Wachtwoord: minimaal 8 tekens.' };
