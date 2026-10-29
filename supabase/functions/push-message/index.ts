@@ -65,11 +65,16 @@ Deno.serve(async (req) => {
     if (tokenError || typeof expoAccessToken !== 'string' || !expoAccessToken) {
       throw new Error('Expo access token is not available in Vault');
     }
+    // Meldingen › Geluid (sx_preferences.notify_prefs.sound, migration 20261029120000). Column missing → sound on.
+    const silent = new Set<string>();
+    const prefRows = await supabase.from('sx_preferences').select('user_id, notify_prefs')
+      .in('user_id', [...new Set(recipients.map((r: any) => r.user_id))]);
+    if (!prefRows.error) for (const row of prefRows.data || []) if ((row as any).notify_prefs?.sound === false) silent.add((row as any).user_id);
     const messages = recipients
       .filter((r: any) => !!r.expo_token)
       .map((r: any) => ({
         to: r.expo_token,
-        sound: 'default',
+        sound: silent.has(r.user_id) ? null : 'default',
         title: 'SnapShot X',
         body: bodyFor(r.kind, r.view_once, r.sender_name || 'Iemand'),
         // No message text or media ever included here — only enough to deep-link.
