@@ -35,6 +35,7 @@ export const HIDDEN_HEADER_TITLES: Readonly<Record<string, string>> = {
   'blocked-users': 'Geblokkeerd',
   'my-data': 'Mijn gegevens',
   notifications: 'Meldingen',
+  'who-can': 'Wie kan…',
   'reset-password': 'Wachtwoord',
   'change-password': 'Wachtwoord',
   privacy: 'Privacybeleid',
