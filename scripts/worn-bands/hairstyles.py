@@ -10,7 +10,7 @@ HERE=os.path.dirname(os.path.abspath(__file__)); SRC=f'{HERE}/hairstyles-src'
 BANDS=sys.argv[1] if len(sys.argv)>1 else 'assets/avatar-art/worn-bands'; OUT=sys.argv[2] if len(sys.argv)>2 else 'assets/avatar-art/worn-styles'
 M=json.load(open(f'{HERE}/meta.json')); EYES=json.load(open(f'{SRC}/eyes.json'))
 REF={'male':('top-blueberry-white-tee',[(46,92),(92,99)],147),'female':('top-nike-black-tee',[(77.5,93),(126,90)],146)}
-STYLES={'male':{'short':'m-short','wavy':'m-wavy','buzz':'m-fade','afro':'m-afro','curtain':'m-curtain','curtain-short':'m-curtain-short','kuif':'m-kuif','twists':'m-twists','hanenkam':'m-hanenkam','manbun':'m-manbun'},
+STYLES={'male':{'short':'m-short','wavy':'m-wavy','buzz':'m-fade','afro':'m-afro','curtain':'m-curtain','curtain-short':'m-curtain-short','kuif':'m-kuif','twists':'m-twists','hanenkam':'m-hanenkam','manbun':'m-manbun','stekels':'m-stekels','zijscheiding':'m-zijscheiding'},
         # female: the reference composite re-drawn with the new hair (scripts/worn-bands/female/edits, keyed + registered
         # on the body: f-*-e). The long art hair baked into the torso bands is removed per item by female/clean.py; only
         # those items (female/allow.json) get a keep band, the app shows the art hair with any other top.
