@@ -1,15 +1,29 @@
 import React,{useState} from 'react';
-import {Linking,ScrollView} from 'react-native';
+import {Linking,ScrollView,Text,View} from 'react-native';
 import {Stack,router,useLocalSearchParams} from 'expo-router';
 import {Paywall} from '../components/plus/PlusParts';
 import {usePlusStore} from '../stores/plus';
 import {plansFor,type PlanId,type Tier} from '../lib/plus';
+import {RC_ENABLED,purchaseErrorMessage,rcPaywallComponent} from '../lib/revenuecat';
+import {useSubscription} from '../hooks/useSubscription';
 
 /** Snapshot X subscriptions paywall (X+, Lens+, Platinum, Gezin, Herinneringen). Uses the mock purchase provider (no real IAP yet). */
 export const TERMS_URL='https://snapshotx.example/voorwaarden', PRIVACY_URL='https://snapshotx.example/privacy';
 const TIERS:Tier[]=['plus','lens','platinum','family','storage'];
 const defaultPlan=(t:Tier):PlanId=>{const p=plansFor(t);return (p.find(x=>x.period==='year')??p[0]).id};
-export default function PlusScreen(){
+/** Native dev/EAS build: the RevenueCat dashboard paywall (offering 'default'). Web/demo: the mock paywall below. */
+const RcPaywall=RC_ENABLED?rcPaywallComponent():null;
+export default function PlusScreen(){return RC_ENABLED&&RcPaywall?<RevenueCatPaywallScreen/>:<MockPlusScreen/>}
+function RevenueCatPaywallScreen(){
+  const sub=useSubscription();const [err,setErr]=useState<string|null>(null);
+  const done=()=>router.replace('/plus-manage');
+  return <View style={{flex:1}}><Stack.Screen options={{headerShown:false}}/>
+    {RcPaywall&&<RcPaywall style={{flex:1}} options={{displayCloseButton:true}} onPurchaseCompleted={done} onRestoreCompleted={({customerInfo})=>{if(customerInfo.entitlements.active.snapshot_x)done();else setErr('Geen eerdere aankopen gevonden')}}
+      onPurchaseError={({error})=>setErr(purchaseErrorMessage(error))} onRestoreError={({error})=>setErr(purchaseErrorMessage(error))}
+      onDismiss={()=>{if(router.canGoBack())router.back();else router.replace('/settings')}}/>}
+    {!!(err??sub.error)&&<Text style={{color:'#FFD400',textAlign:'center',padding:12}}>{err??sub.error}</Text>}</View>;
+}
+function MockPlusScreen(){
   const q=useLocalSearchParams<{tier?:string}>();const init=(TIERS.includes(q.tier as Tier)?q.tier:'plus') as Tier;
   const [tier,setTier]=useState<Tier>(init);const [plan,setPlan]=useState<PlanId>(defaultPlan(init));const [busy,setBusy]=useState(false);const [notice,setNotice]=useState<string|null>(null);
   const buy=usePlusStore(s=>s.buy),restore=usePlusStore(s=>s.restore),ents=usePlusStore(s=>s.entitlements);

@@ -8,11 +8,21 @@ import {useNow} from '../hooks/useNow';
 import {usePlusStore} from '../stores/plus';
 import {TierWordmark} from '../components/plus/TierBrand';
 import {isBrandTier} from '../lib/tier-brand';
+import {useSubscription} from '../hooks/useSubscription';
 
 /** Manage / cancel screen for Snapshot X subscriptions (mock provider). Cancelling turns off auto-renew; access stays until the end date. */
 export default function PlusManage(){
   const st=usePlusStore();const now=useNow();const [confirm,setConfirm]=useState<string|null>(null);const [notice,setNotice]=useState<string|null>(null);
-  const live=st.entitlements.filter(e=>isEntitlementActive(e,now));
+  const live=st.entitlements.filter(e=>isEntitlementActive(e,now));const sub=useSubscription();
+  // Real build: RevenueCat Customer Center handles cancel/refund/change via the App Store.
+  if(sub.enabled)return <ScrollView contentContainerStyle={s.c}><Stack.Screen options={{title:'Abonnement beheren'}}/>
+    <View style={s.card}><Text style={s.h}>{sub.isPro?'Snapshot X+ actief':'Geen actief abonnement'}</Text>
+      {sub.isPro?<Pressable style={s.btn} onPress={()=>void sub.presentCustomerCenter()}><Text style={s.btnT}>Abonnement beheren</Text></Pressable>
+        :<Pressable style={s.btn} onPress={()=>router.push('/plus')}><Text style={s.btnT}>Bekijk abonnementen</Text></Pressable>}
+      <Pressable style={s.btn2} onPress={async()=>{const r=await sub.restore();setNotice(r.ok?(r.info?.entitlements.active.snapshot_x?'Aankopen hersteld':'Geen eerdere aankopen gevonden'):r.message)}}><Text style={s.btnT2}>Aankopen herstellen</Text></Pressable></View>
+    {!!notice&&<Text style={s.notice}>{notice}</Text>}
+    {sub.isPro&&<Pressable onPress={()=>router.push('/plus-settings')}><Text style={s.link}>Snapshot X+-instellingen (app-icoon, achtergronden)</Text></Pressable>}
+  </ScrollView>;
   return <ScrollView contentContainerStyle={s.c}><Stack.Screen options={{title:'Abonnement beheren'}}/>
     {live.length===0&&<View style={s.card}><Text style={s.h}>Geen actief abonnement</Text><Text style={s.m}>Gratis: {FREE_STORAGE} opslag voor Herinneringen.</Text>
       <Pressable style={s.btn} onPress={()=>router.push('/plus')}><Text style={s.btnT}>Bekijk abonnementen</Text></Pressable></View>}
