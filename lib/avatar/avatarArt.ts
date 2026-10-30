@@ -24,7 +24,7 @@ function forGender<K extends BaseArtKey>(o: Outfit, k: K | null): K | GirlArtKey
 }
 
 export type LookArtKey = 'look-default-hoodie' | 'look-green-jacket' | 'look-black-bomber' | 'look-tan-jacket' | 'look-denim-jacket' | 'look-cream-hoodie' | 'look-ripped-jeans';
-export type PoseArtKey = 'pose-thinking' | 'pose-wave' | 'pose-thumbsup' | 'pose-laugh' | 'pose-cheer' | 'pose-peace' | 'pose-shrug' | 'pose-wink' | 'pose-surprised' | 'pose-heart' | 'pose-ok' | 'pose-shush' | 'pose-callme' | 'pose-flex' | 'pose-rock' | 'pose-salute' | 'pose-crossed';
+export type PoseArtKey = 'pose-thinking' | 'pose-wave' | 'pose-thumbsup' | 'pose-laugh' | 'pose-cheer' | 'pose-peace' | 'pose-shrug' | 'pose-wink' | 'pose-surprised' | 'pose-heart' | 'pose-ok' | 'pose-shush' | 'pose-callme' | 'pose-flex' | 'pose-rock' | 'pose-salute' | 'pose-crossed' | 'pose-clap' | 'pose-facepalm' | 'pose-point';
 type BaseArtKey = LookArtKey | PoseArtKey | 'bust';
 /** Female set (assets/avatar-art/girl/): same looks/poses; her start look has no standing image (uses pose-thinking). */
 export type GirlArtKey = `girl/${Exclude<BaseArtKey, 'look-default-hoodie'>}`;
@@ -41,6 +41,7 @@ export const POSE_ART: Record<PoseId | 'think' | StickerArtPose, LookArtKey | Po
   stand: 'look-default-hoodie', think: 'pose-thinking', wave: 'pose-wave', thumbs: 'pose-thumbsup', laugh: 'pose-laugh',
   cheer: 'pose-cheer', peace: 'pose-peace', shrug: 'pose-shrug', wink: 'pose-wink', surprised: 'pose-surprised', heart: 'pose-heart',
   ok: 'pose-ok', shush: 'pose-shush', callme: 'pose-callme', flex: 'pose-flex', rock: 'pose-rock', salute: 'pose-salute', crossed: 'pose-crossed',
+  clap: 'pose-clap', facepalm: 'pose-facepalm', point: 'pose-point',
 };
 
 const CLOTHES: WardrobeCategory[] = ['top', 'bottom', 'dress', 'shoes', 'socks', 'bag', 'outerwear', 'hat', 'accessory', 'glasses'];
@@ -81,11 +82,12 @@ export function poseArtFor(outfit: Outfit, pose: PoseId | 'think' | StickerArtPo
 /** Profile bust portrait (black hoodie): only for the default outfit. */
 export function bustArtFor(outfit: Outfit, d: LookData): 'bust' | 'girl/bust' | null { return isDefaultLook(outfit, d) ? forGender(outfit, 'bust') as 'bust' | 'girl/bust' : null; }
 
-/** Sticker → pose image (Hoi!=wave, Top!=thumbsup, Haha=laugh, Yes!=cheer, Peace=peace, Geen idee=shrug, Deal=wink, Wauw!=surprised, Hartje=heart hands, Oké!=OK sign, Sst!=finger on lips, Bel me!=call-me hand, Sterk!=flexing both biceps, Rock on!=horns sign + wink, Begrepen!=salute, Duimen!=fingers crossed on both hands). */
+/** Sticker → pose image (Hoi!=wave, Top!=thumbsup, Haha=laugh, Yes!=cheer, Peace=peace, Geen idee=shrug, Deal=wink, Wauw!=surprised, Hartje=heart hands, Oké!=OK sign, Sst!=finger on lips, Bel me!=call-me hand, Sterk!=flexing both biceps, Rock on!=horns sign + wink, Begrepen!=salute, Duimen!=fingers crossed on both hands, Bravo!=clapping, Oeps!=facepalm, Jij!=pointing at the viewer). */
 export const STICKER_ART: Record<string, PoseArtKey> = {
   hoi: 'pose-wave', top: 'pose-thumbsup', haha: 'pose-laugh', yes: 'pose-cheer', peace: 'pose-peace', 'geen-idee': 'pose-shrug', knipoog: 'pose-wink', wauw: 'pose-surprised', hartje: 'pose-heart',
   oke: 'pose-ok', sst: 'pose-shush', 'bel-me': 'pose-callme', sterk: 'pose-flex',
   'rock-on': 'pose-rock', begrepen: 'pose-salute', duimen: 'pose-crossed',
+  bravo: 'pose-clap', oeps: 'pose-facepalm', jij: 'pose-point',
 };
 
 /** Hex colour → [r,g,b] (0–255); null when unparsable. */

@@ -32,8 +32,8 @@ export const PosedAvatar = React.memo(function PosedAvatar(props: { outfit: Outf
   </View>;
 });
 
-/** Poses whose hands reach the sides of the image (raised arms, horns sign, crossed fingers): sticker framing without the 1.25 head zoom. */
-const WIDE_POSES: ReadonlySet<string> = new Set(['cheer', 'shrug', 'rock', 'crossed']);
+/** Poses whose hands reach the sides or bottom of the image (raised arms, horns sign, crossed fingers, clapping, pointing): sticker framing without the 1.25 head zoom. */
+const WIDE_POSES: ReadonlySet<string> = new Set(['cheer', 'shrug', 'rock', 'crossed', 'clap', 'point']);
 
 /** Height / width of the full-figure art (Kast preview box: w × 1.77w). */
 const ART_ASPECT = 1.77;
