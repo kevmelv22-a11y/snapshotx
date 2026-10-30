@@ -198,6 +198,7 @@
     "scheme": "snapshotx",
     "backgroundColor": "#08090E",
     "extra": {
+      "supportEmail": "support@snapshot-x.nl",
       "eas": {
         "projectId": "8e081584-5001-428c-bcac-302a88101f8f"
       }

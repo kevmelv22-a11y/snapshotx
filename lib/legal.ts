@@ -5,6 +5,11 @@
 export type LegalSection = { heading: string; body: string[] };
 export type LegalDoc = { route: '/privacy' | '/voorwaarden'; title: string; updated: string; intro: string; sections: LegalSection[] };
 
+/** Support contact (provided by Kevin, 30 okt 2026). Also in app.json extra.supportEmail + App Store metadata. */
+export const SUPPORT_EMAIL = 'support@snapshot-x.nl';
+export const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}`;
+export const SUPPORT_LINK = { label: 'Contact en support', description: SUPPORT_EMAIL, url: SUPPORT_MAILTO } as const;
+
 export const LEGAL_UPDATED = '29 oktober 2026';
 export const LEGAL_LINKS = {
   privacy: { label: 'Privacybeleid', description: 'Welke gegevens we gebruiken en waarom', route: '/privacy' },
@@ -53,8 +58,7 @@ export const PRIVACY: LegalDoc = {
   ],
 };
 
-// TODO(Kevin): support e-mail/URL for App Store Connect + this Contact section is still missing. Do not invent one — fill in once Kevin provides it.
-const CONTACT: LegalSection = { heading: 'Contact', body: ['Vragen, of een verzoek over je gegevens? Neem contact met ons op via de supportgegevens in de App Store-vermelding van Snapshot X.'] };
+const CONTACT: LegalSection = { heading: 'Contact', body: [`Vragen, of een verzoek over je gegevens (inzage, correctie, verwijdering)? Mail ons via ${SUPPORT_EMAIL}. We reageren zo snel mogelijk.`] };
 PRIVACY.sections.push(CONTACT);
 
 export const TERMS: LegalDoc = {

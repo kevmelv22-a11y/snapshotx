@@ -1,10 +1,11 @@
 import React,{useMemo,useState} from 'react';
-import {Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
+import {Linking,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {Stack,router,useLocalSearchParams} from 'expo-router';
 import {Ionicons} from '@expo/vector-icons';
 import {supabase} from '../lib/supabase';
 import {useSession} from '../hooks/useSession';
 import {C} from '../lib/theme';
+import {SUPPORT_EMAIL,SUPPORT_MAILTO} from '../lib/legal';
 import {Button,Hint,Page} from '../components/UI';
 import {dbErrorKind,friendlyError} from '../lib/db-errors';
 import {ACCOUNT_REPORT_UNAVAILABLE,MAX_DETAIL,reasonsFor,reportError,reportTitle,SELF_HARM_HELP,submitReport,targetFromParams,type ReportReasonId} from '../lib/report-reasons';
@@ -42,6 +43,7 @@ export default function ReportScreen(){
   <View style={s.doneIcon}><Ionicons name="checkmark" size={40} color="#fff"/></View>
   <Text style={s.doneTitle}>Bedankt voor je melding</Text>
   <Text style={s.doneText}>Ons moderatieteam bekijkt dit zo snel mogelijk. Degene die je meldt, ziet niet dat jij het was.</Text>
+  <Text style={s.doneText} testID="report-support" onPress={()=>{void Linking.openURL(SUPPORT_MAILTO).catch(()=>{})}}>Meer vragen of extra informatie? Mail {SUPPORT_EMAIL}.</Text>
   {reason==='self_harm'&&<Text style={s.help}>{SELF_HARM_HELP}</Text>}
   {!!blockId&&blockId!==me&&(blocked
    ?<Text style={s.doneText} testID="report-blocked">{name||'Deze gebruiker'} is geblokkeerd. Jullie kunnen elkaar geen berichten of snaps meer sturen.</Text>

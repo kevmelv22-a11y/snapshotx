@@ -13,7 +13,8 @@ Limieten tussen haakjes zijn die van App Store Connect.
 | Secundaire categorie | Sociale netwerken |
 | Leeftijdsclassificatie | 13+ (zie vragenlijst hieronder); app weigert registratie onder 13 jaar (lib/auth-form.ts) |
 | Copyright | © 2026 TODO(Kevin): naam/bedrijf |
-| Support-URL | TODO(Kevin) — zelfde adres als in lib/legal.ts (support-e-mail/URL TODO) |
+| Support-URL | mailto:support@snapshot-x.nl (zelfde adres als `SUPPORT_EMAIL` in lib/legal.ts; App Store Connect vraagt een URL — als mailto niet wordt geaccepteerd: https://snapshot-x.expo.app/privacy, waar het adres onder Contact staat) |
+| Support-e-mail | support@snapshot-x.nl |
 | Marketing-URL | https://snapshot-x.expo.app (optioneel) |
 | Privacybeleid-URL | https://snapshot-x.expo.app/privacy |
 | Gebruiksvoorwaarden (EULA) | https://snapshot-x.expo.app/voorwaarden |
