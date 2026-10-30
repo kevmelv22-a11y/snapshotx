@@ -13,7 +13,7 @@ Limieten tussen haakjes zijn die van App Store Connect.
 | Secundaire categorie | Sociale netwerken |
 | Leeftijdsclassificatie | 13+ (zie vragenlijst hieronder); app weigert registratie onder 13 jaar (lib/auth-form.ts) |
 | Copyright | © 2026 TODO(Kevin): naam/bedrijf |
-| Support-URL | mailto:support@snapshot-x.nl (zelfde adres als `SUPPORT_EMAIL` in lib/legal.ts; App Store Connect vraagt een URL — als mailto niet wordt geaccepteerd: https://snapshot-x.expo.app/privacy, waar het adres onder Contact staat) |
+| Support-URL | https://snapshot-x.expo.app/help — openbare pagina Help en support (app/help.tsx): veelgestelde vragen, hulplijnen en een knop om support@snapshot-x.nl te mailen. Werkt zonder inloggen. |
 | Support-e-mail | support@snapshot-x.nl |
 | Marketing-URL | https://snapshot-x.expo.app (optioneel) |
 | Privacybeleid-URL | https://snapshot-x.expo.app/privacy |
@@ -66,7 +66,7 @@ Controleer tegen de privacymanifest in app.json (`ios.privacyManifests`) en lib/
 ## Gegevens voor de beoordeling (App Review)
 - Demo-account: TODO(Kevin) — e-mail + wachtwoord van een testaccount met een paar vrienden en chats.
 - Opmerking voor de reviewer (Engels):
-  "Snapshot X is a photo/video messaging app. Users can report content and accounts (long-press a chat/story → Melden, or friend profile → Account melden) and block users; reports are reviewed by our staff in the in-app staff console. Account deletion: Instellingen › Account verwijderen. Data export: Instellingen › Mijn gegevens."
+  "Snapshot X is a photo/video messaging app. Users can report content and accounts (long-press a chat/story → Melden, or friend profile → Account melden) and block users; reports are reviewed by our staff in the in-app staff console. Account deletion: Instellingen › Account verwijderen. Data export: Instellingen › Mijn gegevens. Help & support (FAQ, crisis lines, contact): Instellingen › Help en support."
 - Contactpersoon: TODO(Kevin) naam, telefoon, e-mail.
 
 ## Schermafbeeldingen (6,9" iPhone, 1320 × 2868 — of 6,5", 1284 × 2778)
@@ -80,7 +80,7 @@ Controleer tegen de privacymanifest in app.json (`ios.privacyManifests`) en lib/
 
 ## Nog nodig vóór indienen
 - [ ] Eigen Apple Developer-account + bundle ID (geen ondertekening via een ander team).
-- [ ] Support-e-mail/URL (TODO in lib/legal.ts en hierboven).
+- [x] Support-e-mail: support@snapshot-x.nl (lib/legal.ts). Support-URL: https://snapshot-x.expo.app/help (openbare helppagina, app/help.tsx).
 - [ ] Openstaande Supabase-migraties toepassen (zie supabase/migrations, o.a. 20261029030000 en 20261029120000).
 - [ ] In-app aankopen (Snapshot X+) aanmaken in App Store Connect als ze bij de lancering meegaan.
 - [ ] Demo-account voor App Review.

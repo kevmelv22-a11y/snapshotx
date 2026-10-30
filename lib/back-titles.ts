@@ -41,4 +41,5 @@ export const HIDDEN_HEADER_TITLES: Readonly<Record<string, string>> = {
   'change-password': 'Wachtwoord',
   privacy: 'Privacybeleid',
   voorwaarden: 'Voorwaarden',
+  help: 'Help',
 };
