@@ -320,7 +320,7 @@ export class DemoClient {
   private authCbs = new Set<(e: string, s: unknown) => void>();
   private uploads: Record<string, string> = {};
   private session: Row | null = null;
-  private meta: Row = { display_name: 'Kevin', gender: 'male' };
+  private meta: Row = { display_name: 'Kevin', gender: 'male', birthdate: '2004-11-14', birthday_party: true };
   constructor() {
     try {
       const meta = JSON.parse(globalThis.localStorage?.getItem('sx-demo-meta') ?? 'null') as Row | null;

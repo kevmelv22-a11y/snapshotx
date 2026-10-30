@@ -39,6 +39,7 @@ export const HIDDEN_HEADER_TITLES: Readonly<Record<string, string>> = {
   countdowns: 'Afteltimers',
   'reset-password': 'Wachtwoord',
   'change-password': 'Wachtwoord',
+  birthday: 'Verjaardag',
   privacy: 'Privacybeleid',
   voorwaarden: 'Voorwaarden',
   help: 'Help',

@@ -9,6 +9,7 @@ import {ProfileHome,YellowAvatarCircle,type ProfileFriend} from '../../component
 import {useStartOutfit,useWardrobeSync} from '../../hooks/useWardrobeSync';
 import {useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {useSession} from '../../hooks/useSession';
+import {birthdayBadge,readBirthdayMeta} from '../../lib/birthday';
 import {useStaffRoles} from '../../hooks/useStaffRoles';
 import {useOwnProfile} from '../../hooks/useOwnProfile';
 import {friendlyError} from '../../lib/db-errors';
@@ -50,7 +51,8 @@ export default function Profile(){
  const countdowns=useMyCountdowns(uid),timers=profileTimers(countdowns,nowMs);
  const hero=<YellowAvatarCircle size={230}><AvatarBust outfit={start} size={230} testID="profile-bust-art"/></YellowAvatarCircle>;
  const tile=(icon:keyof typeof Ionicons.glyphMap,label:string,to:Parameters<typeof router.push>[0])=><Pressable key={label} style={s.tile} onPress={()=>router.push(to)}><Ionicons name={icon} color="#FFF" size={22}/><Text style={s.tileText}>{label}</Text><Ionicons name="chevron-forward" color="#C7C7CC" size={20}/></Pressable>;
- return <ProfileHome username={own?(own.hasUsername||own.source==='metadata'?own.handle:own.displayName):'Mijn profiel'} nameBadge={tier&&tier!=='storage'?<PlusBadge tier={tier} size={22}/>:null} score={own?.activityScore??0} hero={hero} ownOutfit={start} storyCount={stories} sharingLocation={sharing} topInset={insets.top}
+ const bd=readBirthdayMeta(session?.user.user_metadata),cake=birthdayBadge(bd.birth,bd.party);
+ return <ProfileHome username={own?(own.hasUsername||own.source==='metadata'?own.handle:own.displayName):'Mijn profiel'} nameBadge={<>{tier&&tier!=='storage'?<PlusBadge tier={tier} size={22}/>:null}{cake?<Text style={{fontSize:20,marginLeft:6}} accessibilityLabel="Jarig vandaag">{cake}</Text>:null}</>} score={own?.activityScore??0} hero={hero} ownOutfit={start} storyCount={stories} sharingLocation={sharing} topInset={insets.top}
   friends={friends.map(f=>{const o=outfits.get(f.id);return {...f,outfit:o&&o!=='pending'?o:null,fallback:<MapAvatar id={f.id} size={70}/>}})}
   onMenu={()=>router.back()} onSettings={()=>router.push('/settings')} onAvatar={()=>router.push('/avatar/mode')} onStory={()=>router.push('/(tabs)/stories')} onFriends={()=>router.push('/(tabs)/friends')} onMap={()=>router.push('/map')} onTimers={()=>router.push('/countdowns')} timers={timers}
   footer={<View style={{marginTop:6}}>
