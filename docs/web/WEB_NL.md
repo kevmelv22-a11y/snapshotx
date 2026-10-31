@@ -13,8 +13,9 @@
 2. Supabase Auth → URL Configuration: Site URL / Redirect URLs aanvullen met `https://snapshot-x.nl/**` (en `https://snapshot-x.expo.app/**`) voor wachtwoord-reset/magic links. Login met e-mail+wachtwoord werkt op web met de bestaande client (AsyncStorage → localStorage). `detectSessionInUrl:false` moet op web `true` worden als we e-mail-links op web willen afhandelen.
 3. Header `x-snaplion-device-id` (custom fetch) → CORS: Supabase staat custom headers toe, maar verifiëren in browser.
 4. Wat breekt / ontbreekt op web:
-   - Bellen: `components/call/RealCall.tsx` is een web-stub (react-native-webrtc is native-only); `app/call/[id].tsx` gaat op web nooit naar RealCall. Nodig: web-implementatie met browser `RTCPeerConnection` + `getUserMedia`, hergebruik van lib/call-signal.ts (Supabase Realtime-signaling).
-   - Incoming call: alleen `IncomingCall.native.tsx` echt; web heeft geen push/CallKit → in-app Realtime-banner.
+   - Bellen (**klaar 31-10, 18:00**): `components/call/RealCall.tsx` = echte browsergesprekken (RTCPeerConnection + getUserMedia) via `lib/call-engine.ts` (zelfde Realtime-protocol als de iPhone-app → web ↔ app werkt). Video (📹) en spraak (📞, alleen microfoon). Duidelijke NL-melding bij geweigerde camera/microfoon of geen https.
+   - Inkomend gesprek op web (**klaar**): `components/call/IncomingCall.tsx` is nu voor app én web; op web belgeluid (Web Audio) + knipperende tabtitel "📞 Naam belt…".
+   - Getest met 2 echte accounts (appreview ↔ demo-lisa, echte webbuild): bellen → belscherm bij Lisa → opnemen → offer/answer/tracks → ophangen sluit beide kanten. De mediaverbinding zelf (ICE) kon op de box niet: de Chrome-policy van de box blokkeert WebRTC-UDP. Nog doen: echte test tussen 2 apparaten; TURN-server overwegen (nu alleen STUN, net als de app).
    - Camera: expo-camera werkt beperkt op web (getUserMedia, HTTPS vereist — oké op snapshot-x.nl).
    - Push, RevenueCat (aankopen), app-icons, kaart (`app/map.tsx` heeft web-check), 3D-avatar/face-lab: controleren/uitschakelen op web.
    - Unapplied migrations: web gebruikt dezelfde DB; features die daarvan afhangen falen totdat Kevin ze goedkeurt.

@@ -8,11 +8,13 @@ import {DEMO_MODE} from '../../lib/supabase';
 import {isUuid} from '../../lib/chat-ids';
 import RealCall from '../../components/call/RealCall';
 
-/** Video call screen. On iOS/Android (real backend) this is a real 1:1 WebRTC call (components/call/RealCall.native.tsx).
- *  On web, in demo mode, or from the dev harness (`state` param / id 'demo') it shows the mock below. */
+/** Video/voice call screen. With the real backend this is a real 1:1 WebRTC call: iOS/Android use
+ *  components/call/RealCall.native.tsx (react-native-webrtc), the browser uses components/call/RealCall.tsx.
+ *  In demo mode or from the dev harness (`state` param / id 'demo') it shows the mock below. */
 export default function CallScreen(){
-  const p=useLocalSearchParams<{id:string;name?:string;state?:CallState;role?:string;callId?:string;peer?:string}>();
-  if(Platform.OS!=='web'&&!DEMO_MODE&&!p.state&&isUuid(p.id))return <><Stack.Screen options={{headerShown:false,gestureEnabled:false}}/><RealCall threadId={p.id} name={p.name||'Vriend'} role={p.role==='callee'?'callee':'caller'} callId={p.callId} peerId={p.peer}/></>;
+  const p=useLocalSearchParams<{id:string;name?:string;state?:CallState;role?:string;callId?:string;peer?:string;audio?:string}>();
+  // Voice-only calls exist in the browser (Snapchat Web phone button); the native call screen is always video.
+  if(!DEMO_MODE&&!p.state&&isUuid(p.id))return <><Stack.Screen options={{headerShown:false,gestureEnabled:false}}/><RealCall threadId={p.id} name={p.name||'Vriend'} role={p.role==='callee'?'callee':'caller'} callId={p.callId} peerId={p.peer} audioOnly={Platform.OS==='web'&&p.audio==='1'}/></>;
   return <DemoCall/>;
 }
 function DemoCall(){
