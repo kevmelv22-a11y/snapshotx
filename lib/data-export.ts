@@ -2,8 +2,12 @@
  * "Mijn gegevens" (Snapchat: Settings › My Data / Download My Data). AVG art. 15 + 20: a user can download a copy of
  * the data Snapshot X keeps about them, in a machine-readable file (JSON). Everything is read with the user's own
  * session, so RLS decides what is visible: the export never contains more than the app itself can show this user.
- * Media bytes are not embedded (storage paths only); expired chats/stories are left out because the server deletes them.
+ * Media: storage paths by default; with "Foto’s en video’s meenemen" the files are embedded too (lib/data-export-media.ts,
+ * withExportMedia). Expired chats/stories are left out because the server deletes them.
  */
+import { isBase64, mediaJson, type ExportMedia } from './data-export-media';
+import { parseReply } from './chat-replies';
+import { chatPreviewText } from './avatar/poses';
 export type ExportCategory = 'account' | 'friends' | 'chats' | 'stories' | 'memories' | 'location';
 type Row = Record<string, unknown>;
 
@@ -12,7 +16,7 @@ export const EXPORT_CATEGORIES: { key: ExportCategory; label: string; descriptio
   { key: 'friends', label: 'Vrienden', description: 'Je vrienden, vriendschapsverzoeken en geblokkeerde accounts' },
   { key: 'chats', label: 'Chatgeschiedenis', description: 'Chats en snaps die nog niet verwijderd zijn, met afzender en tijd' },
   { key: 'stories', label: 'Verhalen', description: 'Je eigen verhalen die nu nog zichtbaar zijn' },
-  { key: 'memories', label: 'Herinneringen', description: 'Lijst van je opgeslagen herinneringen (zonder de foto’s zelf)' },
+  { key: 'memories', label: 'Herinneringen', description: 'Je opgeslagen herinneringen (niet die in Alleen voor mij)' },
   { key: 'location', label: 'Locatie', description: 'Je laatst gedeelde locatie en kaartinstellingen' },
 ];
 export const ALL_CATEGORIES: ExportCategory[] = EXPORT_CATEGORIES.map(c => c.key);
@@ -27,6 +31,12 @@ export type DataExport = { file: Record<string, unknown>; counts: ExportCounts; 
 
 const str = (v: unknown) => (v == null ? null : String(v));
 const expired = (row: Row, nowIso: string) => row.expires_at != null && String(row.expires_at) <= nowIso;
+/** Stored body → readable text: reply prefix, poll JSON and sticker tokens become what the chat shows. */
+export function readableMessage(body: unknown): { text: string | null; reply_to?: string } {
+  if (body == null) return { text: null };
+  const r = parseReply(String(body));
+  return r ? { text: chatPreviewText(r.text), reply_to: r.ref.excerpt } : { text: chatPreviewText(String(body)) };
+}
 const pick = (row: Row | null | undefined, keys: string[]) => row ? Object.fromEntries(keys.filter(k => row[k] !== undefined).map(k => [k, row[k] ?? null])) : null;
 
 /** "snapshotx-mijn-gegevens-2026-10-29.json" (local date of the export). */
@@ -65,7 +75,8 @@ export function buildDataExport(input: { uid: string; email?: string | null; now
     const chats = (s.threads ?? []).filter(t => mine.has(String(t.id))).map(t => {
       const members = (s.members ?? []).filter(m => m.thread_id === t.id && m.user_id !== uid).map(m => who(m.user_id));
       const messages = live.filter(m => m.thread_id === t.id).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
-        .map(m => ({ from: who(m.sender_id), at: str(m.created_at), kind: str(m.kind), text: m.kind === 'snap' ? null : str(m.body), media: str(m.media_path), saved: !!m.saved }));
+        .map(m => { const r = m.kind === 'snap' ? { text: null } : readableMessage(m.body);
+          return { from: who(m.sender_id), at: str(m.created_at), kind: str(m.kind), text: r.text, ...(r.reply_to != null ? { reply_to: r.reply_to } : {}), media: str(m.media_path), saved: !!m.saved } });
       return { chat: t.title ? String(t.title) : members.join(', ') || 'chat', group: !!t.is_group || members.length > 1, members, messages };
     }).filter(c => c.messages.length).sort((a, b) => String(b.messages.at(-1)?.at).localeCompare(String(a.messages.at(-1)?.at)));
     file.chats = chats;
@@ -150,10 +161,38 @@ export function formatExportDate(iso: unknown): string {
 type R = Record<string, unknown>;
 const arr = (v: unknown): R[] => (Array.isArray(v) ? (v as R[]) : []);
 const KIND: Record<string, string> = { text: 'Bericht', snap: 'Snap', photo: 'Foto', video: 'Video', system: 'Melding', audio: 'Spraakbericht', sticker: 'Sticker' };
+const MEDIA_TYPE: Record<string, string> = { photo: 'Foto', video: 'Video' };
 const AUDIENCE: Record<string, string> = { friends: 'Vrienden', everyone: 'Iedereen', custom: 'Aangepast', best_friends: 'Beste vrienden' };
+/** Pre-rendered, already safe HTML for a table cell (embedded media). Everything else is escaped. */
+type Raw = { html: string };
+const isRaw = (c: unknown): c is Raw => typeof c === 'object' && c !== null && typeof (c as Raw).html === 'string';
 function table(head: string[], rows: unknown[][], empty: string) {
   if (!rows.length) return `<p class="empty">${escapeHtml(empty)}</p>`;
-  return `<table><thead><tr>${head.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${escapeHtml(c ?? '—')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  return `<table><thead><tr>${head.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${isRaw(c) ? c.html : escapeHtml(c ?? '—')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+const MIME_OK = /^(image\/(jpeg|png|webp|gif|heic|svg\+xml)|video\/(mp4|quicktime|webm)|audio\/(mp4|mpeg|aac|wav))$/;
+/** path → inline <img>/<video>/<audio> for the embedded files of file.media (strict mime + base64 checks). */
+function mediaRenderer(file: Record<string, unknown>) {
+  const byPath = new Map<string, { mime: string; data: string }>();
+  for (const m of arr((file.media as R | undefined)?.files)) {
+    const mime = String(m.mime ?? ''), data = String(m.data_base64 ?? '');
+    if (typeof m.path === 'string' && MIME_OK.test(mime) && isBase64(data)) byPath.set(m.path, { mime, data });
+  }
+  return (path: unknown, label = 'Bestand'): unknown => {
+    const m = typeof path === 'string' ? byPath.get(path) : undefined;
+    if (!m) return path;
+    const src = `data:${m.mime};base64,${m.data}`, alt = escapeHtml(label);
+    if (m.mime.startsWith('video/')) return { html: `<video class="media" controls preload="metadata" src="${src}" aria-label="${alt}"></video>` };
+    if (m.mime.startsWith('audio/')) return { html: `<audio controls preload="metadata" src="${src}" aria-label="${alt}"></audio>` };
+    return { html: `<a href="${src}" download><img class="media" loading="lazy" src="${src}" alt="${alt}"></a>` };
+  };
+}
+
+/** Adds the fetched files (lib/data-export-media.ts) to the export file: base64 in JSON, inline in the HTML page. */
+export function withExportMedia(file: Record<string, unknown>, media: ExportMedia | null | undefined): Record<string, unknown> {
+  if (!media) return file;
+  return { ...file, media: mediaJson(media),
+    note: 'Kopie van je gegevens (AVG art. 15/20), inclusief je foto’s en video’s (in “media”, base64). Foto’s in Alleen voor mij en niet-bewaarde snaps zitten er niet in. Verwijderde of verlopen chats en verhalen bestaan niet meer en staan er dus niet in.' };
 }
 
 /**
@@ -164,6 +203,7 @@ function table(head: string[], rows: unknown[][], empty: string) {
 export function renderExportHtml(file: Record<string, unknown>): string {
   const parts: string[] = [];
   const nav: string[] = [];
+  const media = mediaRenderer(file);
   const section = (id: string, title: string, body: string) => { nav.push(`<a href="#${id}">${escapeHtml(title)}</a>`); parts.push(`<section id="${id}"><h2>${escapeHtml(title)}</h2>${body}</section>`); };
   if ('account' in file) {
     const a = (file.account ?? {}) as R, pref = (a.preferences ?? {}) as R;
@@ -183,18 +223,25 @@ export function renderExportHtml(file: Record<string, unknown>): string {
   if ('chats' in file) {
     const chats = arr(file.chats);
     section('chats', 'Chats', chats.length ? chats.map(c => `<h3>${escapeHtml(c.chat)}${c.group ? ' <span class="tag">Groep</span>' : ''}</h3>` +
-      `<ol class="chat">${arr(c.messages).map(m => `<li class="${m.from === 'jij' ? 'me' : ''}"><span class="from">${escapeHtml(m.from)}</span> <span class="at">${escapeHtml(formatExportDate(m.at))}</span>${m.saved ? ' <span class="tag">Bewaard</span>' : ''}<div>${m.text != null && m.text !== '' ? escapeHtml(m.text) : `<em>${escapeHtml(KIND[String(m.kind)] ?? 'Bericht')}${m.media ? ` · ${escapeHtml(m.media)}` : ''}</em>`}</div></li>`).join('')}</ol>`).join('')
+      `<ol class="chat">${arr(c.messages).map(m => { const label = KIND[String(m.kind)] ?? 'Bericht', inline = m.media ? media(m.media, label) : null, raw = isRaw(inline) ? inline.html : '';
+        return `<li class="${m.from === 'jij' ? 'me' : ''}"><span class="from">${escapeHtml(m.from)}</span> <span class="at">${escapeHtml(formatExportDate(m.at))}</span>${m.saved ? ' <span class="tag">Bewaard</span>' : ''}${m.reply_to != null ? `<div class="quote">↩ Antwoord op „${escapeHtml(m.reply_to)}”</div>` : ''}<div>${m.text != null && m.text !== '' ? escapeHtml(m.text) : `<em>${escapeHtml(label)}${m.media && !raw ? ` · ${escapeHtml(m.media)}` : ''}</em>`}</div>${raw}</li>` }).join('')}</ol>`).join('')
       : '<p class="empty">Geen bewaarde chats.</p>');
   }
-  if ('stories' in file) section('stories', 'Verhalen', table(['Datum', 'Bijschrift', 'Wie mag kijken', 'Type', 'Bestand'], arr(file.stories).map(x => [formatExportDate(x.at), x.caption, AUDIENCE[String(x.visibility)] ?? x.visibility, x.media_type, x.media]), 'Geen actieve verhalen.'));
-  if ('memories' in file) section('memories', 'Herinneringen', table(['Datum', 'Bijschrift', 'Type', 'Privé (Alleen voor mij)', 'Bestand'], arr(file.memories).map(x => [formatExportDate(x.at), x.caption, x.media_type, x.private ? 'Ja' : 'Nee', x.private ? 'Verborgen (privé)' : x.media]), 'Geen herinneringen.'));
+  if ('stories' in file) section('stories', 'Verhalen', table(['Datum', 'Bijschrift', 'Wie mag kijken', 'Type', 'Bestand'], arr(file.stories).map(x => [formatExportDate(x.at), x.caption, AUDIENCE[String(x.visibility)] ?? x.visibility, MEDIA_TYPE[String(x.media_type)] ?? x.media_type, media(x.media, x.caption ? String(x.caption) : 'Verhaal')]), 'Geen actieve verhalen.'));
+  if ('memories' in file) section('memories', 'Herinneringen', table(['Datum', 'Bijschrift', 'Type', 'Alleen voor mij', 'Bestand'], arr(file.memories).map(x => [formatExportDate(x.at), x.caption, MEDIA_TYPE[String(x.media_type)] ?? x.media_type, x.private ? 'Ja' : 'Nee', x.private ? 'Verborgen (privé)' : media(x.media, x.caption ? String(x.caption) : 'Herinnering')]), 'Geen herinneringen.'));
   if ('location' in file) {
     const l = file.location as R | null;
     section('location', 'Locatie', l ? table(['Gegeven', 'Waarde'], [['Locatie delen', l.sharing ? 'Aan' : 'Uit'], ['Met wie', AUDIENCE[String(l.audience)] ?? l.audience], ['Spookmodus', l.ghost_mode ? 'Aan' : 'Uit'],
       ['Laatste locatie', l.latitude != null && l.longitude != null ? `${l.latitude}, ${l.longitude}` : '—'], ['Bijgewerkt', formatExportDate(l.updated_at)]], '') : '<p class="empty">Geen locatie opgeslagen.</p>');
   }
-  const css = 'body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;background:#120d1c;color:#ece6f2;margin:0;padding:24px;line-height:1.45}main{max-width:820px;margin:auto}h1{margin:0 0 4px;font-size:26px}h2{border-bottom:2px solid #ae16c7;padding-bottom:6px;margin-top:34px}h3{margin:22px 0 8px;font-size:17px}nav{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}nav a{background:#2b253c;color:#e7a8f5;border-radius:16px;padding:6px 12px;text-decoration:none;font-weight:600}table{width:100%;border-collapse:collapse;background:#1a1425;border-radius:10px;overflow:hidden}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #2e2840;vertical-align:top;word-break:break-word}th{color:#cbb6dc;font-size:13px}.chat{list-style:none;padding:0}.chat li{background:#1a1425;border-left:3px solid #4ca1af;border-radius:8px;padding:8px 10px;margin:6px 0}.chat li.me{border-left-color:#ae16c7}.from{font-weight:700}.at{color:#9c93a6;font-size:12px}.tag{background:#3a2f52;border-radius:8px;padding:1px 7px;font-size:12px;color:#e7c8f2}.empty{color:#9c93a6}.note{color:#bdb4c8;font-size:14px}footer{color:#8e879e;font-size:13px;margin-top:40px;text-align:center}';
-  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mijn gegevens · Snapshot X</title><style>${css}</style></head><body><main>` +
+  const fm = file.media as R | undefined;
+  if (fm) {
+    const not = arr(fm.not_included);
+    section('media', 'Foto’s en video’s', `<p class="note">${escapeHtml(`${arr(fm.files).length} bestand(en) staan hierboven bij je chats, verhalen en herinneringen. Tik op een foto om hem te bewaren.`)}</p>` +
+      (not.length ? `<h3>Niet meegestuurd (${not.length})</h3>` + table(['Bestand', 'Reden'], not.map(x => [x.path, x.reason]), '') : ''));
+  }
+  const css = 'body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;background:#120d1c;color:#ece6f2;margin:0;padding:24px;line-height:1.45}main{max-width:820px;margin:auto}h1{margin:0 0 4px;font-size:26px}h2{border-bottom:2px solid #ae16c7;padding-bottom:6px;margin-top:34px}h3{margin:22px 0 8px;font-size:17px}nav{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}nav a{background:#2b253c;color:#e7a8f5;border-radius:16px;padding:6px 12px;text-decoration:none;font-weight:600}table{width:100%;border-collapse:collapse;background:#1a1425;border-radius:10px;overflow:hidden}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #2e2840;vertical-align:top;word-break:break-word}th{color:#cbb6dc;font-size:13px}.chat{list-style:none;padding:0}.chat li{background:#1a1425;border-left:3px solid #4ca1af;border-radius:8px;padding:8px 10px;margin:6px 0}.chat li.me{border-left-color:#ae16c7}.from{font-weight:700}.at{color:#9c93a6;font-size:12px}.tag{background:#3a2f52;border-radius:8px;padding:1px 7px;font-size:12px;color:#e7c8f2}.empty{color:#9c93a6}.note{color:#bdb4c8;font-size:14px}.quote{color:#b9a9c9;font-size:13px;border-left:2px solid #6d5a86;padding-left:7px;margin:4px 0}.media{display:block;max-width:240px;max-height:320px;border-radius:10px;margin-top:6px}td .media{max-width:110px;max-height:170px;margin:0}footer{color:#8e879e;font-size:13px;margin-top:40px;text-align:center}';
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; media-src data:; style-src 'unsafe-inline'"><title>Mijn gegevens · Snapshot X</title><style>${css}</style></head><body><main>` +
     `<h1>Mijn gegevens</h1><p class="note">Snapshot X · gemaakt op ${escapeHtml(formatExportDate(file.generated_at))}</p><p class="note">${escapeHtml(file.note)}</p><nav>${nav.join('')}</nav>${parts.join('')}` +
     `<footer>• © Vonk Byte • Snapshot-X 2026-2027 •</footer></main></body></html>`;
 }

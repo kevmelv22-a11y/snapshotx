@@ -72,7 +72,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "web:real:check": "npx tsx scripts/web/export-web-real.mjs --check",
+    "web:real": "npx tsx scripts/web/export-web-real.mjs"
   },
   "private": true
 }

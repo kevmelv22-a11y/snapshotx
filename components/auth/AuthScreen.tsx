@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import Svg, { Defs, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { supabase, DEMO_MODE } from '../../lib/supabase';
 import { WEB_FOOTER, showDemoLoginButton } from '../../lib/web-layout';
+import { authRedirectUrl } from '../../lib/web-env';
 import { DEMO_EMAIL } from '../../lib/demo-client';
 import { friendlyError } from '../../lib/db-errors';
 import { classifyIdentifier, validateRegister } from '../../lib/auth-form';
@@ -84,7 +85,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
     const id = classifyIdentifier(identifier);
     if (id?.kind !== 'email') { setNotice('Vul eerst je e-mailadres in.'); return; }
     setBusy(true);
-    try { const { error } = await supabase.auth.resetPasswordForEmail(id.email, { redirectTo: 'snapshotx://auth/callback' }); if (error) throw error; setNotice('Als dit adres bestaat, ontvang je een herstelmail.'); }
+    try { const { error } = await supabase.auth.resetPasswordForEmail(id.email, { redirectTo: AUTH_REDIRECT }); if (error) throw error; setNotice('Als dit adres bestaat, ontvang je een herstelmail.'); }
     catch (e) { setNotice(friendlyError(e)); } finally { setBusy(false); }
   }
 
@@ -93,7 +94,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
     if (!v.ok) { setNotice(v.error); return; }
     setBusy(true); setNotice('');
     try {
-      const { data, error } = await supabase.auth.signUp({ email: v.email, password, options: { emailRedirectTo: 'snapshotx://auth/callback', data: { username: v.username, display_name: v.username, birthdate: v.birthdate, is_teen: v.teen, ...(v.phone ? { phone: v.phone } : {}) } } });
+      const { data, error } = await supabase.auth.signUp({ email: v.email, password, options: { emailRedirectTo: AUTH_REDIRECT, data: { username: v.username, display_name: v.username, birthdate: v.birthdate, is_teen: v.teen, ...(v.phone ? { phone: v.phone } : {}) } } });
       if (error) throw error;
       if (data.session) { router.replace('/(tabs)/profile'); return; }
       setNotice('Controleer je e-mail om je account te bevestigen.');
@@ -142,6 +143,8 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
 }
 
 // Literal process.env access so Expo inlines it at build time.
+/** E-mail links (bevestigen / wachtwoord herstellen) komen op web terug op dezelfde site, in de app via snapshotx://. */
+const AUTH_REDIRECT = authRedirectUrl(Platform.OS, typeof window !== 'undefined' ? window.location?.origin : undefined);
 const SHOW_DEMO_BUTTON = showDemoLoginButton(DEMO_MODE, process.env.EXPO_PUBLIC_DEMO_BUTTON, typeof window !== 'undefined' ? window.location?.hostname : undefined);
 
 const s = StyleSheet.create({ webFooter: { color: '#9C93A6', fontSize: 12, textAlign: 'center', marginTop: 28, marginBottom: 12 }, 

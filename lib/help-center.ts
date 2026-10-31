@@ -60,7 +60,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
   ] },
   { id: 'privacy', title: 'Privacy en gegevens', icon: 'lock-closed-outline', articles: [
     { id: 'download', q: 'Hoe download ik mijn gegevens?', keywords: 'export kopie avg inzage data',
-      a: ['Ga naar Instellingen › Mijn gegevens, kies wat je wilt en download een JSON-bestand.'],
+      a: ['Ga naar Instellingen › Mijn gegevens, kies wat je wilt (ook je foto’s en video’s) en download een HTML- of JSON-bestand.'],
       action: { label: 'Mijn gegevens', route: '/my-data' } },
     { id: 'beleid', q: 'Wat doen jullie met mijn gegevens?', keywords: 'privacybeleid avg',
       a: ['Dat lees je in ons Privacybeleid. We verkopen je gegevens niet en tonen geen advertenties van derden.'],

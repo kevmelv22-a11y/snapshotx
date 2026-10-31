@@ -9,7 +9,17 @@ import {GalaxyScreen} from '../components/GalaxyScreen';
 import {useSession} from '../hooks/useSession';
 import {supabase} from '../lib/supabase';
 import {friendlyError} from '../lib/db-errors';
-import {ALL_CATEGORIES,EXPORT_CATEGORIES,EXPORT_ERRORS,EXPORT_FORMATS,buildDataExport,collectMyData,exportSummary,formatFilenames,renderExportHtml,type DataExport,type ExportCategory,type ExportFormat} from '../lib/data-export';
+import {encode as encodeBase64} from 'base64-arraybuffer';
+import {ALL_CATEGORIES,EXPORT_CATEGORIES,EXPORT_ERRORS,EXPORT_FORMATS,buildDataExport,collectMyData,exportSummary,formatFilenames,renderExportHtml,withExportMedia,type DataExport,type ExportCategory,type ExportFormat} from '../lib/data-export';
+import {collectExportMedia,exportMediaPaths,mediaSummary,type ExportMedia,type MediaFetcher} from '../lib/data-export-media';
+import {mediaUrl} from '../lib/media';
+
+/** Own session: signed URL (storage policy decides) → bytes. */
+const fetcher:MediaFetcher={
+ signedUrl:path=>mediaUrl(path,600),
+ fetchBytes:async url=>{const r=await fetch(url);if(!r.ok&&r.status!==0)throw new Error(`fetch ${r.status}`);return{bytes:await r.arrayBuffer(),contentType:r.headers?.get?.('content-type')}},
+ encodeBase64,
+};
 const purple='#AE16C7';
 const ICONS:Record<ExportCategory,React.ComponentProps<typeof Ionicons>['name']>={account:'person-circle-outline',friends:'people-outline',chats:'chatbubbles-outline',stories:'albums-outline',memories:'images-outline',location:'location-outline'};
 
@@ -27,14 +37,17 @@ async function deliver(result:DataExport,format:ExportFormat){
 /** Snapchat "Mijn gegevens": pick categories, get a JSON copy of your data right away (AVG inzage/overdraagbaarheid). */
 export default function MyData(){
  const {session}=useSession(),uid=session?.user.id,insets=useSafeAreaInsets();
- const [chosen,setChosen]=useState<ExportCategory[]>(ALL_CATEGORIES),[busy,setBusy]=useState(false),[error,setError]=useState(''),[done,setDone]=useState<DataExport|null>(null),[format,setFormat]=useState<ExportFormat>('html');
+ const [withMedia,setWithMedia]=useState(true),[progress,setProgress]=useState(''),[media,setMedia]=useState<ExportMedia|null>(null),[chosen,setChosen]=useState<ExportCategory[]>(ALL_CATEGORIES),[busy,setBusy]=useState(false),[error,setError]=useState(''),[done,setDone]=useState<DataExport|null>(null),[format,setFormat]=useState<ExportFormat>('html');
  const toggle=(k:ExportCategory)=>{setDone(null);setError('');setChosen(c=>c.includes(k)?c.filter(x=>x!==k):[...c,k])};
  const all=chosen.length===ALL_CATEGORIES.length;
  async function run(){
   if(!uid){setError(EXPORT_ERRORS.signedOut);return}if(!chosen.length){setError(EXPORT_ERRORS.none);return}
-  setBusy(true);setError('');setDone(null);
-  try{const source=await collectMyData(supabase,uid,chosen);const result=buildDataExport({uid,email:session?.user.email,now:new Date(),categories:chosen,source});await deliver(result,format);setDone(result)}
-  catch(e){setError(friendlyError(e,'Gegevens downloaden'))}finally{setBusy(false)}
+  setBusy(true);setError('');setDone(null);setMedia(null);setProgress('Gegevens verzamelen…');
+  try{const source=await collectMyData(supabase,uid,chosen);let result=buildDataExport({uid,email:session?.user.email,now:new Date(),categories:chosen,source});
+   const paths=withMedia?exportMediaPaths(result.file):[];let got:ExportMedia|null=null;
+   if(withMedia){got=await collectExportMedia(paths,fetcher,undefined,(d,t)=>setProgress(t?`Foto’s en video’s ophalen… ${d}/${t}`:''));result={...result,file:withExportMedia(result.file,got)}}
+   setProgress('Bestand maken…');await deliver(result,format);setMedia(got);setDone(result)}
+  catch(e){setError(friendlyError(e,'Gegevens downloaden'))}finally{setBusy(false);setProgress('')}
  }
  return <GalaxyScreen><View style={[s.header,{marginTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.back()} accessibilityLabel="Terug"><Ionicons name="chevron-back" color="white" size={27}/></Pressable><Text style={s.title}>Mijn gegevens</Text><View style={{width:27}}/></View>
  <ScrollView contentContainerStyle={s.content}>
@@ -43,10 +56,11 @@ export default function MyData(){
   {EXPORT_CATEGORIES.map(c=>{const on=chosen.includes(c.key);return <Pressable key={c.key} style={[s.row,on&&s.rowOn]} onPress={()=>toggle(c.key)} accessibilityRole="checkbox" accessibilityState={{checked:on}} testID={`my-data-${c.key}`}><Ionicons name={ICONS[c.key]} size={21} color="#DDC9EB"/><View style={s.rowBody}><Text style={s.rowText}>{c.label}</Text><Text style={s.description}>{c.description}</Text></View><Ionicons name={on?'checkmark-circle':'ellipse-outline'} size={25} color={on?purple:'#8E879E'}/></Pressable>})}
   <Text style={[s.section,{marginTop:18,marginBottom:8}]}>Bestandstype</Text>
   <View style={s.formats} accessibilityRole="radiogroup">{EXPORT_FORMATS.map(f=>{const on=format===f.key;return <Pressable key={f.key} style={[s.format,on&&s.formatOn]} onPress={()=>{setDone(null);setFormat(f.key)}} accessibilityRole="radio" accessibilityState={{checked:on}} accessibilityLabel={`${f.label}: ${f.description}`} testID={`my-data-format-${f.key}`}><Text style={[s.formatLabel,on&&{color:'white'}]}>{f.label}</Text><Text style={s.formatSub}>{f.description}</Text></Pressable>})}</View>
+  <Pressable style={[s.row,withMedia&&s.rowOn,{marginTop:14}]} onPress={()=>{setDone(null);setWithMedia(v=>!v)}} accessibilityRole="switch" accessibilityState={{checked:withMedia}} testID="my-data-media"><Ionicons name="images-outline" size={21} color="#DDC9EB"/><View style={s.rowBody}><Text style={s.rowText}>Foto’s en video’s meenemen</Text><Text style={s.description}>Je foto’s en video’s uit chats, verhalen en herinneringen zitten dan in het bestand zelf (niet Alleen voor mij)</Text></View><Ionicons name={withMedia?'checkmark-circle':'ellipse-outline'} size={25} color={withMedia?purple:'#8E879E'}/></Pressable>
   {!!error&&<Text style={s.error} testID="my-data-error">{error}</Text>}
-  <Pressable style={[s.button,(busy||!chosen.length)&&s.buttonOff]} disabled={busy} onPress={()=>void run()} testID="my-data-download">{busy?<ActivityIndicator color="white"/>:<><Ionicons name="cloud-download-outline" size={20} color="white"/><Text style={s.buttonText}>Gegevens downloaden</Text></>}</Pressable>
-  {done&&<View style={s.done} testID="my-data-done"><View style={s.doneHead}><Ionicons name="checkmark-circle" size={24} color="#5BE49B"/><Text style={s.doneTitle}>Je gegevens staan klaar</Text></View><Text style={s.doneText}>{exportSummary(done.counts)}</Text><Text style={s.file}>{formatFilenames(done.filename,format).join('\n')}</Text><Pressable onPress={()=>void deliver(done,format).catch(e=>setError(friendlyError(e,'Gegevens downloaden')))}><Text style={s.all}>{Platform.OS==='web'?'Opnieuw downloaden':'Opnieuw delen'}</Text></Pressable></View>}
-  <Text style={s.foot}>Foto’s en video’s staan in het bestand als verwijzing, niet als bestand. Verlopen chats en verhalen zijn al verwijderd en staan er dus niet in. Wil je alles wissen? Ga naar Instellingen › Account verwijderen.</Text>
+  <Pressable style={[s.button,(busy||!chosen.length)&&s.buttonOff]} disabled={busy} onPress={()=>void run()} testID="my-data-download">{busy?<><ActivityIndicator color="white"/>{!!progress&&<Text style={s.buttonText} testID="my-data-progress">{progress}</Text>}</>:<><Ionicons name="cloud-download-outline" size={20} color="white"/><Text style={s.buttonText}>Gegevens downloaden</Text></>}</Pressable>
+  {done&&<View style={s.done} testID="my-data-done"><View style={s.doneHead}><Ionicons name="checkmark-circle" size={24} color="#5BE49B"/><Text style={s.doneTitle}>Je gegevens staan klaar</Text></View><Text style={s.doneText}>{exportSummary(done.counts)}</Text>{!!media&&<Text style={s.doneText} testID="my-data-media-summary">{mediaSummary(media)}</Text>}<Text style={s.file}>{formatFilenames(done.filename,format).join('\n')}</Text><Pressable onPress={()=>void deliver(done,format).catch(e=>setError(friendlyError(e,'Gegevens downloaden')))}><Text style={s.all}>{Platform.OS==='web'?'Opnieuw downloaden':'Opnieuw delen'}</Text></Pressable></View>}
+  <Text style={s.foot}>Zonder “Foto’s en video’s meenemen” staan je foto’s en video’s er alleen als verwijzing in. Foto’s in Alleen voor mij en niet-bewaarde snaps worden nooit meegestuurd. Heel grote bestanden (meer dan 15 MB, of samen meer dan 60 MB) blijven een verwijzing. Verlopen chats en verhalen zijn al verwijderd en staan er dus niet in. Wil je alles wissen? Ga naar Instellingen › Account verwijderen.</Text>
  </ScrollView></GalaxyScreen>
 }
 const s=StyleSheet.create({formats:{flexDirection:'row',gap:8},format:{flex:1,backgroundColor:'#1A142599',borderRadius:14,borderWidth:1.5,borderColor:'transparent',paddingVertical:10,alignItems:'center'},formatOn:{borderColor:purple,backgroundColor:'#AE16C733'},formatLabel:{color:'#DDC9EB',fontSize:16,fontWeight:'800'},formatSub:{color:'#A9A1B7',fontSize:12,marginTop:2,textAlign:'center'},header:{height:52,paddingHorizontal:22,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},title:{color:'white',fontSize:23,fontWeight:'800'},content:{padding:18,paddingBottom:55},intro:{flexDirection:'row',gap:12,backgroundColor:'#2B253CB8',borderRadius:18,padding:15,alignItems:'flex-start'},introText:{color:'#E8E2ED',fontSize:15,lineHeight:21,flex:1},sectionRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:20,marginBottom:8},section:{color:'white',fontSize:18,fontWeight:'800'},all:{color:'#E7A8F5',fontWeight:'700',fontSize:15},row:{minHeight:70,flexDirection:'row',alignItems:'center',gap:13,paddingVertical:11,paddingHorizontal:14,backgroundColor:'#1A142599',borderRadius:14,marginBottom:6,borderWidth:1,borderColor:'transparent'},rowOn:{borderColor:'#AE16C766'},rowBody:{flex:1},rowText:{color:'#E8E2ED',fontSize:17},description:{color:'#AAA6B5',fontSize:13,marginTop:4},error:{color:'#FF8A8A',marginTop:12},button:{marginTop:18,backgroundColor:purple,borderRadius:26,height:52,flexDirection:'row',gap:9,alignItems:'center',justifyContent:'center'},buttonOff:{opacity:0.55},buttonText:{color:'white',fontWeight:'800',fontSize:16},done:{marginTop:18,backgroundColor:'#16291FCC',borderRadius:16,padding:15,gap:6,borderWidth:1,borderColor:'#5BE49B55'},doneHead:{flexDirection:'row',alignItems:'center',gap:8},doneTitle:{color:'white',fontSize:17,fontWeight:'800'},doneText:{color:'#DDEFE4',fontSize:15},file:{color:'#AAA6B5',fontSize:13},foot:{color:'#8E879E',fontSize:13,lineHeight:18,marginTop:22}});

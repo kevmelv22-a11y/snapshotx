@@ -18,7 +18,9 @@
    - Camera: expo-camera werkt beperkt op web (getUserMedia, HTTPS vereist — oké op snapshot-x.nl).
    - Push, RevenueCat (aankopen), app-icons, kaart (`app/map.tsx` heeft web-check), 3D-avatar/face-lab: controleren/uitschakelen op web.
    - Unapplied migrations: web gebruikt dezelfde DB; features die daarvan afhangen falen totdat Kevin ze goedkeurt.
-5. Niet getest: live login (geen echte .env/sleutel op de box; demo-only). Eerste stap = preview-deploy met echte env.
+5. **Klaar in code (31-10-2026, 09:00-sessie)**: `npm run web:real:check` controleert de env (geen demo-vlaggen, URL = https://<project>.supabase.co, sleutel = `sb_publishable_…`/anon — een `sb_secret_…`/service_role-sleutel of `sk_…` in een `EXPO_PUBLIC_*` wordt geweigerd, zonder de waarde te tonen). `npm run web:real` exporteert naar `dist-web-real/` en scant de bundle op gelekte geheimen. Het script deployt nooit; preview = `npx eas-cli deploy --export-dir dist-web-real` (zonder `--prod`).
+   E-mail-links (registratie bevestigen, wachtwoord herstellen) gaan op web nu naar `<origin>/auth/callback` (lib/web-env.ts `authRedirectUrl`) i.p.v. `snapshotx://`; app/auth/callback.tsx rondt ze af. Supabase Auth → Redirect URLs moet daarvoor `https://snapshot-x.nl/auth/callback` (+ www, snapshot-x.expo.app) bevatten — dat is een Supabase-instelling voor Kevin, niet gedaan.
+6. Niet getest: live login (geen echte .env/sleutel op de box; demo-only). Eerste stap = preview-deploy met echte env.
 
 ## Layout à la Snapchat Web (desktop ≥ 1024px)
 - Links (~360px): profiel/zoek bovenaan, chatlijst (bestaande chat-list.ts), knop "Nieuwe chat".
