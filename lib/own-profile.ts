@@ -1,3 +1,4 @@
+import { friendLink } from './friend-code';
 /**
  * The signed-in user's own identity (username, display name, score) for the profile, settings and
  * "Mijn SnapShot X-code" screens. Robust against a missing profiles row (live returned 0 rows, which made
@@ -45,18 +46,11 @@ export function ownIdentity(user: OwnUser, row: ProfileRow | null | undefined, s
   return {
     id: user.id, handle, hasUsername, displayName, activityScore: Number(row?.activity_score) || 0, source: effective,
     // Scanners only accept [a-z0-9_]{3,24} usernames; older/odd usernames (e.g. with a dot) use the id form.
-    qrValue: hasUsername && USERNAME_RE.test(handle) ? `snapshotx://friends?u=${handle}` : `snapshotx://friends?id=${user.id}`, notice,
+    qrValue: friendLink(hasUsername ? handle : null, user.id), notice,
   };
 }
 
-export type FriendCode = { kind: 'username'; value: string } | { kind: 'id'; value: string } | null;
-export function parseFriendCode(data: string): FriendCode {
-  const u = /^snapshotx:\/\/friends\?u=([a-z0-9_]{3,24})$/.exec(data.trim());
-  if (u) return { kind: 'username', value: u[1] };
-  const id = /^snapshotx:\/\/friends\?id=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(data.trim());
-  if (id) return { kind: 'id', value: id[1].toLowerCase() };
-  return null;
-}
+export { parseFriendCode, type FriendCode } from './friend-code';
 
 type Res<T> = { data: T | null; error: { message?: string; code?: string } | null };
 /** Minimal structural client type (supabase-js and the demo client both fit). */

@@ -394,6 +394,26 @@ export class DemoClient {
       [ME, ...ps].forEach(u => this.m.table('sx_members').push({ thread_id: id, user_id: u }));
       return id;
     },
+    // Mirrors 20261031193100 sx_lookup_friend_code / sx_request_friend (QR + snapshot-x.nl/add links).
+    sx_lookup_friend_code: a => {
+      const u = String(a.p_username ?? '').trim().toLowerCase();
+      const p = this.m.table('profiles').find(x => a.p_user_id ? x.id === a.p_user_id : String(x.username ?? '').toLowerCase() === u);
+      if (!p) return [];
+      const reqs = this.m.table('sx_friend_requests'), inc = reqs.find(r => r.sender_id === p.id && r.recipient_id === ME && r.status === 'pending');
+      const relation = p.id === ME ? 'self' : this.m.table('sx_friends').some(f => f.user_id === ME && f.friend_id === p.id) ? 'friends' : inc ? 'incoming'
+        : reqs.some(r => r.sender_id === ME && r.recipient_id === p.id && r.status === 'pending') ? 'outgoing' : 'none';
+      return [{ id: p.id, username: p.username, display_name: p.display_name, avatar_path: p.avatar_path ?? null, relation, request_id: inc?.id ?? null }];
+    },
+    sx_request_friend: a => {
+      const t = a.p_user_id as string; if (!t || t === ME) throw new Error('invalid target user');
+      if (!this.m.table('profiles').some(x => x.id === t)) throw new Error('user not found');
+      if (this.m.table('sx_friends').some(f => f.user_id === ME && f.friend_id === t)) return 'friends';
+      const reqs = this.m.table('sx_friend_requests'), inc = reqs.find(r => r.sender_id === t && r.recipient_id === ME && r.status === 'pending'), now = this.m.iso();
+      if (inc) { inc.status = 'accepted'; this.m.table('sx_friends').push({ user_id: ME, friend_id: t, created_at: now }, { user_id: t, friend_id: ME, created_at: now }); return 'accepted'; }
+      const mine = reqs.find(r => r.sender_id === ME && r.recipient_id === t);
+      if (mine) mine.status = 'pending'; else reqs.push({ id: newId(), sender_id: ME, recipient_id: t, status: 'pending', created_at: now });
+      return 'pending';
+    },
     sx_accept_friend: a => {
       const r = this.m.table('sx_friend_requests').find(x => x.id === a.request_id); if (!r) throw new Error('request not found');
       r.status = 'accepted'; const now = this.m.iso();

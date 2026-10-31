@@ -1,4 +1,4 @@
--- Step 11 (staff panel): direct warnings, staff X+ grants, per-user moderation summary. NOT APPLIED.
+-- Step 11 (staff panel): direct warnings, staff X+ grants, per-user moderation summary. Applied live 2026-10-31.
 -- Uses app_private.sx_require_staff / sx_audit_meta from 20261012090000 and sx_entitlements from 20261013120100.
 
 create or replace function public.sx_staff_warn_user(p_user_id uuid, p_reason text)

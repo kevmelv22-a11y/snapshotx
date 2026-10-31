@@ -1,5 +1,5 @@
 -- =====================================================================================================
--- NOT APPLIED YET. Written 2026-10-08 (phase 1b); has NOT been run against the live Supabase project.
+-- APPLIED to live 2026-10-31 (after 20261031193000_staff_helpers_live.sql provided the 090000 helpers).
 -- Requires 20261012090000_staff_moderation_consolidated.sql (app_private.sx_require_staff & co).
 -- Only tested on a throwaway local Postgres 17 with stubbed Supabase/legacy objects. Idempotent.
 -- =====================================================================================================
