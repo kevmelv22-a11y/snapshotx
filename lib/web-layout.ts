@@ -24,3 +24,16 @@ export function railItems<T extends { name: string }>(items: readonly T[], route
 
 /** Footer on the web login/landing page (exact text requested by Kevin). */
 export const WEB_FOOTER = '• © Vonk Byte • Snapshot-X 2026-2027 •';
+
+/** Hosts of the live public web version: never show demo shortcuts there. */
+export const PUBLIC_WEB_HOSTS = ['snapshot-x.nl', 'www.snapshot-x.nl', 'snapshot-x.expo.app'];
+
+/**
+ * "Start demo als Kevin" shortcut on the login screen: only in a demo build that explicitly opts in with
+ * EXPO_PUBLIC_DEMO_BUTTON=1 (local testing), and never on a public host. Kevin wants no demo button live.
+ */
+export function showDemoLoginButton(demoMode: boolean, flag: string | undefined, hostname: string | undefined): boolean {
+  if (!demoMode || flag !== '1') return false;
+  const host = (hostname ?? '').toLowerCase();
+  return !PUBLIC_WEB_HOSTS.includes(host);
+}

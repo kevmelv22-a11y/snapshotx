@@ -1,14 +1,13 @@
 /**
  * Name safety filter (App Store guideline 1.2 — user-generated content): blocks offensive words and
  * names that impersonate Snapshot X itself in usernames, display names and group names.
- * Client-side only for now; the server should enforce the same list later (see TODO below).
+ * The server enforces the same lists via supabase/migrations/20261031030000_server_name_filter.sql
+ * (trigger on profiles + sx_threads; keep both in sync — lib/name-filter-sql.test.mjs checks it).
  * Pure helpers (no React Native imports) so they run under `npx tsx --test`.
  *
  * Chat messages are deliberately NOT censored — like Snapchat, abuse in chats is handled via
  * Melden (report) + Blokkeren.
  */
-// TODO(server): mirror this check in a Postgres function/trigger on profiles.username, profiles.display_name
-// and group titles so a modified client cannot bypass it (write as a migration file; not applied yet).
 
 export type NameKind = 'username' | 'display' | 'group';
 export type NameCheck = { ok: true } | { ok: false; reason: 'offensive' | 'reserved'; error: string };

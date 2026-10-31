@@ -2,6 +2,8 @@
 
 ## Status (31-10-2026)
 - Demo: https://snapshot-x.expo.app (EXPO_PUBLIC_DEMO_MODE=1, in-memory DemoClient, geen Supabase-verkeer).
+- Footer web-login: "• © Vonk Byte • Snapshot-X 2026-2027 •" (lib/web-layout.ts `WEB_FOOTER`).
+- Geen knop "Start demo als Kevin" op de publieke versie: alleen zichtbaar met `EXPO_PUBLIC_DEMO_BUTTON=1` (lokaal testen) en nooit op snapshot-x.nl / www / snapshot-x.expo.app. In de demo kun je gewoon inloggen met elke naam + wachtwoord.
 - snapshot-x.nl: geregistreerd via **TransIP** (NS ns0.transip.net / ns1.transip.nl / ns2.transip.eu, MX mx.transip.email).
   Toont nu de TransIP-pagina "Reserved domain". Huidige records: A 85.10.159.96, AAAA 2a01:7c8:f0:1091:0:2:f0a4:abf8, www CNAME -> apex.
   Houder is via SIDN niet publiek; aangenomen: Kevins TransIP-account.
