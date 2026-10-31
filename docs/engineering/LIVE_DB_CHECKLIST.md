@@ -22,7 +22,7 @@ Tables (all in `public`; the app only talks to them as `authenticated`):
 | `sx_messages.view_seconds` | `20261013120000_snap_view_seconds` | snap timer |
 | `sx_entitlements`, `sx_plus_prefs`, `sx_purchase_events` | `20261013120100_sx_plus_entitlements` | Snapshot X+ |
 | `sx_threads.retention_mode`, `sx_reactions`, `sx_set_retention()` | `20261013150000_chat_step4` | chat retention + reactions |
-| `sx_locations.share_audience/ghost_until/ghost_forever`, `sx_location_allowed` | `20261013170000_map_sharing_ghost` | map privacy / ghost mode |
+| `sx_locations.share_audience/ghost_until/ghost_forever`, `sx_location_allowed` | **`20261031150000_map_privacy_server`** + `20261031150100_map_privacy_helper_dedupe` (applied 2026-10-31; supersede `20261013170000_map_sharing_ghost`, which must NOT be applied) | map privacy / ghost mode |
 | `sx_highlight_likes`, `sx_highlight_shares`, `sx_highlight_feed()` | `20261013170100_stories_highlights` | Uitgelicht |
 | `memories` columns, `sx_memory_vault` | `20261013171000_memories` | Herinneringen |
 | push token columns, `sx_preferences.push_*` | `20261013190000_push_tokens_devices` | push |

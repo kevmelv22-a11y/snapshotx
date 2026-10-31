@@ -185,7 +185,7 @@ function seedDemo(m: StaffMock) {
   m.t.sx_highlight_comment_likes = [...cl(cB0, [I.eva, I.cleo]), ...cl(cB1, [I.aria]), ...cl(cB2, [I.bram, I.eva, I.cleo, EXTRA.noor]), ...cl(cB3, [I.bram, I.daan, I.eva]), ...cl(cD0, [I.eva, ME])];
   m.t.sx_creator_subscriptions = [{ subscriber_id: ME, creator_id: I.eva, created_at: iso(-6 * D) }, { subscriber_id: I.bram, creator_id: I.aria, created_at: iso(-2 * D) }]; m.t.sx_location_allowed = []; m.t.sx_push_tokens = [];
   m.t.sx_preferences = [{ user_id: ME, language: 'nl', find_me: true }];
-  const loc = (user_id: string, lat: number, lng: number, ago: number) => ({ user_id, latitude: lat, longitude: lng, sharing: true, home_confirmed: false, updated_at: iso(-ago), share_audience: 'friends', ghost_until: null, ghost_forever: false });
+  const loc = (user_id: string, lat: number, lng: number, ago: number) => ({ user_id, latitude: lat, longitude: lng, sharing: true, home_confirmed: false, updated_at: iso(-ago), share_audience: 'all', ghost_until: null, ghost_forever: false });
   m.t.sx_locations = [loc(ME, 52.3676, 4.9041, 5 * 60e3), loc(I.aria, 52.3731, 4.8922, 10 * 60e3), loc(I.eva, 52.3584, 4.8811, 40 * 60e3), loc(I.cleo, 52.3600, 4.9200, 2 * H), loc(EXTRA.noor, 52.3791, 4.9003, 15 * 60e3)];
   m.t.memories = [{ id: newId(), owner_id: ME, storage_path: 'demo/zonsondergang.svg', media_type: 'photo', created_at: iso(-40 * D), private: false, caption: null, deleted_at: null },
     { id: newId(), owner_id: ME, storage_path: 'demo/pizza.svg', media_type: 'photo', created_at: iso(-370 * D), private: false, caption: 'Pizza-avond', deleted_at: null }];

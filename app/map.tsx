@@ -59,7 +59,7 @@ export default function MapScreen() {
 
   const load = useCallback(async () => {
     if (!uid) return;
-    // New privacy columns (migration 20261013170000) may not exist yet: fall back to the legacy select.
+    // Privacy columns come from migration 20261031150000_map_privacy_server (live); keep the legacy select as fallback.
     let {data, error} = await supabase.from('sx_locations').select('user_id,latitude,longitude,sharing,home_confirmed,updated_at,share_audience,ghost_until,ghost_forever');
     const hasPrivacy = !error;
     if (error) ({data, error} = await supabase.from('sx_locations').select('user_id,latitude,longitude,sharing,home_confirmed,updated_at'));
