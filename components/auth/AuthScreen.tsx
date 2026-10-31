@@ -3,6 +3,7 @@ import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { router } from 'expo-router';
 import Svg, { Defs, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { supabase, DEMO_MODE } from '../../lib/supabase';
+import { WEB_FOOTER } from '../../lib/web-layout';
 import { DEMO_EMAIL } from '../../lib/demo-client';
 import { friendlyError } from '../../lib/db-errors';
 import { classifyIdentifier, validateRegister } from '../../lib/auth-form';
@@ -134,12 +135,13 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
           {isLogin && <Text style={[s.legalSmall, s.linkBtn]} testID="auth-privacy"><Text accessibilityRole="link" onPress={() => router.push(LEGAL_LINKS.privacy.route)}>{LEGAL_LINKS.privacy.label}</Text>{'  ·  '}<Text accessibilityRole="link" onPress={() => router.push(LEGAL_LINKS.terms.route)}>{LEGAL_LINKS.terms.label}</Text></Text>}
           {DEMO_MODE && isLogin && <Pressable onPress={() => { void supabase.auth.signInWithPassword({ email: DEMO_EMAIL, password: 'demo' }).then(() => router.replace('/(tabs)')); }} style={s.linkBtn} testID="auth-demo"><Text style={s.link}>Start demo als Kevin</Text></Pressable>}
         </View>
+        {Platform.OS === 'web' && <Text style={s.webFooter} testID="web-footer">{WEB_FOOTER}</Text>}
       </ScrollView>
     </KeyboardAvoidingView>
   </View>;
 }
 
-const s = StyleSheet.create({
+const s = StyleSheet.create({ webFooter: { color: '#9C93A6', fontSize: 12, textAlign: 'center', marginTop: 28, marginBottom: 12 }, 
   root: { flex: 1, backgroundColor: '#140E10', overflow: 'hidden' },
   scroll: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
   body: { paddingHorizontal: 24, alignItems: 'stretch' },

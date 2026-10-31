@@ -12,3 +12,15 @@ export function pickOpenThread(current: string | null, rows: readonly { id: stri
   if (current && rows.some(r => r.id === current)) return current;
   return rows.find(r => !r.demo && isRealId(r.id))?.id ?? null;
 }
+
+/** Width of the narrow desktop side rail that replaces the left tab bar. */
+export const SIDE_RAIL_WIDTH = 88;
+
+/** Rail entries in the given order, only for routes that exist in the navigator (hidden routes are never listed). */
+export function railItems<T extends { name: string }>(items: readonly T[], routeNames: readonly string[]): T[] {
+  const set = new Set(routeNames);
+  return items.filter(i => set.has(i.name));
+}
+
+/** Footer on the web login/landing page (exact text requested by Kevin). */
+export const WEB_FOOTER = '• © Vonk Byte • Snapshot-X 2026-2027 •';
