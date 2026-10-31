@@ -45,8 +45,8 @@ export function ownIdentity(user: OwnUser, row: ProfileRow | null | undefined, s
   const effective: OwnProfile['source'] = hasUsername ? source : USERNAME_RE.test(signup) ? 'metadata' : 'fallback';
   return {
     id: user.id, handle, hasUsername, displayName, activityScore: Number(row?.activity_score) || 0, source: effective,
-    // Scanners only accept [a-z0-9_]{3,24} usernames; older/odd usernames (e.g. with a dot) use the id form.
-    qrValue: friendLink(hasUsername ? handle : null, user.id), notice,
+    // Always the username (stored or chosen at sign-up); the id form is only a last resort when there is none.
+    qrValue: friendLink(effective === 'fallback' ? null : handle, user.id), notice,
   };
 }
 

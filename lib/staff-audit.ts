@@ -31,14 +31,19 @@ export function banTargetOf(entry: AuditLike, bansById?: ReadonlyMap<string, Ban
   return { device_id: ban.target_device_id };
 }
 
+/** Name shown for a user anywhere in the staff console: @username, else display name — never the raw id. */
+export function userLabel(p: { username?: string | null; display_name?: string | null } | null | undefined, fallback = 'onbekende gebruiker'): string {
+  const u = (p?.username ?? '').trim(), d = (p?.display_name ?? '').trim();
+  return u ? `@${u}` : d || fallback;
+}
+
+const USER_ENTITIES = new Set(['profiles', 'profile', 'user', 'users', 'auth.users']);
+
 /** Human readable ban target: @username (or display name) for users, else the user id; IP / device id for IP / device bans. */
 export function describeBanTarget(target: BanTarget | null, profiles: ReadonlyMap<string, ProfileName>): string | null {
   if (!target) return null;
   if (target.user_id) {
-    const p = profiles.get(target.user_id);
-    if (p?.username) return `@${p.username}`;
-    if (p?.display_name) return `${p.display_name} (${target.user_id})`;
-    return `gebruiker ${target.user_id}`;
+    return userLabel(profiles.get(target.user_id));
   }
   if (target.ip) return `IP ${target.ip}`;
   if (target.device_id) return `apparaat ${target.device_id}`;
@@ -51,7 +56,18 @@ export function auditTargetLabel(entry: AuditLike, profiles: ReadonlyMap<string,
     const label = describeBanTarget(banTargetOf(entry, bansById), profiles);
     if (label) return label;
   }
+  if (entry.entity_id && (USER_ENTITIES.has(entry.entity_type ?? '') || profiles.has(entry.entity_id))) return userLabel(profiles.get(entry.entity_id));
   return entry.entity_id ? `#${entry.entity_id.slice(0, 8)}` : 'geen ID';
+}
+
+/** All user ids an audit list needs names for (actors, user targets, ban targets) not yet in `profiles`. */
+export function auditUserIds(entries: (AuditLike & { actor_id?: string | null })[], profiles: ReadonlyMap<string, ProfileName>, bansById?: ReadonlyMap<string, BanRow>): string[] {
+  const ids = new Set(missingBanUserIds(entries, profiles, bansById));
+  for (const e of entries) {
+    if (e.actor_id && !profiles.has(e.actor_id)) ids.add(e.actor_id);
+    if (e.entity_id && USER_ENTITIES.has(e.entity_type ?? '') && UUID_RE.test(e.entity_id) && !profiles.has(e.entity_id)) ids.add(e.entity_id);
+  }
+  return [...ids];
 }
 
 /** User ids referenced by ban audit rows that still need a profile lookup. */
