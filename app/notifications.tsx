@@ -11,6 +11,8 @@ import {useNotifyPrefs} from '../hooks/useNotifyPrefs';
 import {supabase} from '../lib/supabase';
 import {friendlyError} from '../lib/db-errors';
 import {NOTIFY_SECTIONS,notifySummary} from '../lib/notification-prefs';
+import {webNotifyStatus,type BrowserPermission} from '../lib/web-notify';
+import {browserPermission,setWebNotify,useWebNotifyOn} from '../components/web/WebNotifier';
 const purple='#AE16C7';
 
 /** Ask iOS/Android for permission and save this device's Expo push token (same flow as before in Instellingen). */
@@ -30,11 +32,14 @@ export default function NotificationSettings(){
  const {prefs,loading,serverReady,error,update}=useNotifyPrefs(uid);
  const [notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  async function register(){if(!uid||busy)return;setBusy(true);setNotice('');try{setNotice(await registerDevice(uid))}catch(e){setNotice(friendlyError(e,'Meldingen'))}finally{setBusy(false)}}
+ const webOn=useWebNotifyOn(),[webPerm,setWebPerm]=useState<BrowserPermission>(browserPermission);
+ async function toggleWeb(v:boolean){setWebPerm(await setWebNotify(v))}
  async function master(v:boolean){await update('enabled',v);if(v)void register()}
  return <GalaxyScreen><View style={[s.header,{marginTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.back()} accessibilityLabel="Terug"><Ionicons name="chevron-back" color="white" size={27}/></Pressable><Text style={s.title}>Meldingen</Text><View style={{width:27}}/></View>
  <ScrollView contentContainerStyle={s.content}>
   <View style={s.master}><Ionicons name={prefs.enabled?'notifications':'notifications-off-outline'} size={24} color="#E7C8F2"/><View style={s.rowBody}><Text style={s.masterText}>Meldingen inschakelen</Text><Text style={s.description} testID="notify-summary">{loading?'Laden…':notifySummary(prefs)}</Text></View><Switch value={prefs.enabled} onValueChange={v=>void master(v)} trackColor={{true:purple}} accessibilityLabel="Meldingen inschakelen" testID="notify-enabled"/></View>
   {NOTIFY_SECTIONS.map(sec=><View key={sec.title}><Text style={s.section}>{sec.title}</Text>{sec.options.map(o=><View key={o.key} style={[s.row,!prefs.enabled&&s.off]}><View style={s.rowBody}><Text style={s.rowText}>{o.label}</Text><Text style={s.description}>{o.description}</Text></View><Switch value={prefs.enabled&&prefs[o.key]} disabled={!prefs.enabled} onValueChange={v=>void update(o.key,v)} trackColor={{true:purple}} accessibilityLabel={o.label} testID={`notify-${o.key}`}/></View>)}</View>)}
+  {Platform.OS==='web'&&<><Text style={s.section}>Deze browser</Text><View style={[s.row,!prefs.enabled&&s.off]}><Ionicons name="desktop-outline" size={20} color="#DDC9EB"/><View style={s.rowBody}><Text style={s.rowText}>Bureaubladmeldingen</Text><Text style={s.description} testID="web-notify-status">{webNotifyStatus(webPerm,webOn)}</Text></View><Switch value={webOn&&webPerm==='granted'} disabled={!prefs.enabled||webPerm==='unsupported'} onValueChange={v=>void toggleWeb(v)} trackColor={{true:purple}} accessibilityLabel="Bureaubladmeldingen" testID="web-notify"/></View></>}
   <Pressable style={s.row} onPress={()=>void register()} disabled={busy} testID="notify-register"><Ionicons name="phone-portrait-outline" size={20} color="#DDC9EB"/><View style={s.rowBody}><Text style={s.rowText}>Toestel registreren</Text><Text style={s.description}>Zorg dat meldingen op deze telefoon binnenkomen</Text></View>{busy?<ActivityIndicator color="white"/>:<Ionicons name="chevron-forward" color="#AAA4B4" size={19}/>}</Pressable>
   {!!error&&<Text style={s.error}>{error}</Text>}
   {!!notice&&<Pressable onPress={()=>setNotice('')} style={s.notice}><Text style={s.noticeText}>{notice}  ×</Text></Pressable>}

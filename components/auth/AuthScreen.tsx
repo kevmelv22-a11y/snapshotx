@@ -8,6 +8,7 @@ import { authRedirectUrl } from '../../lib/web-env';
 import { DEMO_EMAIL } from '../../lib/demo-client';
 import { friendlyError } from '../../lib/db-errors';
 import { classifyIdentifier, validateRegister } from '../../lib/auth-form';
+import { newPasswordError, passwordStrength } from '../../lib/password-change';
 import { LEGAL_CONSENT, LEGAL_LINKS } from '../../lib/legal';
 import { peekPendingAdd } from '../../lib/pending-add';
 import { pendingAddText } from '../../lib/friend-code';
@@ -127,6 +128,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
             <Field label="Gebruikersnaam" placeholder="bijv. kevin.dev" value={username} onChangeText={setUsername} autoComplete="username-new"/>
             <Field label="E-mail" placeholder="jij@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" textContentType="emailAddress"/>
             <Field label="Wachtwoord" placeholder="Minimaal 8 tekens" value={password} onChangeText={setPassword} secureTextEntry autoComplete="password-new" textContentType="newPassword"/>
+            {!!password && (() => { const st = passwordStrength(password), err = newPasswordError(password, { username: username.trim().replace(/^@/, ''), email: email.trim() }); return <View style={s.strength} testID="register-pw-strength"><View style={s.strengthBar}>{[1, 2, 3, 4].map(i => <View key={i} style={[s.strengthSeg, { backgroundColor: st.score >= i ? st.color : 'rgba(255,255,255,0.15)' }]}/>)}</View><Text style={[s.strengthText, { color: st.color }]}>{st.label}{err ? ` · ${err}` : ''}</Text></View>; })()}
             <Field label="Geboortedatum" placeholder="DD-MM-JJJJ" value={birthdate} onChangeText={setBirthdate} keyboardType="numbers-and-punctuation" maxLength={10} autoComplete="birthdate-full"/>
             <Field label="Mobiel nummer (optioneel)" placeholder="+31612345678" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber"/>
             <Text style={s.hint}>Minimaal 13 jaar. Voor 13–17 jaar gelden automatisch strengere privacy-instellingen.</Text>
@@ -170,6 +172,7 @@ const s = StyleSheet.create({ webFooter: { color: '#9C93A6', fontSize: 12, textA
   label: { color: 'rgba(255,255,255,0.85)', fontSize: 15, fontWeight: '500', marginBottom: 8 },
   input: { alignSelf: 'stretch', width: '100%', minWidth: 0, height: 56, borderRadius: 14, paddingHorizontal: 18, fontSize: 17, color: '#FFFFFF', backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
   hint: { color: 'rgba(255,255,255,0.6)', fontSize: 13, lineHeight: 18, marginTop: -4, marginBottom: 18 },
+  strength: { marginTop: -6, marginBottom: 12, gap: 5 }, strengthBar: { flexDirection: 'row', gap: 5 }, strengthSeg: { flex: 1, height: 4, borderRadius: 2 }, strengthText: { fontSize: 12, fontWeight: '700' },
   notice: { color: '#FFD4C8', textAlign: 'center', marginBottom: 12 },
   cta: { alignSelf: 'stretch', height: 56, borderRadius: 999, backgroundColor: CYAN, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   ctaText: { color: '#000', fontSize: 18, fontWeight: '700' },

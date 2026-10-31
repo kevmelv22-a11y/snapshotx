@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
-import {Modal,Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {Stack,router,useLocalSearchParams} from 'expo-router';
 import {Ionicons} from '@expo/vector-icons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -7,6 +7,8 @@ import {supabase} from '../../lib/supabase';
 import {useSession} from '../../hooks/useSession';
 import {useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {useFriendBirthdays} from '../../hooks/useFriendBirthdays';
+import {saveFriendNickname,useFriendNicknames} from '../../hooks/useFriendNicknames';
+import {NICKNAME_MAX,NICKNAME_TEXT} from '../../lib/friend-nicknames';
 import {birthdayBannerText} from '../../lib/friend-birthdays';
 import {FriendAvatar} from '../../components/avatar/FriendAvatar';
 import {GalaxyScreen} from '../../components/GalaxyScreen';
@@ -33,6 +35,8 @@ export default function FriendProfileScreen(){
  const [sinceIso,setSinceIso]=useState<string|null>(null),[recentMsgs,setRecentMsgs]=useState<CharmMessage[]>([]),[charm,setCharm]=useState<Charm|null>(null),[loadedAt,setLoadedAt]=useState(0);
  const [notice,setNotice]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const outfits=useFriendOutfits(useMemo(()=>[id],[id]));
+ const nicknames=useFriendNicknames(me),nick=nicknames.get(id)??null,[nickOpen,setNickOpen]=useState(false),[nickDraft,setNickDraft]=useState(''),[nickError,setNickError]=useState(''),[nickBusy,setNickBusy]=useState(false);
+ async function saveNick(raw:string){if(!p||nickBusy)return;setNickBusy(true);setNickError('');const e=await saveFriendNickname(me,id,raw,p.display_name);setNickBusy(false);if(e){setNickError(e);return}setNickOpen(false)}
  const jarig=useFriendBirthdays(useMemo(()=>[id],[id])).has(id);
  const load=useCallback(async(alive:()=>boolean)=>{if(!id||!me)return;
   const [pr,fr,mine,st]=await Promise.all([
@@ -84,7 +88,7 @@ export default function FriendProfileScreen(){
   {!p?<Text style={s.muted}>{loading&&!notice?'Profiel laden…':notice}</Text>:
   <ScrollView contentContainerStyle={[s.body,{paddingBottom:insets.bottom+30}]} testID="friend-profile">
    <View style={s.hero}><FriendAvatar id={p.id} outfit={isFriend?outfits.get(p.id):null} size={132} name={p.display_name} gender={p.gender==='female'||p.gender==='male'?p.gender:undefined}/></View>
-   <Text style={s.name} testID="friend-name">{p.display_name}{isFriend&&jarig?' 🎂':''}</Text>
+   <Text style={s.name} testID="friend-name">{nick??p.display_name}{isFriend&&jarig?' 🎂':''}</Text>{!!nick&&<Text style={s.realName} testID="friend-real-name">{p.display_name}</Text>}
    <Text style={s.user}>@{p.username} · <Text style={s.score}>{formatScore(p.activity_score)}</Text></Text>
    <View style={s.chips}>{chips.map(c=><View key={c} style={s.chip} testID="friend-chip"><Text style={s.chipText}>{c}</Text></View>)}</View>
    <View style={s.actions}>
@@ -102,6 +106,7 @@ export default function FriendProfileScreen(){
    {savedRows.total>0&&shared.directId&&<><Text style={s.section} testID="saved-section">Opgeslagen in chat</Text>
     <View style={s.card}>{savedRows.items.map((x,i)=><Pressable key={x.id} onPress={()=>openSavedChat()} style={[s.row,i>0&&s.rowLine]} accessibilityLabel={`Opgeslagen bericht van ${x.who}`} testID="saved-preview"><Ionicons name="bookmark" size={18} color="#C7C0CD"/><Text style={s.rowText} numberOfLines={1}><Text style={{fontWeight:'800'}}>{x.who}: </Text>{x.excerpt}</Text></Pressable>)}
      <Pressable onPress={()=>openSavedChat()} style={[s.row,s.rowLine]} accessibilityLabel="Bekijk opgeslagen berichten in de chat" testID="saved-open-chat"><Text style={[s.rowText,{color:'#C7C0CD'}]}>{savedSectionTitle(savedRows.total)} · bekijk in chat</Text><Ionicons name="chevron-forward" size={18} color="#C7C0CD"/></Pressable></View></>}
+   {isFriend&&<><Text style={s.section}>Vriendschap</Text><View style={s.card}><Pressable onPress={()=>{setNickDraft(nick??p.display_name);setNickError('');setNickOpen(true)}} style={s.row} accessibilityLabel={NICKNAME_TEXT.action} testID="friend-nickname"><Ionicons name="pencil" size={19} color="#E2D7EC"/><Text style={s.rowText}>{NICKNAME_TEXT.action}</Text><Text style={s.rowMeta} numberOfLines={1}>{nick??''}</Text><Ionicons name="chevron-forward" size={18} color="#C7C0CD"/></Pressable></View></>}
    <Text style={s.section}>Privacy</Text>
    <View style={s.card}><Pressable onPress={()=>router.push({pathname:'/report',params:{user_id:id,name:p.display_name}})} style={s.row} accessibilityLabel={`${p.display_name} melden`} testID="friend-report"><Ionicons name="flag-outline" size={20} color="#FF6B6B"/><Text style={[s.rowText,{color:'#FF6B6B'}]}>Account melden</Text></Pressable><Pressable onPress={block} style={[s.row,s.rowLine]} accessibilityLabel={`${p.display_name} blokkeren`} testID="friend-block"><Ionicons name="ban" size={20} color="#FF6B6B"/><Text style={[s.rowText,{color:'#FF6B6B'}]}>Blokkeren</Text></Pressable></View>
   </ScrollView>}
@@ -116,13 +121,24 @@ export default function FriendProfileScreen(){
     </Pressable>}
    </Pressable>
   </Modal>
+  <Modal visible={nickOpen} transparent animationType="fade" onRequestClose={()=>setNickOpen(false)}>
+   <Pressable style={s.sheetBackdrop} onPress={()=>setNickOpen(false)} accessibilityLabel="Sluiten">
+    <Pressable style={[s.sheet,{paddingBottom:insets.bottom+20}]} onPress={()=>{}} testID="nickname-sheet">
+     <Text style={s.sheetTitle}>{NICKNAME_TEXT.title}</Text><Text style={s.sheetText}>{NICKNAME_TEXT.hint}</Text>
+     <TextInput value={nickDraft} onChangeText={v=>{setNickDraft(v);setNickError('')}} maxLength={NICKNAME_MAX} autoFocus placeholder={p?.display_name??'Naam'} placeholderTextColor="#8E86A0" style={s.nickInput} onSubmitEditing={()=>void saveNick(nickDraft)} accessibilityLabel="Naam voor deze vriend" testID="nickname-input"/>
+     {!!nickError&&<Text style={s.nickError} testID="nickname-error">{nickError}</Text>}
+     <Pressable onPress={()=>void saveNick(nickDraft)} disabled={nickBusy} style={s.sheetBtn} testID="nickname-save"><Text style={s.sheetBtnText}>{NICKNAME_TEXT.save}</Text></Pressable>
+     {!!nick&&<Pressable onPress={()=>void saveNick('')} disabled={nickBusy} style={s.nickRemove} testID="nickname-remove"><Text style={s.nickRemoveText}>{NICKNAME_TEXT.remove}</Text></Pressable>}
+    </Pressable>
+   </Pressable>
+  </Modal>
   {confirm.dialog}
  </GalaxyScreen>;
 }
 function Action({icon,label,onPress,disabled}:{icon:React.ComponentProps<typeof Ionicons>['name'];label:string;onPress:()=>void;disabled?:boolean}){
  return <Pressable onPress={onPress} disabled={disabled} style={[s.action,disabled&&{opacity:.45}]} accessibilityLabel={label} testID={`friend-action-${label.toLowerCase()}`}><Ionicons name={icon} size={22} color="white"/><Text style={s.actionText}>{label}</Text></Pressable>;
 }
-const s=StyleSheet.create({
+const s=StyleSheet.create({realName:{color:'#C7C0CD',fontSize:13,textAlign:'center',marginTop:-2,marginBottom:2},rowMeta:{color:'#C7C0CD',fontSize:14,maxWidth:140,marginLeft:'auto'},nickInput:{alignSelf:'stretch',color:'white',backgroundColor:'#2C2440',borderRadius:14,paddingHorizontal:14,paddingVertical:12,fontSize:16,marginTop:6},nickError:{color:'#FF8A8A',fontSize:13,alignSelf:'stretch'},nickRemove:{paddingVertical:10},nickRemoveText:{color:'#FF6B6B',fontWeight:'800',fontSize:15},
  header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingBottom:6},headerTitle:{color:'white',fontSize:18,fontWeight:'800'},
  body:{paddingHorizontal:18,alignItems:'stretch'},hero:{alignItems:'center',marginTop:10},
  name:{color:'white',fontSize:26,fontWeight:'800',textAlign:'center',marginTop:12},user:{color:'#C7C0CD',fontSize:15,textAlign:'center',marginTop:4},score:{color:'white',fontWeight:'800'},

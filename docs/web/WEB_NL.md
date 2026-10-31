@@ -58,3 +58,11 @@
   - Nog nodig van Kevin: zijn **eigen** Apple Team ID (na de Apple Developer-inschrijving) en later de Play-app-signing SHA-256. Daarna web opnieuw deployen en een production-build maken.
 - **TURN** voor gesprekken: `EXPO_PUBLIC_TURN_URLS` (turn:/turns:), `EXPO_PUBLIC_TURN_USERNAME`, `EXPO_PUBLIC_TURN_CREDENTIAL` (lib/call-signal.ts `iceServersFrom`). Ongeldig/incompleet = alleen STUN. Nog geen TURN-dienst gekozen (bijv. Cloudflare Calls TURN, Twilio, Metered of eigen coturn).
 - **Web**: Nederlandse 404-pagina (`app/+not-found.tsx`), tabtitels per pagina met ongelezen chats (`(2) Chat • SnapShot X`), SEO/linkpreview-tags + `manifest.webmanifest` (installeren als app) + `robots.txt`/`sitemap.xml`, actieve chat gemarkeerd in de split-view en `?chat=<id>` in de URL (blijft open na verversen), inlogscherm toont "Log in of maak een account om @naam toe te voegen" na het openen van een /add-link.
+
+## Sessie 01-11-2026 00:00
+- **Foto/video slepen of plakken** in een open chat (web): sleep een bestand op het gesprek of plak met Ctrl/⌘+V → bevestigen → versturen (max. 15 MB foto / 50 MB video, één tegelijk, geen svg/pdf) — `lib/web-drop.ts`, `hooks/useWebMediaDrop.ts`.
+- **Concepten**: niet-verstuurde tekst blijft per chat bewaard (wisselen in de split-view, verlaten, verversen; 7 dagen, op dit apparaat). Chatlijst toont "✏️ Concept: …" — `lib/chat-drafts.ts`, `stores/chatDrafts.ts`.
+- **Sneltoetsen** (desktop): Ctrl/⌘+K chats zoeken, Alt+↑/↓ vorige/volgende chat, Esc sluit zoeken / annuleert antwoord of bewerking (capture-listener: RN-web TextInput stopt keydown-propagatie) — `lib/web-shortcuts.ts`.
+- **Bureaubladmeldingen** (Meldingen › Deze browser): browsermelding "Noor — stuurde je een chat" als het tabblad op de achtergrond staat; nooit de inhoud; respecteert hoofdschakelaar, "Chats en snaps" en gedempte chats; klik opent de chat — `lib/web-notify.ts`, `components/web/WebNotifier.tsx`.
+- **Geen verbinding**-balk + "Weer online" — `lib/connection-banner.ts`, `components/web/OfflineBanner.tsx`.
+- **Zoeken in chat** (🔍 in de chatkop, ook in de app): accent-/hoofdletterongevoelig, ↑/↓ springt tussen resultaten — `lib/chat-search.ts`.

@@ -36,6 +36,22 @@ export function passwordStrength(pw: string): PasswordStrength {
   return make(Math.min(4, score) as PasswordStrength['score']);
 }
 
+/**
+ * Rules for a NEW password (registration and Wachtwoord wijzigen): 8–72 tekens, no leading/trailing space,
+ * not trivially guessable (strength ≥ Redelijk) and not built from your own username / e-mail name.
+ * Returns a Dutch error or null. Supabase Auth only enforces the length server-side.
+ */
+export function newPasswordError(pw: string, own: { username?: string | null; email?: string | null } = {}): string | null {
+  if (pw.length < MIN_PASSWORD_LENGTH) return `Wachtwoord: minimaal ${MIN_PASSWORD_LENGTH} tekens.`;
+  if (pw.length > MAX_PASSWORD_LENGTH) return `Wachtwoord: maximaal ${MAX_PASSWORD_LENGTH} tekens.`;
+  if (/^\s|\s$/.test(pw)) return 'Je wachtwoord mag niet beginnen of eindigen met een spatie.';
+  const l = pw.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const parts = [own.username ?? '', (own.email ?? '').split('@')[0]].map(x => x.toLowerCase().replace(/[^a-z0-9]/g, '')).filter(x => x.length >= 4);
+  if (parts.some(x => l.includes(x))) return 'Gebruik niet je gebruikersnaam of e-mailadres in je wachtwoord.';
+  if (passwordStrength(pw).score < 2) return 'Dit wachtwoord is te makkelijk te raden. Combineer letters, cijfers of tekens.';
+  return null;
+}
+
 export type PasswordChangeInput = { current: string; next: string; repeat: string };
 export type PasswordChangeCheck = { ok: true } | { ok: false; field: 'current' | 'next' | 'repeat'; error: string };
 

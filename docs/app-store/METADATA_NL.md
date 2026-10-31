@@ -55,13 +55,14 @@ Eerste versie van Snapshot X.
 
 ## App Privacy ("voedingslabel") — voorstel
 Gekoppeld aan de gebruiker, niet voor tracking (geen tracking, geen advertenties):
-- Contactgegevens: e-mailadres, telefoonnummer (optioneel) — app-functionaliteit.
+- Contactgegevens: naam (weergavenaam), e-mailadres, telefoonnummer (optioneel) — app-functionaliteit.
 - Gebruikersinhoud: foto's/video's, audio, chats, overige inhoud — app-functionaliteit.
 - Identificatoren: gebruikers-ID, apparaat-ID (pushtoken) — app-functionaliteit.
 - Locatie: precieze locatie (alleen als je deelt op de kaart) — app-functionaliteit.
+- Aankopen: aankoopgeschiedenis (Snapshot X+ via App Store/RevenueCat) — app-functionaliteit.
 - Gebruiksgegevens: interactie met het product (inloggeschiedenis voor beveiliging) — app-functionaliteit.
 - Gezondheid, financiën, browsegeschiedenis, zoekgeschiedenis: **niet verzameld**.
-Controleer tegen de privacymanifest in app.json (`ios.privacyManifests`) en lib/legal.ts.
+Dit staat ook in de privacymanifest (`ios.privacyManifests.NSPrivacyCollectedDataTypes` in app.json, gecontroleerd door lib/privacy-manifest.test.mjs) en lib/legal.ts. Vul in App Store Connect precies deze categorieën in.
 
 ## Gegevens voor de beoordeling (App Review)
 - Demo-account: `appreview@snapshot-x.nl` — password: see secure file (niet in de repo).

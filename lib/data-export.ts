@@ -25,6 +25,8 @@ export const EXPORT_ERRORS = { none: 'Kies minstens één categorie.', signedOut
 export type ExportSource = {
   profile?: Row | null; preferences?: Row | null; friends?: Row[]; requests?: Row[]; blocks?: Row[]; people?: Row[];
   threads?: Row[]; members?: Row[]; messages?: Row[]; stories?: Row[]; memories?: Row[]; location?: Row | null;
+  /** Naam bewerken: my own names for friends (sx_friend_nicknames). */
+  nicknames?: Row[];
 };
 export type ExportCounts = Partial<Record<ExportCategory, number>>;
 export type DataExport = { file: Record<string, unknown>; counts: ExportCounts; filename: string };
@@ -62,7 +64,8 @@ export function buildDataExport(input: { uid: string; email?: string | null; now
     counts.account = s.profile ? 1 : 0;
   }
   if (chosen.has('friends')) {
-    const friends = (s.friends ?? []).filter(f => f.user_id === uid).map(f => ({ friend: who(f.friend_id), since: str(f.created_at) }));
+    const nick = new Map((s.nicknames ?? []).filter(n => n.owner_id === uid).map(n => [String(n.friend_id), str(n.nickname)]));
+    const friends = (s.friends ?? []).filter(f => f.user_id === uid).map(f => ({ friend: who(f.friend_id), since: str(f.created_at), ...(nick.get(String(f.friend_id)) ? { nickname: nick.get(String(f.friend_id)) } : {}) }));
     const requests = (s.requests ?? []).filter(r => r.sender_id === uid || r.recipient_id === uid)
       .map(r => ({ direction: r.sender_id === uid ? 'verstuurd' : 'ontvangen', other: who(r.sender_id === uid ? r.recipient_id : r.sender_id), status: str(r.status), at: str(r.created_at) }));
     const blocked = (s.blocks ?? []).filter(b => b.blocker_id === uid).map(b => ({ account: who(b.blocked_id), at: str(b.created_at) }));
@@ -120,6 +123,8 @@ export async function collectMyData(client: Client, uid: string, categories: Exp
   else s.profile = await one(from('profiles').eq('id', uid).maybeSingle());
   if (c.has('friends')) [s.friends, s.requests, s.blocks] = await Promise.all([
     rows(from('sx_friends').eq('user_id', uid)), Promise.all([rows(from('sx_friend_requests').eq('sender_id', uid)), rows(from('sx_friend_requests').eq('recipient_id', uid))]).then(([a, b]) => [...a, ...b]), rows(from('sx_blocks').eq('blocker_id', uid))]);
+  // Nicknames are optional: before migration 20261101003000 the table doesn't exist → just none.
+  if (c.has('friends')) { const r = await (from('sx_friend_nicknames').eq('owner_id', uid) as unknown as Q); s.nicknames = r.error ? [] : (r.data ?? []) as Row[]; }
   if (c.has('chats')) {
     const own = await rows(from('sx_members').eq('user_id', uid)), ids = own.map(m => m.thread_id);
     if (ids.length) [s.threads, s.members, s.messages] = await Promise.all([rows(from('sx_threads').in('id', ids)), rows(from('sx_members').in('thread_id', ids)), rows(from('sx_messages').in('thread_id', ids))]);

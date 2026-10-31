@@ -33,10 +33,18 @@ The project now includes SDK 57 `expo-updates`, the EAS project URL, `appVersion
 - The seven staff actions have not been live-server tested. Do not mark them as passed.
 - Lint, TypeScript, source tests, and the iOS JavaScript export pass. Device installation, signing, live database behavior, and iOS UI remain unverified.
 
-## Open launch items (bijgewerkt 31-10-2026 21:00)
+## Sessie 01-11-2026 00:00 (live DB)
+- Toegepast: `20261101000000_revoke_anon_sx_is_plus` (security advisor 0028: `sx_is_plus` niet meer aanroepbaar zonder account) en `20261101003000_friend_nicknames` (Naam bewerken; RLS alleen eigen rijen + alleen vrienden, woordfilter, ban-guard). Getest in PGlite (/workspace/pgtest/revoke-is-plus.mjs, nicknames.mjs).
+- Privacymanifest: `NSPrivacyCollectedDataTypes` toegevoegd in app.json (geen tracking; alle categorieën app-functionaliteit), gecontroleerd door lib/privacy-manifest.test.mjs. Komt pas in een nieuwe build.
+- Registratie gebruikt nu dezelfde wachtwoordregels als Wachtwoord wijzigen (geen zwakke wachtwoorden of je eigen gebruikersnaam/e-mail) + sterktemeter.
+- Nog open (dashboard, Kevin): Supabase Auth › "Leaked password protection" (HaveIBeenPwned) aanzetten — security advisor-waarschuwing.
+
+## Open launch items (bijgewerkt 01-11-2026 00:00)
 
 - **App Review-telefoonnummer**: nog niet door Kevin gegeven; Apple vereist het bij indienen (docs/app-store/METADATA_NL.md).
 - **Universal links**: code/config klaar (zie docs/web/WEB_NL.md). Nodig: Kevins eigen Apple Team ID in de web-env (`SNAPSHOTX_APPLE_TEAM_ID`) + web redeploy, Associated Domains-capability op App ID `com.snapshotx.app` (EAS synchroniseert die bij een production-build met eigen credentials). Ad-hoc-testbuilds blijven zonder associated domains.
 - **Gesprekken**: echte test tussen twee apparaten; TURN-dienst kiezen en `EXPO_PUBLIC_TURN_*` zetten; groepsgesprekken nog niet gebouwd.
 - **Supabase Auth Redirect URLs** voor `https://snapshot-x.nl/auth/callback` (+ www): controleren in het dashboard.
 - **App Review-demo-account**: opnieuw aanmaken vlak voor indienen (de live DB bevat nu alleen Kevins account).
+- **Leaked password protection** in Supabase Auth aanzetten (dashboard-instelling).
+- **Privacymanifest/App Privacy**: in App Store Connect dezelfde categorieën invullen als docs/app-store/METADATA_NL.md.
