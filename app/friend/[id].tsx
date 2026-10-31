@@ -6,6 +6,8 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {supabase} from '../../lib/supabase';
 import {useSession} from '../../hooks/useSession';
 import {useFriendOutfits} from '../../hooks/useFriendOutfits';
+import {useFriendBirthdays} from '../../hooks/useFriendBirthdays';
+import {birthdayBannerText} from '../../lib/friend-birthdays';
 import {FriendAvatar} from '../../components/avatar/FriendAvatar';
 import {GalaxyScreen} from '../../components/GalaxyScreen';
 import {useConfirmDialog} from '../../components/ConfirmDialog';
@@ -31,6 +33,7 @@ export default function FriendProfileScreen(){
  const [sinceIso,setSinceIso]=useState<string|null>(null),[recentMsgs,setRecentMsgs]=useState<CharmMessage[]>([]),[charm,setCharm]=useState<Charm|null>(null),[loadedAt,setLoadedAt]=useState(0);
  const [notice,setNotice]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const outfits=useFriendOutfits(useMemo(()=>[id],[id]));
+ const jarig=useFriendBirthdays(useMemo(()=>[id],[id])).has(id);
  const load=useCallback(async(alive:()=>boolean)=>{if(!id||!me)return;
   const [pr,fr,mine,st]=await Promise.all([
    supabase.from('profiles').select('id,display_name,username,activity_score,gender').eq('id',id).maybeSingle(),
@@ -81,7 +84,7 @@ export default function FriendProfileScreen(){
   {!p?<Text style={s.muted}>{loading&&!notice?'Profiel laden…':notice}</Text>:
   <ScrollView contentContainerStyle={[s.body,{paddingBottom:insets.bottom+30}]} testID="friend-profile">
    <View style={s.hero}><FriendAvatar id={p.id} outfit={isFriend?outfits.get(p.id):null} size={132} name={p.display_name} gender={p.gender==='female'||p.gender==='male'?p.gender:undefined}/></View>
-   <Text style={s.name} testID="friend-name">{p.display_name}</Text>
+   <Text style={s.name} testID="friend-name">{p.display_name}{isFriend&&jarig?' 🎂':''}</Text>
    <Text style={s.user}>@{p.username} · <Text style={s.score}>{formatScore(p.activity_score)}</Text></Text>
    <View style={s.chips}>{chips.map(c=><View key={c} style={s.chip} testID="friend-chip"><Text style={s.chipText}>{c}</Text></View>)}</View>
    <View style={s.actions}>
@@ -89,6 +92,7 @@ export default function FriendProfileScreen(){
     <Action icon="videocam" label="Bellen" onPress={()=>void call()} disabled={busy||!isFriend}/>
     {stories>0&&<Action icon="play-circle" label="Verhaal" onPress={()=>router.push({pathname:'/stories/[owner]',params:{owner:p.id}})}/>}
    </View>
+   {isFriend&&jarig&&<Pressable onPress={()=>void openChat()} disabled={busy} style={s.bday} accessibilityLabel={`${birthdayBannerText(p.display_name)} Stuur een felicitatie`} testID="friend-birthday"><Text style={s.bdayEmoji}>🎉</Text><View style={{flex:1}}><Text style={s.bdayTitle}>{birthdayBannerText(p.display_name)}</Text><Text style={s.bdaySub}>Stuur een felicitatie in de chat</Text></View><Ionicons name="chevron-forward" size={20} color="white"/></Pressable>}
    {!!notice&&<Text style={s.notice}>{notice}</Text>}
    {charmsHead&&<><Text style={s.section} testID="charms-title">{charmsHead}</Text>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.charmRow} testID="charms">{charms.map(c=><Pressable key={c.id} onPress={()=>setCharm(c)} style={[s.charm,{backgroundColor:c.colors[1],borderColor:c.colors[0]}]} accessibilityLabel={`Charm ${c.title}: ${c.subtitle}`} testID={`charm-${c.id}`}>
@@ -135,5 +139,6 @@ const s=StyleSheet.create({
  sheetTitle:{color:'white',fontSize:22,fontWeight:'800',marginTop:14},sheetSub:{color:'#C7C0CD',fontSize:15,fontWeight:'700',marginTop:4},
  sheetText:{color:'white',fontSize:16,textAlign:'center',lineHeight:22,marginTop:14},sheetNote:{color:'#9C93A6',fontSize:13,textAlign:'center',marginTop:12},
  sheetBtn:{backgroundColor:purple,borderRadius:24,alignSelf:'stretch',alignItems:'center',paddingVertical:14,marginTop:22},sheetBtnText:{color:'white',fontSize:16,fontWeight:'800'},
+ bday:{flexDirection:'row',alignItems:'center',gap:12,marginTop:18,backgroundColor:'#FF4FA3CC',borderRadius:18,paddingHorizontal:14,paddingVertical:12},bdayEmoji:{fontSize:28},bdayTitle:{color:'white',fontSize:16,fontWeight:'800'},bdaySub:{color:'#FFFFFFD8',fontSize:13,fontWeight:'600',marginTop:2},
  muted:{color:'#C7C0CD',textAlign:'center',marginTop:40},notice:{color:'#FFE436',textAlign:'center',marginTop:12},
 });

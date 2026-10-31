@@ -122,3 +122,79 @@ export async function collectMyData(client: Client, uid: string, categories: Exp
   if (other.size) s.people = await rows((client.from('profiles') as Chain).select('id,username,display_name').in('id', [...other]));
   return s;
 }
+
+/** Snapchat offers "HTML" (readable in a browser) and "JSON" (machine-readable) — or both. */
+export type ExportFormat = 'html' | 'json' | 'both';
+export const EXPORT_FORMATS: { key: ExportFormat; label: string; description: string }[] = [
+  { key: 'html', label: 'HTML', description: 'Leesbaar in je browser' },
+  { key: 'json', label: 'JSON', description: 'Voor andere apps' },
+  { key: 'both', label: 'Beide', description: 'HTML + JSON' },
+];
+export const formatFilenames = (json: string, format: ExportFormat) =>
+  format === 'json' ? [json] : format === 'html' ? [json.replace(/\.json$/, '.html')] : [json.replace(/\.json$/, '.html'), json];
+
+/** HTML-escape (also quotes, the values end up inside text and attributes). */
+export function escapeHtml(v: unknown): string {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
+/** "31-10-2026 14:05" in the device's local time; unknown/invalid → "—". */
+export function formatExportDate(iso: unknown): string {
+  if (typeof iso !== 'string' || !iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}-${p(d.getMonth() + 1)}-${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+type R = Record<string, unknown>;
+const arr = (v: unknown): R[] => (Array.isArray(v) ? (v as R[]) : []);
+const KIND: Record<string, string> = { text: 'Bericht', snap: 'Snap', photo: 'Foto', video: 'Video', system: 'Melding', audio: 'Spraakbericht', sticker: 'Sticker' };
+const AUDIENCE: Record<string, string> = { friends: 'Vrienden', everyone: 'Iedereen', custom: 'Aangepast', best_friends: 'Beste vrienden' };
+function table(head: string[], rows: unknown[][], empty: string) {
+  if (!rows.length) return `<p class="empty">${escapeHtml(empty)}</p>`;
+  return `<table><thead><tr>${head.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${escapeHtml(c ?? '—')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+/**
+ * Readable "Mijn gegevens" page (Snapchat HTML export): one self-contained HTML file with a section per chosen
+ * category, built from the same object as the JSON (buildDataExport().file). Every value is escaped; no scripts,
+ * no external resources, so it opens safely offline in any browser.
+ */
+export function renderExportHtml(file: Record<string, unknown>): string {
+  const parts: string[] = [];
+  const nav: string[] = [];
+  const section = (id: string, title: string, body: string) => { nav.push(`<a href="#${id}">${escapeHtml(title)}</a>`); parts.push(`<section id="${id}"><h2>${escapeHtml(title)}</h2>${body}</section>`); };
+  if ('account' in file) {
+    const a = (file.account ?? {}) as R, pref = (a.preferences ?? {}) as R;
+    section('account', 'Account', table(['Gegeven', 'Waarde'], [
+      ['Gebruikersnaam', a.username ? `@${a.username}` : '—'], ['Weergavenaam', a.display_name], ['E-mailadres', a.email],
+      ['Geboortedatum', a.birthdate], ['Telefoonnummer', a.phone], ['Account gemaakt op', formatExportDate(a.created_at)],
+      ['Geverifieerd', a.is_verified ? 'Ja' : 'Nee'], ['Taal', pref.language === 'nl' ? 'Nederlands' : pref.language === 'en' ? 'Engels' : pref.language], ['Vindbaar voor anderen', pref.find_me == null ? '—' : pref.find_me ? 'Ja' : 'Nee'],
+    ], 'Geen accountgegevens.'));
+  }
+  if ('friends' in file) {
+    const f = (file.friends ?? {}) as R;
+    section('friends', 'Vrienden',
+      `<h3>Mijn vrienden (${arr(f.friends).length})</h3>` + table(['Vriend', 'Vrienden sinds'], arr(f.friends).map(x => [x.friend, formatExportDate(x.since)]), 'Nog geen vrienden.') +
+      `<h3>Vriendschapsverzoeken</h3>` + table(['Richting', 'Account', 'Status', 'Datum'], arr(f.requests).map(x => [x.direction, x.other, x.status, formatExportDate(x.at)]), 'Geen verzoeken.') +
+      `<h3>Geblokkeerd</h3>` + table(['Account', 'Sinds'], arr(f.blocked).map(x => [x.account, formatExportDate(x.at)]), 'Niemand geblokkeerd.'));
+  }
+  if ('chats' in file) {
+    const chats = arr(file.chats);
+    section('chats', 'Chats', chats.length ? chats.map(c => `<h3>${escapeHtml(c.chat)}${c.group ? ' <span class="tag">Groep</span>' : ''}</h3>` +
+      `<ol class="chat">${arr(c.messages).map(m => `<li class="${m.from === 'jij' ? 'me' : ''}"><span class="from">${escapeHtml(m.from)}</span> <span class="at">${escapeHtml(formatExportDate(m.at))}</span>${m.saved ? ' <span class="tag">Bewaard</span>' : ''}<div>${m.text != null && m.text !== '' ? escapeHtml(m.text) : `<em>${escapeHtml(KIND[String(m.kind)] ?? 'Bericht')}${m.media ? ` · ${escapeHtml(m.media)}` : ''}</em>`}</div></li>`).join('')}</ol>`).join('')
+      : '<p class="empty">Geen bewaarde chats.</p>');
+  }
+  if ('stories' in file) section('stories', 'Verhalen', table(['Datum', 'Bijschrift', 'Wie mag kijken', 'Type', 'Bestand'], arr(file.stories).map(x => [formatExportDate(x.at), x.caption, AUDIENCE[String(x.visibility)] ?? x.visibility, x.media_type, x.media]), 'Geen actieve verhalen.'));
+  if ('memories' in file) section('memories', 'Herinneringen', table(['Datum', 'Bijschrift', 'Type', 'Privé (Alleen voor mij)', 'Bestand'], arr(file.memories).map(x => [formatExportDate(x.at), x.caption, x.media_type, x.private ? 'Ja' : 'Nee', x.private ? 'Verborgen (privé)' : x.media]), 'Geen herinneringen.'));
+  if ('location' in file) {
+    const l = file.location as R | null;
+    section('location', 'Locatie', l ? table(['Gegeven', 'Waarde'], [['Locatie delen', l.sharing ? 'Aan' : 'Uit'], ['Met wie', AUDIENCE[String(l.audience)] ?? l.audience], ['Spookmodus', l.ghost_mode ? 'Aan' : 'Uit'],
+      ['Laatste locatie', l.latitude != null && l.longitude != null ? `${l.latitude}, ${l.longitude}` : '—'], ['Bijgewerkt', formatExportDate(l.updated_at)]], '') : '<p class="empty">Geen locatie opgeslagen.</p>');
+  }
+  const css = 'body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;background:#120d1c;color:#ece6f2;margin:0;padding:24px;line-height:1.45}main{max-width:820px;margin:auto}h1{margin:0 0 4px;font-size:26px}h2{border-bottom:2px solid #ae16c7;padding-bottom:6px;margin-top:34px}h3{margin:22px 0 8px;font-size:17px}nav{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}nav a{background:#2b253c;color:#e7a8f5;border-radius:16px;padding:6px 12px;text-decoration:none;font-weight:600}table{width:100%;border-collapse:collapse;background:#1a1425;border-radius:10px;overflow:hidden}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #2e2840;vertical-align:top;word-break:break-word}th{color:#cbb6dc;font-size:13px}.chat{list-style:none;padding:0}.chat li{background:#1a1425;border-left:3px solid #4ca1af;border-radius:8px;padding:8px 10px;margin:6px 0}.chat li.me{border-left-color:#ae16c7}.from{font-weight:700}.at{color:#9c93a6;font-size:12px}.tag{background:#3a2f52;border-radius:8px;padding:1px 7px;font-size:12px;color:#e7c8f2}.empty{color:#9c93a6}.note{color:#bdb4c8;font-size:14px}footer{color:#8e879e;font-size:13px;margin-top:40px;text-align:center}';
+  return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mijn gegevens · Snapshot X</title><style>${css}</style></head><body><main>` +
+    `<h1>Mijn gegevens</h1><p class="note">Snapshot X · gemaakt op ${escapeHtml(formatExportDate(file.generated_at))}</p><p class="note">${escapeHtml(file.note)}</p><nav>${nav.join('')}</nav>${parts.join('')}` +
+    `<footer>• © Vonk Byte • Snapshot-X 2026-2027 •</footer></main></body></html>`;
+}

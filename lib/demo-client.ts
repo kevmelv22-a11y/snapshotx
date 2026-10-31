@@ -574,6 +574,15 @@ export class DemoClient {
       subscribers: this.m.table('sx_creator_subscriptions').filter(x => x.creator_id === s.owner_id).length + (String(s.owner_id).charCodeAt(String(s.owner_id).length - 1) % 7) * 180 + 1200,
       liked: this.m.table('sx_highlight_likes').some(l => l.story_id === s.id && l.user_id === ME) })),
     sx_friend_avatar_outfits: () => [],
+    // Mirrors public.sx_friend_birthdays (20261031060000, NOT applied): friends only, month-day only (never year/age).
+    // Demo: Aria is jarig today (🎂), Cleo too but with Verjaardagsfeest off (no 🎂), Eva/Noor on other days.
+    sx_friend_birthdays: a => {
+      const ids = new Set((a.p_ids as string[]) ?? []), I = MOCK_IDS, n = new Date(), p = (x: number) => String(x).padStart(2, '0');
+      const today = `${p(n.getMonth() + 1)}-${p(n.getDate())}`, other = today === '03-21' ? '07-09' : '03-21';
+      const md: Record<string, [string, boolean]> = { [I.aria]: [today, true], [I.cleo]: [today, false], [I.eva]: [other, true], [EXTRA.noor]: ['12-24', true] };
+      return this.m.table('sx_friends').filter(f => f.user_id === ME && ids.has(String(f.friend_id)) && md[String(f.friend_id)] && !this.blockedWith(String(f.friend_id)))
+        .map(f => ({ user_id: f.friend_id, birthday_md: md[String(f.friend_id)][0], birthday_party: md[String(f.friend_id)][1] }));
+    },
     // Mirrors public.sx_ensure_profile() (migration 20261019120000): create the own row from the sign-up metadata.
     sx_ensure_profile: () => {
       let p = this.m.profile(ME);
