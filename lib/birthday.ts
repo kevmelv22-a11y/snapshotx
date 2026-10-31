@@ -6,7 +6,8 @@ import { MIN_AGE, TEEN_MAX_AGE, ageOn, isoDate, parseBirthdate } from './auth-fo
  * and a limited birthdate change. Pure helpers, no React Native imports (runs under `npx tsx --test`).
  *
  * Stored in auth user_metadata: birthdate (ISO), is_teen, birthday_party (bool, default true),
- * birthdate_changes (number). The server must enforce the same limits before trusting them.
+ * birthdate_changes (number). The server enforces the same limits (trigger sx_birthday_meta_guard on auth.users,
+ * supabase/migrations/20261031120000_birthday_rules_server.sql) and keeps the change counter itself.
  */
 export const MAX_BIRTHDATE_CHANGES = 2;
 
@@ -100,4 +101,15 @@ export function validateBirthdateChange(raw: string, state: BirthdayState, usedC
   if (age > 120) return { ok: false, error: 'Vul je echte geboortedatum in.' };
   if (state.teen && age > TEEN_MAX_AGE) return { ok: false, error: 'Je kunt jezelf hier niet ouder dan 17 maken. Klopt je geboortedatum niet? Neem contact op met support.' };
   return { ok: true, patch: { birthdate: isoDate(birth), is_teen: age <= TEEN_MAX_AGE, birthdate_changes: Math.max(0, usedChanges) + 1 } };
+}
+
+/**
+ * Message when saving a birthdate fails. The server guard rejects with an HTTP 4xx/5xx from the Auth API;
+ * a network failure has no status. Never shows raw server text.
+ */
+export function birthdateSaveError(e: { status?: unknown } | null | undefined): string {
+  const st = Number(e?.status);
+  if (Number.isFinite(st) && st >= 400 && st !== 408 && st !== 429 && st < 600 && st !== 502 && st !== 503 && st !== 504)
+    return 'Deze geboortedatum kan niet worden opgeslagen. Klopt je geboortedatum niet? Neem contact op met support.';
+  return 'Opslaan lukte niet. Controleer je verbinding en probeer het opnieuw.';
 }

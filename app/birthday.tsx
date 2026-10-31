@@ -7,7 +7,7 @@ import {GalaxyScreen} from '../components/GalaxyScreen';
 import {useSession} from '../hooks/useSession';
 import {supabase} from '../lib/supabase';
 import {ageOn} from '../lib/auth-form';
-import {MAX_BIRTHDATE_CHANGES,birthdayCountdownLabel,formatBirthdateNl,isBirthdayToday,readBirthdayMeta,localDay,toInputValue,validateBirthdateChange,zodiacOf} from '../lib/birthday';
+import {MAX_BIRTHDATE_CHANGES,birthdayCountdownLabel,formatBirthdateNl,isBirthdayToday,readBirthdayMeta,localDay,toInputValue,validateBirthdateChange,zodiacOf,birthdateSaveError} from '../lib/birthday';
 import {SUPPORT_MAILTO} from '../lib/legal';
 const purple='#AE16C7';
 
@@ -22,7 +22,7 @@ export default function Birthday(){
   if(busy)return;const v=validateBirthdateChange(value,state,used);
   if(!v.ok){setError(v.error);return}
   setBusy(true);setError('');setNotice('');
-  try{const {error:e}=await supabase.auth.updateUser({data:v.patch});if(e){setNotice('Opslaan lukte niet. Controleer je verbinding en probeer het opnieuw.');return}
+  try{const {error:e}=await supabase.auth.updateUser({data:v.patch});if(e){setNotice(birthdateSaveError(e));return}
    setEditing(false);setValue('');setDone('Je geboortedatum is bijgewerkt.')}
   catch{setNotice('Opslaan lukte niet. Controleer je verbinding en probeer het opnieuw.')}finally{setBusy(false)}
  }
