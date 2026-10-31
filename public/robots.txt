@@ -1,0 +1,16 @@
+# SnapShot X — snapshot-x.nl
+User-agent: *
+Allow: /$
+Allow: /help
+Allow: /privacy
+Allow: /voorwaarden
+Disallow: /staff
+Disallow: /chat
+Disallow: /call
+Disallow: /auth
+Disallow: /add
+Disallow: /friend
+Disallow: /settings
+Disallow: /my-data
+
+Sitemap: https://snapshot-x.nl/sitemap.xml

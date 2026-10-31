@@ -32,3 +32,11 @@ The project now includes SDK 57 `expo-updates`, the EAS project URL, `appVersion
 - The staff RPC and friend-suggestion migrations are source files only. The staff search/statistics schema-cache errors require the reviewed migration to be applied to a test database and then the intended hosted database.
 - The seven staff actions have not been live-server tested. Do not mark them as passed.
 - Lint, TypeScript, source tests, and the iOS JavaScript export pass. Device installation, signing, live database behavior, and iOS UI remain unverified.
+
+## Open launch items (bijgewerkt 31-10-2026 21:00)
+
+- **App Review-telefoonnummer**: nog niet door Kevin gegeven; Apple vereist het bij indienen (docs/app-store/METADATA_NL.md).
+- **Universal links**: code/config klaar (zie docs/web/WEB_NL.md). Nodig: Kevins eigen Apple Team ID in de web-env (`SNAPSHOTX_APPLE_TEAM_ID`) + web redeploy, Associated Domains-capability op App ID `com.snapshotx.app` (EAS synchroniseert die bij een production-build met eigen credentials). Ad-hoc-testbuilds blijven zonder associated domains.
+- **Gesprekken**: echte test tussen twee apparaten; TURN-dienst kiezen en `EXPO_PUBLIC_TURN_*` zetten; groepsgesprekken nog niet gebouwd.
+- **Supabase Auth Redirect URLs** voor `https://snapshot-x.nl/auth/callback` (+ www): controleren in het dashboard.
+- **App Review-demo-account**: opnieuw aanmaken vlak voor indienen (de live DB bevat nu alleen Kevins account).

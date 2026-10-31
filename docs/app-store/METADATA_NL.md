@@ -13,11 +13,11 @@ Limieten tussen haakjes zijn die van App Store Connect.
 | Secundaire categorie | Sociale netwerken |
 | Leeftijdsclassificatie | 13+ (zie vragenlijst hieronder); app weigert registratie onder 13 jaar (lib/auth-form.ts) |
 | Copyright | © 2026 Vonk Byte |
-| Support-URL | https://snapshot-x.expo.app/help — openbare pagina Help en support (app/help.tsx): veelgestelde vragen, hulplijnen en een knop om support@snapshot-x.nl te mailen. Werkt zonder inloggen. |
+| Support-URL | https://snapshot-x.nl/help — openbare pagina Help en support (app/help.tsx): veelgestelde vragen, hulplijnen en een knop om support@snapshot-x.nl te mailen. Werkt zonder inloggen. |
 | Support-e-mail | support@snapshot-x.nl |
-| Marketing-URL | https://snapshot-x.expo.app (optioneel) |
-| Privacybeleid-URL | https://snapshot-x.expo.app/privacy |
-| Gebruiksvoorwaarden (EULA) | https://snapshot-x.expo.app/voorwaarden |
+| Marketing-URL | https://snapshot-x.nl (optioneel) |
+| Privacybeleid-URL | https://snapshot-x.nl/privacy |
+| Gebruiksvoorwaarden (EULA) | https://snapshot-x.nl/voorwaarden |
 
 ## Promotietekst (170)
 Nieuw: kies precies welke meldingen je krijgt, download een kopie van je gegevens en meld accounts met één tik.
@@ -80,7 +80,7 @@ Controleer tegen de privacymanifest in app.json (`ios.privacyManifests`) en lib/
 
 ## Nog nodig vóór indienen
 - [ ] Eigen Apple Developer-account + bundle ID (geen ondertekening via een ander team).
-- [x] Support-e-mail: support@snapshot-x.nl (lib/legal.ts). Support-URL: https://snapshot-x.expo.app/help (openbare helppagina, app/help.tsx).
+- [x] Support-e-mail: support@snapshot-x.nl (lib/legal.ts). Support-URL: https://snapshot-x.nl/help (openbare helppagina, app/help.tsx).
 - [ ] Openstaande Supabase-migraties toepassen (zie supabase/migrations, o.a. 20261029030000 en 20261029120000).
 - [ ] In-app aankopen (Snapshot X+) aanmaken in App Store Connect als ze bij de lancering meegaan.
 - [x] Demo-account voor App Review.

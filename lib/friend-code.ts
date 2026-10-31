@@ -51,3 +51,11 @@ export function requestResultText(result: string | null | undefined, name: strin
   if (result === 'pending') return `Vriendschapsverzoek naar ${name} verstuurd.`;
   return 'Er ging iets mis. Probeer het opnieuw.';
 }
+
+/** Banner on the login/register screen after opening someone's QR / snapshot-x.nl/add link while signed out. */
+export function pendingAddText(segment: string | null | undefined): string | null {
+  const c = parseCodeSegment(segment);
+  if (!c) return null;
+  const who = c.kind === 'username' ? `@${c.value}` : 'je vriend';
+  return `Log in of maak een account om ${who} toe te voegen. Daarna openen we het profiel meteen.`;
+}

@@ -1,5 +1,5 @@
 /** Help & support centre (Snapchat "Ondersteuning"): FAQ, crisis numbers and a pre-filled support e-mail.
- *  Rendered by app/help.tsx. Public on the web demo (https://snapshot-x.expo.app/help), so it can be the
+ *  Rendered by app/help.tsx. Public on the web (https://snapshot-x.nl/help), so it can be the
  *  App Store "Support-URL" (App Store Connect wants an https URL, not mailto:). Pure data/logic, no network. */
 import { SUPPORT_EMAIL } from './legal';
 

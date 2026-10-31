@@ -13,6 +13,13 @@ export function pickOpenThread(current: string | null, rows: readonly { id: stri
   return rows.find(r => !r.demo && isRealId(r.id))?.id ?? null;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** `?chat=<thread uuid>` in the web URL keeps the open chat after a refresh / shared desktop link; anything else is ignored. */
+export function splitChatParam(v: string | string[] | undefined | null): string | null {
+  const s = (Array.isArray(v) ? v[0] : v) ?? '';
+  return UUID_RE.test(s) ? s.toLowerCase() : null;
+}
+
 /** Width of the narrow desktop side rail that replaces the left tab bar. */
 export const SIDE_RAIL_WIDTH = 88;
 

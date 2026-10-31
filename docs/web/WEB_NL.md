@@ -50,3 +50,11 @@
 2. Wij: webbuild met echte env als preview-deploy (geen prod), login testen.
 3. Desktop split-view + web-calls (WebRTC in browser).
 4. Kevin akkoord → promote naar prod → DNS zoals hierboven.
+
+## Sessie 31-10-2026 21:00
+- **Universal links / App Links** (code + config, werkt pas na een nieuwe build):
+  - `app.config.js`: iOS `associatedDomains` (`applinks:snapshot-x.nl`, `applinks:www.snapshot-x.nl`) **alleen** als `SNAPSHOTX_UNIVERSAL_LINKS=1` (eas.json-profiel `production`) en nooit voor de ad-hoc-bundle `app.star4684.aquila7560` (dat profiel van Hadian heeft geen Associated Domains-entitlement; anders faalt het tekenen). Android: geverifieerde intent-filter voor `https://snapshot-x.nl/add/*`.
+  - `npm run web:real` schrijft `/.well-known/apple-app-site-association` (alleen pad `/add/*`) en `/.well-known/assetlinks.json` zodra `SNAPSHOTX_APPLE_TEAM_ID` / `SNAPSHOTX_ANDROID_SHA256` in de env staan (lib/universal-links.ts). Zonder die waarden: overgeslagen met melding (niets geraden).
+  - Nog nodig van Kevin: zijn **eigen** Apple Team ID (na de Apple Developer-inschrijving) en later de Play-app-signing SHA-256. Daarna web opnieuw deployen en een production-build maken.
+- **TURN** voor gesprekken: `EXPO_PUBLIC_TURN_URLS` (turn:/turns:), `EXPO_PUBLIC_TURN_USERNAME`, `EXPO_PUBLIC_TURN_CREDENTIAL` (lib/call-signal.ts `iceServersFrom`). Ongeldig/incompleet = alleen STUN. Nog geen TURN-dienst gekozen (bijv. Cloudflare Calls TURN, Twilio, Metered of eigen coturn).
+- **Web**: Nederlandse 404-pagina (`app/+not-found.tsx`), tabtitels per pagina met ongelezen chats (`(2) Chat • SnapShot X`), SEO/linkpreview-tags + `manifest.webmanifest` (installeren als app) + `robots.txt`/`sitemap.xml`, actieve chat gemarkeerd in de split-view en `?chat=<id>` in de URL (blijft open na verversen), inlogscherm toont "Log in of maak een account om @naam toe te voegen" na het openen van een /add-link.

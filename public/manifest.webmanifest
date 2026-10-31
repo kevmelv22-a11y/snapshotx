@@ -1,0 +1,18 @@
+{
+  "name": "SnapShot X",
+  "short_name": "SnapShot X",
+  "description": "Snaps, stories en chat met je vrienden.",
+  "lang": "nl",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#08090E",
+  "theme_color": "#08090E",
+  "categories": ["social", "photo"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

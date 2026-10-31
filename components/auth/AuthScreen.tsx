@@ -9,6 +9,8 @@ import { DEMO_EMAIL } from '../../lib/demo-client';
 import { friendlyError } from '../../lib/db-errors';
 import { classifyIdentifier, validateRegister } from '../../lib/auth-form';
 import { LEGAL_CONSENT, LEGAL_LINKS } from '../../lib/legal';
+import { peekPendingAdd } from '../../lib/pending-add';
+import { pendingAddText } from '../../lib/friend-code';
 
 export type AuthMode = 'login' | 'register';
 const CYAN = '#2EE6FF';
@@ -102,6 +104,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
   }
 
   const isLogin = mode === 'login';
+  const addBanner = pendingAddText(peekPendingAdd());
   const canSubmit = !busy && (isLogin ? !!identifier && !!password : !!username && !!email && !!password && !!birthdate);
   return <View style={s.root}>
     <Backdrop/>
@@ -111,6 +114,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
           <Logo/>
           <Wordmark/>
           <Text style={s.subtitle}>Snaps, stories en chat met je vrienden.</Text>
+          {!!addBanner && <View style={s.addBanner} testID="auth-pending-add"><Text style={s.addBannerText}>{addBanner}</Text></View>}
           <View style={s.toggle} accessibilityRole="tablist">
             {(['login', 'register'] as const).map(m => <Pressable key={m} onPress={() => switchMode(m)} style={[s.seg, mode === m && s.segOn]} accessibilityRole="tab" accessibilityState={{ selected: mode === m }} testID={`auth-tab-${m}`}>
               <Text style={[s.segText, mode === m && s.segTextOn]}>{m === 'login' ? 'Inloggen' : 'Registreren'}</Text>
@@ -155,6 +159,8 @@ const s = StyleSheet.create({ webFooter: { color: '#9C93A6', fontSize: 12, textA
   logo: { width: 170, height: 170},
   bolt: { position: 'absolute', right: 22, top: 8 },
   subtitle: { color: 'rgba(255,255,255,0.78)', fontSize: 16, textAlign: 'center', marginTop: 14, marginBottom: 28 },
+  addBanner: { backgroundColor: 'rgba(255,252,0,0.12)', borderColor: 'rgba(255,252,0,0.55)', borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, marginTop: -12, marginBottom: 18 },
+  addBannerText: { color: '#FFF9B0', fontSize: 14, textAlign: 'center', lineHeight: 20 },
   toggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, padding: 5, marginBottom: 22 },
   seg: { flex: 1, height: 46, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   segOn: { backgroundColor: '#F4F2F2' },

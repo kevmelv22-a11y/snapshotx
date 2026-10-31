@@ -1,6 +1,6 @@
 /** App Store launch readiness: Privacybeleid + Gebruiksvoorwaarden (Apple guideline 5.1.1: the privacy policy must be
  *  reachable inside the app, and its URL goes into App Store Connect). Rendered by app/privacy.tsx and app/voorwaarden.tsx;
- *  on the web demo they are public pages (https://snapshot-x.expo.app/privacy and /voorwaarden), no login needed.
+ *  on the web they are public pages (https://snapshot-x.nl/privacy and /voorwaarden), no login needed.
  *  The text describes what the app really does (see the migrations / Edge Functions it names). */
 export type LegalSection = { heading: string; body: string[] };
 export type LegalDoc = { route: '/privacy' | '/voorwaarden'; title: string; updated: string; intro: string; sections: LegalSection[] };

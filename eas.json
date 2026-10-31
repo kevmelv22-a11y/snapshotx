@@ -28,7 +28,10 @@
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "SNAPSHOTX_UNIVERSAL_LINKS": "1"
+      }
     },
     "preview-simulator": {
       "extends": "preview",

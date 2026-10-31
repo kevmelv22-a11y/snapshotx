@@ -1,6 +1,7 @@
 import React,{useCallback,useEffect,useState} from 'react';
 import {Platform,useWindowDimensions} from 'react-native';
 import {isSplitLayout} from '../../lib/web-layout';
+import {setTitleUnread} from '../../lib/web-title';
 import {SideRail} from '../../components/web/SideRail';
 import {Tabs,Redirect,usePathname} from 'expo-router';
 import {Ionicons} from '@expo/vector-icons';
@@ -15,6 +16,8 @@ export default function TabLayout(){
  const refresh=useCallback(async()=>{if(!uid)return;try{setUnread((await loadChatRows(uid)).filter(x=>x.unread).length)}catch{/* Chat screen displays the error. */}},[uid]);
  useEffect(()=>{if(!uid)return;const ch=supabase.channel(`sx-tab-badge-${uid}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_messages'},()=>void refresh()).subscribe();const timer=setInterval(()=>void refresh(),30000);return()=>{clearInterval(timer);void supabase.removeChannel(ch)}},[uid,refresh]);
  useEffect(()=>{if(!uid)return;const timer=setTimeout(()=>void refresh(),0);return()=>clearTimeout(timer)},[pathname,uid,refresh]);
+ useEffect(()=>{setTitleUnread(uid?unread:0)},[uid,unread]);
+ useEffect(()=>()=>setTitleUnread(0),[]);
  const {width}=useWindowDimensions(),desktop=isSplitLayout(width,Platform.OS);
  if(ready&&!session)return <Redirect href="/(auth)/login"/>;
  const items=[['map','map-outline','Map'],['chats','chatbubbles','Chat'],['index','camera-outline','Camera'],['friends','people-outline','Vrienden'],['videos','play-outline','Video’s']] as const;

@@ -1,6 +1,24 @@
 /** 1:1 call signaling over Supabase Realtime broadcast (no server tables needed).
  *  Invites go to the callee's personal topic; SDP/ICE/accept/decline/hangup go over a per-call topic. */
-export const CALL_ICE_SERVERS = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+export type IceServer = { urls: string[]; username?: string; credential?: string };
+export const STUN_SERVERS: IceServer[] = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+const TURN_URL_RE = /^turns?:[a-z0-9.-]+(:\d{1,5})?(\?transport=(udp|tcp))?$/i;
+
+/**
+ * STUN plus an optional TURN relay (for calls behind strict NAT / mobile networks / firewalls that block UDP).
+ * EXPO_PUBLIC_TURN_URLS = comma-separated turn:/turns: URLs, EXPO_PUBLIC_TURN_USERNAME + EXPO_PUBLIC_TURN_CREDENTIAL.
+ * These end up in the app/web bundle, so use a TURN service with restricted (ideally short-lived) credentials.
+ * Invalid or incomplete config is ignored (STUN only) instead of breaking calls.
+ */
+export function iceServersFrom(env: { urls?: string; username?: string; credential?: string }): IceServer[] {
+  const urls = (env.urls ?? '').split(',').map(u => u.trim()).filter(Boolean);
+  if (!urls.length || !env.username || !env.credential || urls.length > 5 || urls.some(u => !TURN_URL_RE.test(u))) return STUN_SERVERS;
+  return [...STUN_SERVERS, { urls, username: env.username, credential: env.credential }];
+}
+/** True when a TURN relay is configured (shown as a hint in call diagnostics/docs). */
+export const hasTurn = (servers: IceServer[]) => servers.some(s => s.urls.some(u => /^turns?:/i.test(u)));
+// Literal process.env access so Expo inlines it at build time.
+export const CALL_ICE_SERVERS: IceServer[] = iceServersFrom({ urls: process.env.EXPO_PUBLIC_TURN_URLS, username: process.env.EXPO_PUBLIC_TURN_USERNAME, credential: process.env.EXPO_PUBLIC_TURN_CREDENTIAL });
 export const RING_TIMEOUT_MS = 45000;
 
 export const userCallTopic = (userId: string) => `sx-call-user:${userId}`;
