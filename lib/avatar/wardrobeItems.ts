@@ -129,6 +129,8 @@ export const WARDROBE_ITEMS: WardrobeItem[] = [
   item('top-pec-jersey', 'top', 'PEC Zwolle', 'Blauw-wit gestreept PEC Zwolle-thuisshirt', null, ['#FFFFFF', '#1E64C8'], { variant: 'tee', pattern: 'stripes' }),
   item('top-willem2-jersey', 'top', 'Willem II', 'Rood-wit-blauw gestreept Willem II-thuisshirt', null, ['#D8141E', '#FFFFFF', '#1B2A5C'], { variant: 'tee', pattern: 'stripes' }),
   item('top-gae-jersey', 'top', 'Go Ahead Eagles', 'Rood-geel Go Ahead Eagles-thuisshirt', null, ['#E2001A', '#FFD200'], { variant: 'polo' }),
+  item('top-nac-jersey', 'top', 'NAC Breda', 'Geel-zwart NAC Breda-thuisshirt', null, ['#FFE600', '#111111'], { variant: 'tee' }),
+  item('top-volendam-jersey', 'top', 'FC Volendam', 'Oranje FC Volendam-thuisshirt met witte kraag', null, ['#F47B20', '#FFFFFF'], { variant: 'tee' }),
   item('top-acmilan-jersey', 'top', 'AC Milan', 'Rood-zwart gestreept voetbalshirt', null, ['#D0102B', '#000000'], { variant: 'tee', pattern: 'stripes' }),
   item('top-juventus-jersey', 'top', 'Juventus', 'Zwart-wit gestreept Juventus-shirt', null, ['#000000', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
   item('top-inter-jersey', 'top', 'Inter', 'Blauw-zwart gestreept voetbalshirt', null, ['#0068A8', '#000000'], { variant: 'tee', pattern: 'stripes' }),

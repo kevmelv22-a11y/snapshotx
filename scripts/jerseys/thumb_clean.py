@@ -1,6 +1,7 @@
 # Kast thumbnail for cloned club jerseys (scripts/staff/thumb.py for any item id): the worn boy torso band minus skin,
 # hands, denim and arm-in-shadow, RGBA (no quantise). Run after scripts/jerseys/clean_hem.py, which already removed the
-# white cargo; KEEPWHITE=1 skips the white-cargo colour cut (shirts with white stripes).  usage: thumb_clean.py <item-id> ...
+# white cargo; KEEPWHITE=1 skips the white-cargo colour cut (shirts with white stripes); NOARM=1 skips the
+# arm-in-shadow cut (orange / warm shirts, whose own shading matches that colour test).  usage: thumb_clean.py <item-id> ...
 import os,sys,json,numpy as np,cv2
 from PIL import Image
 T=json.load(open('scripts/worn-bands/tones.json'))['male']['files']
@@ -36,6 +37,7 @@ for n in sys.argv[1:]:
     yy2=np.arange(q.shape[0])[:,None]; xx2=np.arange(q.shape[1])[None,:]
     arm=(R2>B2+30)&(G2<0.68*R2)&(R2>45)&(q[...,3]>0)&(yy2>150)&(xx2<130)
     arm=cv2.dilate(arm.astype(np.uint8),np.ones((3,3),np.uint8))>0
+    if os.environ.get('NOARM'): arm[:]=False
     q[...,3]=np.where(arm,0,q[...,3])
     solid=cv2.morphologyEx((q[...,3]>40).astype(np.uint8),cv2.MORPH_OPEN,np.ones((5,5),np.uint8))
     n2,lb2,st2,_=cv2.connectedComponentsWithStats(solid,8); main=lb2==1+np.argmax(st2[1:,4])
