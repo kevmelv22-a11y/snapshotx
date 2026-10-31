@@ -6,8 +6,8 @@
  *   snapshotx://add/<code>, snapshotx://friends?u=<username>, snapshotx://friends?id=<uuid>, /add/<code>
  */
 export const FRIEND_LINK_HOST = 'snapshot-x.nl';
-/** Usernames as stored (letters, digits, _ and inner dots, e.g. kevraz0r or kv.savage). */
-export const USERNAME_CODE_RE = /^(?!\.)(?!.*\.\.)[a-z0-9._]{3,30}(?<!\.)$/;
+/** Usernames as stored (letters, digits, _ - and inner dots, e.g. kevraz0r or kv.savage). */
+export const USERNAME_CODE_RE = /^(?![.-])(?!.*\.\.)[a-z0-9._-]{3,30}(?<![.-])$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type FriendCode = { kind: 'username'; value: string } | { kind: 'id'; value: string } | null;
