@@ -156,13 +156,41 @@ export class StaffMock {
       this.audit('sx_staff_plus_revoke', 'sx_entitlement', String(live[0].id), { target: { user_id: user }, reason: r, old_status: 'plus', new_status: this.plusOf(user) ? 'plus' : 'free' });
       return null;
     },
+    // ---- new in 20261031201500_sx_tier_rank_staff_set_tier.sql
+    sx_staff_set_tier: a => {
+      this.requireStaff(['ADMIN', 'OWNER']); const r = this.reason(a.p_reason); const user = String(a.p_user_id);
+      if (!this.profile(user)) throw new SqlError('invalid target user');
+      const tier = a.p_tier == null ? null : String(a.p_tier);
+      if (a.p_grant && (!tier || !['plus', 'family', 'lens', 'platinum', 'storage'].includes(tier))) throw new SqlError('invalid tier');
+      const days = a.p_days == null ? null : Number(a.p_days);
+      if (days != null && (days < 1 || days > 3650)) throw new SqlError('days must be between 1 and 3650');
+      const live = this.table('sx_entitlements').filter(e => e.user_id === user && e.source === 'staff' && e.status === 'active');
+      const old = this.tierOf(user) ?? 'free';
+      if (a.p_grant) {
+        const same = live.find(e => e.tier === tier && days == null && e.expires_at == null);
+        if (same) { this.audit('sx_staff_tier_reaffirm', 'sx_entitlement', String(same.id), { target: { user_id: user }, reason: r, tier, days, old_status: old, new_status: old }); return same.id; }
+        live.forEach(e => { e.status = 'revoked'; });
+        const id = this.id(0xe2);
+        this.table('sx_entitlements').push({ id, user_id: user, tier, source: 'staff', status: 'active', starts_at: this.iso(), expires_at: days ? this.iso(days * 86400e3) : null, will_renew: false });
+        this.audit('sx_staff_tier_grant', 'sx_entitlement', id, { target: { user_id: user }, reason: r, tier, days, old_status: old, new_status: this.tierOf(user) ?? 'free' });
+        return id;
+      }
+      const hit = live.filter(e => tier == null || e.tier === tier);
+      if (!hit.length) throw new SqlError('no staff grant to revoke');
+      hit.forEach(e => { e.status = 'revoked'; });
+      this.audit('sx_staff_tier_revoke', 'sx_entitlement', String(hit[0].id), { target: { user_id: user }, reason: r, tier: tier ?? hit[0].tier, old_status: old, new_status: this.tierOf(user) ?? 'free' });
+      return hit[0].id;
+    },
     sx_staff_user_moderation: a => {
       this.requireStaff(); const user = String(a.p_user_id);
-      return { warnings: this.table('sx_staff_warnings').filter(w => w.user_id === user).length, plus: this.plusOf(user), plus_source: this.table('sx_entitlements').find(e => e.user_id === user && e.status === 'active')?.source ?? null, banned: this.isBanned(user) };
+      return { warnings: this.table('sx_staff_warnings').filter(w => w.user_id === user).length, plus: this.plusOf(user), tier: this.tierOf(user), plus_source: this.table('sx_entitlements').find(e => e.user_id === user && e.status === 'active')?.source ?? null, banned: this.isBanned(user) };
     },
     sx_check_app_access: () => !this.isBanned(this.actorId),
   };
 
+  tierOf(user: string): string | null { const t = this.now(), R: Record<string, number> = { storage: 0, plus: 1, family: 1, lens: 2, platinum: 3 };
+    const live = this.table('sx_entitlements').filter(e => e.user_id === user && (e.status === 'active' || e.status === 'grace') && (!e.expires_at || Date.parse(String(e.expires_at)) > t));
+    return live.length ? String(live.sort((x, y) => (R[String(y.tier)] ?? -1) - (R[String(x.tier)] ?? -1))[0].tier) : null; }
   plusOf(user: string) { const t = this.now(); return this.table('sx_entitlements').some(e => e.user_id === user && (e.status === 'active' || e.status === 'grace') && (!e.expires_at || Date.parse(String(e.expires_at)) > t)); }
   banTarget(b: Row) { return b.ban_type === 'user' ? { user_id: b.target_user_id } : b.ban_type === 'ip' ? { ip: b.target_ip } : { device_id: b.target_device_id }; }
   warn(user: unknown, reason: string, report: string | null) {

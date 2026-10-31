@@ -50,7 +50,7 @@ export function yearlySavingPercent(tier: Tier = 'plus', plans: readonly Plan[] 
 export function monthlyEquivalentCents(p: Plan): number { return p.period === 'year' ? Math.round(p.priceCents / 12) : p.priceCents; }
 
 export type EntitlementStatus = 'active' | 'trial' | 'grace' | 'expired' | 'revoked' | 'refunded';
-export type Entitlement = { tier: Tier; status: EntitlementStatus; source: 'mock' | 'app_store' | 'play' | 'promo'; productId: PlanId | null; startsAt: string; expiresAt: string | null; graceUntil?: string | null; willRenew?: boolean };
+export type Entitlement = { tier: Tier; status: EntitlementStatus; source: 'mock' | 'app_store' | 'play' | 'promo' | 'staff'; productId: PlanId | null; startsAt: string; expiresAt: string | null; graceUntil?: string | null; willRenew?: boolean };
 
 /** True when the entitlement is live at `now`. Revoked/refunded never; grace until graceUntil; null expiresAt = lifetime promo. */
 export function isEntitlementActive(e: Entitlement | null | undefined, now: number): boolean {
