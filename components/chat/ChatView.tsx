@@ -20,7 +20,7 @@ import {PHOTO_WALLPAPER,WALLPAPER_BLUR_RADIUS,isWallpaperChangeText,wallpaperCol
 import {ReactionChips,ReactionPicker,StreakBadge,StreakWarning,SystemLine,TypingIndicator} from './ChatParts';
 
 /** Header row: title, streak, retention toggle, video call. Shared by the real chat and the dev harness. */
-export function ChatHeaderBar({title,streak,retention,onRetention,onCall,avatar,onInfo,memberCount,onBack,onProfile,topInset=0}:{onBack?:()=>void;/** 1:1 chats: tap avatar/name → friendship profile. */onProfile?:()=>void;topInset?:number;title:string;streak:StreakState;retention:RetentionMode;onRetention:()=>void;onCall:()=>void;/** Optional avatar shown left of the title (step 8). */avatar?:React.ReactNode;/** Group chats: opens "Groepsinfo" (title tap + 👥 button). */onInfo?:()=>void;memberCount?:number}){
+export function ChatHeaderBar({title,streak,retention,onRetention,onCall,onAudioCall,avatar,onInfo,memberCount,onBack,onProfile,topInset=0}:{onBack?:()=>void;/** 1:1 chats: tap avatar/name → friendship profile. */onProfile?:()=>void;topInset?:number;title:string;streak:StreakState;retention:RetentionMode;onRetention:()=>void;onCall:()=>void;/** Desktop web split view: extra voice-call button. */onAudioCall?:()=>void;/** Optional avatar shown left of the title (step 8). */avatar?:React.ReactNode;/** Group chats: opens "Groepsinfo" (title tap + 👥 button). */onInfo?:()=>void;memberCount?:number}){
   return <View style={[s.header,{paddingTop:10+topInset}]}>
     {onBack&&<Pressable onPress={onBack} accessibilityLabel="Terug" hitSlop={10} style={{marginRight:-2}}><Ionicons name="chevron-back" size={26} color={C.text}/></Pressable>}
     {onProfile&&!onInfo?<Pressable onPress={onProfile} accessibilityLabel={`Vriendschapsprofiel van ${title}`} testID="chat-profile-link" style={s.who}>{avatar}<Text style={s.title} numberOfLines={1}>{title}</Text></Pressable>:avatar}
@@ -28,7 +28,7 @@ export function ChatHeaderBar({title,streak,retention,onRetention,onCall,avatar,
     <StreakBadge streak={streak}/>
     <View style={{flex:1}}/>
     <Pressable onPress={onRetention} accessibilityLabel="Verwijderinstelling" style={s.pill}><Text style={s.pillText}>⏱ {RETENTION_SHORT[retention]}</Text></Pressable>
-    <Pressable onPress={onCall} accessibilityLabel="Videobellen" style={s.callBtn}><Text style={{fontSize:20}}>📹</Text></Pressable>
+    {onAudioCall&&<Pressable onPress={onAudioCall} accessibilityLabel="Bellen" style={s.callBtn}><Ionicons name="call-outline" size={20} color={C.text}/></Pressable>}<Pressable onPress={onCall} accessibilityLabel="Videobellen" style={s.callBtn}><Text style={{fontSize:20}}>📹</Text></Pressable>
     {onInfo&&<Pressable onPress={onInfo} accessibilityLabel="Groepsinfo" testID="group-info-button" style={s.infoBtn}><Ionicons name="people" size={19} color={C.text}/></Pressable>}
   </View>;
 }
