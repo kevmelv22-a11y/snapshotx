@@ -1,0 +1,47 @@
+# Snapshot X Web op snapshot-x.nl — plan
+
+## Status (31-10-2026)
+- Demo: https://snapshot-x.expo.app (EXPO_PUBLIC_DEMO_MODE=1, in-memory DemoClient, geen Supabase-verkeer).
+- snapshot-x.nl: geregistreerd via **TransIP** (NS ns0.transip.net / ns1.transip.nl / ns2.transip.eu, MX mx.transip.email).
+  Toont nu de TransIP-pagina "Reserved domain". Huidige records: A 85.10.159.96, AAAA 2a01:7c8:f0:1091:0:2:f0a4:abf8, www CNAME -> apex.
+  Houder is via SIDN niet publiek; aangenomen: Kevins TransIP-account.
+
+## Wat een echte (niet-demo) webbuild nodig heeft
+1. Build-env: `EXPO_PUBLIC_SUPABASE_URL=https://udantesxduijzhhunadv.supabase.co`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable key>`, **geen** `EXPO_PUBLIC_DEMO_MODE`. (lib/supabase.ts gooit een fout als die ontbreken.)
+2. Supabase Auth → URL Configuration: Site URL / Redirect URLs aanvullen met `https://snapshot-x.nl/**` (en `https://snapshot-x.expo.app/**`) voor wachtwoord-reset/magic links. Login met e-mail+wachtwoord werkt op web met de bestaande client (AsyncStorage → localStorage). `detectSessionInUrl:false` moet op web `true` worden als we e-mail-links op web willen afhandelen.
+3. Header `x-snaplion-device-id` (custom fetch) → CORS: Supabase staat custom headers toe, maar verifiëren in browser.
+4. Wat breekt / ontbreekt op web:
+   - Bellen: `components/call/RealCall.tsx` is een web-stub (react-native-webrtc is native-only); `app/call/[id].tsx` gaat op web nooit naar RealCall. Nodig: web-implementatie met browser `RTCPeerConnection` + `getUserMedia`, hergebruik van lib/call-signal.ts (Supabase Realtime-signaling).
+   - Incoming call: alleen `IncomingCall.native.tsx` echt; web heeft geen push/CallKit → in-app Realtime-banner.
+   - Camera: expo-camera werkt beperkt op web (getUserMedia, HTTPS vereist — oké op snapshot-x.nl).
+   - Push, RevenueCat (aankopen), app-icons, kaart (`app/map.tsx` heeft web-check), 3D-avatar/face-lab: controleren/uitschakelen op web.
+   - Unapplied migrations: web gebruikt dezelfde DB; features die daarvan afhangen falen totdat Kevin ze goedkeurt.
+5. Niet getest: live login (geen echte .env/sleutel op de box; demo-only). Eerste stap = preview-deploy met echte env.
+
+## Layout à la Snapchat Web (desktop ≥ 1024px)
+- Links (~360px): profiel/zoek bovenaan, chatlijst (bestaande chat-list.ts), knop "Nieuwe chat".
+- Rechts: geopende chat (berichten + invoer), header met bel/video-knoppen.
+- Smal (<1024px): huidige mobiele tab-navigatie.
+- Implementatie: `useWindowDimensions()` in `app/(tabs)/_layout.tsx` + een `app/(web)/chat` split-view; route `/chat/[id]` rendert rechts.
+
+## Hosting & domein (EAS Hosting)
+- Custom domain = **betaald Expo-plan nodig** (niet op Free; Starter is genoeg). 1 custom domain per project, wijst altijd naar de **production**-deployment.
+- Dus pas koppelen nadat de echte webbuild op prod staat (nu is prod = demo).
+
+### Exacte DNS-stappen voor Kevin (TransIP → Domein → DNS)
+1. expo.dev → project → Hosting settings → Custom domain → `snapshot-x.nl` invullen. Het dashboard toont de exacte tokenwaarden.
+2. In TransIP (in deze volgorde, telkens "Refresh" in Expo):
+   | Naam | Type | Waarde |
+   |---|---|---|
+   | `_cf-custom-hostname` | TXT | (verificatietoken uit Expo-dashboard) |
+   | `_acme-challenge` | CNAME | (SSL-doel uit Expo-dashboard) |
+   | `@` | A | `172.66.0.241` (controleer in dashboard) |
+   | `www` | CNAME | `origin.expo.app.` (www → 308 redirect naar apex) |
+3. **Verwijderen**: de bestaande `@` A 85.10.159.96 en `@` AAAA 2a01:7c8:f0:1091:0:2:f0a4:abf8 (TransIP-parkeerpagina) en de oude `www` CNAME. MX/SPF (TransIP mail) laten staan.
+4. Optioneel staging: `staging` CNAME `origin.expo.app.` + alias `staging` in EAS.
+
+## Volgorde
+1. Kevin: Expo-plan upgraden (Starter) + migrations beoordelen.
+2. Wij: webbuild met echte env als preview-deploy (geen prod), login testen.
+3. Desktop split-view + web-calls (WebRTC in browser).
+4. Kevin akkoord → promote naar prod → DNS zoals hierboven.
