@@ -31,7 +31,8 @@
       "channel": "production",
       "env": {
         "SNAPSHOTX_UNIVERSAL_LINKS": "1"
-      }
+      },
+      "environment": "production"
     },
     "preview-simulator": {
       "extends": "preview",

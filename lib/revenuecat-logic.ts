@@ -12,6 +12,10 @@ export function rcApiKeyFor(os: StoreOs, env: { ios?: string; android?: string }
   if (os === 'ios' && key.startsWith('goog_')) return RC_TEST_KEY;
   return key;
 }
+/** Release builds must never configure the SDK with the Test Store key (RevenueCat aborts release apps that do). */
+export function rcKeyUsable(key: string, isDev: boolean): boolean {
+  return isDev || key !== RC_TEST_KEY;
+}
 /** Store name in user-facing Dutch copy. */
 export const storeName = (os: StoreOs): string => (os === 'android' ? 'Google Play' : 'App Store');
 

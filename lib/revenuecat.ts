@@ -3,7 +3,7 @@ import {Platform} from 'react-native';
 import type {CustomerInfo,PurchasesOffering,PurchasesPackage} from 'react-native-purchases';
 import {DEMO_MODE} from './supabase';
 import {loadRcSdk} from './rc-sdk';
-import {RC_ENTITLEMENT,mapPackages,purchaseErrorMessage,rcApiKeyFor} from './revenuecat-logic';
+import {RC_ENTITLEMENT,mapPackages,purchaseErrorMessage,rcApiKeyFor,rcKeyUsable} from './revenuecat-logic';
 export * from './revenuecat-logic';
 
 export const RC_ENABLED=Platform.OS!=='web'&&!DEMO_MODE;
@@ -13,8 +13,10 @@ let configured=false;
 export function configureRevenueCat():boolean{
   const s=sdk();if(!s)return false;if(configured)return true;
   try{
+    const apiKey=rcApiKeyFor(Platform.OS,{ios:process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,android:process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY});
+    if(!rcKeyUsable(apiKey,__DEV__)){console.warn('[revenuecat] no store SDK key in this release build; purchases disabled');return false}
     if(__DEV__)void s.Purchases.setLogLevel(s.Purchases.LOG_LEVEL.DEBUG);
-    s.Purchases.configure({apiKey:rcApiKeyFor(Platform.OS,{ios:process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,android:process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY})});
+    s.Purchases.configure({apiKey});
     configured=true;
   }catch(e){console.warn('[revenuecat] configure failed',e)}
   return configured;
