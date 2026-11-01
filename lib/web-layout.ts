@@ -65,3 +65,14 @@ export const READABLE_MAX_WIDTH = 760;
 export function readableMaxWidth(windowWidth: number, platform: string): number | null {
   return isSplitLayout(windowWidth, platform) ? READABLE_MAX_WIDTH : null;
 }
+
+/** Herinneringen grid: 3 tall cells per row on phones (unchanged); on desktop web as many ~190px portrait cells as fit
+ *  (max 8) so a 1440px screen doesn't show three 470×170 letterboxes. Returns a percentage width + pixel height. */
+export const MEMORY_GRID = { phoneHeight: 170, minCell: 190, maxColumns: 8, ratio: 1.4 } as const;
+export function memoryGrid(windowWidth: number, platform: string): { columns: number; width: `${number}%`; height: number } {
+  const w = Number.isFinite(windowWidth) && windowWidth > 0 ? windowWidth : 390;
+  if (!isSplitLayout(w, platform)) return { columns: 3, width: '32.8%', height: MEMORY_GRID.phoneHeight };
+  const columns = Math.max(4, Math.min(MEMORY_GRID.maxColumns, Math.floor(w / MEMORY_GRID.minCell)));
+  const pct = Math.floor((100 / columns - 0.2) * 10) / 10;
+  return { columns, width: `${pct}%`, height: Math.round((w / columns) * MEMORY_GRID.ratio) };
+}

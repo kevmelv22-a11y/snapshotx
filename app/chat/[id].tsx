@@ -1,4 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {kavBehavior,chatKeyboardOffset} from '../../lib/keyboard';
 import { MEDIA_LABEL } from '../../lib/media-access';
 import {KeyboardAvoidingView,Platform,Pressable,StyleSheet,Text,TextInput,View} from 'react-native';
 import {isWebSendKey,type SendKeyLike} from '../../lib/web-send-key';
@@ -17,6 +18,7 @@ import type {RealtimeChannel} from '@supabase/supabase-js';
 import {supabase} from '../../lib/supabase';
 import {uploadMedia,mediaUrl,removeMedia} from '../../lib/media';
 import {useSession} from '../../hooks/useSession';
+import {PROFILE_NAME_COLUMNS,profileName} from '../../lib/profile-name';
 import {C} from '../../lib/theme';
 import {Media} from '../../components/Media';
 import {Hint} from '../../components/UI';
@@ -31,7 +33,7 @@ import {FriendAvatar} from '../../components/avatar/FriendAvatar';
 import {AvatarStickerSheet,ChatAvatarSticker} from '../../components/avatar/AvatarStickerSheet';
 import {chatStickerBody,stickerFromChatBody} from '../../lib/avatar/poses';
 import {isVisibleAsSent,isVisibleForEveryone,leaveEvents,nameResolver,pendingOldTimers,receiptIndex,sentModes,timerStarts,type ReceiptRow} from '../../lib/chat-retention';
-import {VOICE_MAX_MS,activeTypers,applyTyping,computeStreak,keepRecording,meterLevel,parseRetention,retentionChangeText,screenshotText,shouldReportScreenshot,shouldSendTyping,toggleReaction,typingText,type Reaction,type RetentionMode,type TypingMap} from '../../lib/chat-features';
+import {VOICE_MAX_MS,activeTypers,applyTyping,computeStreak,keepRecording,meterLevel,parseRetention,retentionChangeText,screenshotSubject,screenshotText,shouldReportScreenshot,shouldSendTyping,toggleReaction,typingText,type Reaction,type RetentionMode,type TypingMap} from '../../lib/chat-features';
 
 import {friendlyError} from '../../lib/db-errors';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -82,17 +84,20 @@ export default function Chat({threadId,embedded=false}:{threadId?:string;embedde
   if(outgoing.length){const r=await supabase.from('sx_receipts').select('message_id,opened_at').in('message_id',outgoing).neq('user_id',uid);if(!r.error)setPeerOpened(new Set((r.data||[]).filter(x=>x.opened_at).map(x=>x.message_id)))}
   // Snapchat: the deletion timer starts once EVERYONE has viewed a chat → read every member's receipt (RLS sx_receipts_read allows members).
   const chats=list.filter(m=>m.kind!=='system'&&m.kind!=='snap').map(m=>m.id);
-  if(chats.length){const r=await supabase.from('sx_receipts').select('message_id,user_id,opened_at').in('message_id',chats);if(!r.error){const rs=(r.data||[]) as ReceiptRow[];setThreadReceipts(rs);const who=[...new Set(rs.map(x=>x.user_id))];const p=who.length?await supabase.from('profiles').select('id,display_name').in('id',who):null;if(p&&!p.error)setReceiptNames((p.data||[]).map(x=>({id:x.id as string,name:String(x.display_name??'')})))}}
+  if(chats.length){const r=await supabase.from('sx_receipts').select('message_id,user_id,opened_at').in('message_id',chats);if(!r.error){const rs=(r.data||[]) as ReceiptRow[];setThreadReceipts(rs);const who=[...new Set(rs.map(x=>x.user_id))];const p=who.length?await supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',who):null;if(p&&!p.error)setReceiptNames((p.data||[]).map(x=>({id:x.id as string,name:profileName(x,'')})))}}
   // Reactions need migration 20261013150000_chat_step4.sql; without it the query errors and reactions stay empty.
   const ids=list.map(m=>m.id);if(ids.length){const r=await supabase.from('sx_reactions').select('message_id,user_id,emoji').in('message_id',ids);if(!r.error)setReactions((r.data||[]).map(x=>({messageId:x.message_id,userId:x.user_id,emoji:x.emoji})))}
   const polls=list.filter(m=>m.kind==='text'&&parsePoll(m.body)).map(m=>m.id);if(polls.length){const v=await supabase.from('sx_poll_votes').select('message_id,user_id,option_index').in('message_id',polls);if(!v.error)setVotes((v.data||[]).map(x=>({messageId:x.message_id,userId:x.user_id,option:Number(x.option_index)})))}
  },[id,uid]);
  // Thread meta: retention setting, group name/creator + members (names for typing, streak partner, Groepsinfo).
+ // My own name in system lines (screenshot, wallpaper, retention): profile display name, else @username — never blank/'Iemand'.
+ const [myProfileName,setMyProfileName]=useState<string|null>(null);
+ const myName=myProfileName||profileName({display_name:session?.user.user_metadata?.display_name as string|undefined,username:session?.user.user_metadata?.username as string|undefined},'Iemand');
  const [threadTitle,setThreadTitle]=useState<string|null>(null),[creatorId,setCreatorId]=useState<string|null>(null),[members,setMembers]=useState<GroupMember[]>([]),[removers,setRemovers]=useState<string[]>([]),[infoOpen,setInfoOpen]=useState(false);
  const loadMeta=useCallback(async(alive:()=>boolean=()=>true)=>{if(!id||!uid)return;const t=await supabase.from('sx_threads').select('retention_mode,title,created_by').eq('id',id).maybeSingle();if(alive()&&!t.error){setRetention(parseRetention(t.data?.retention_mode));setThreadTitle(t.data?.title??null);setCreatorId(t.data?.created_by??null)}
   // can_remove_members needs migration 20261027200000; without it fall back to plain membership (no remove rights).
-  let m:{data:{user_id:string;can_remove_members?:boolean|null}[]|null}=await supabase.from('sx_members').select('user_id,can_remove_members').eq('thread_id',id);if((m as {error?:unknown}).error)m=await supabase.from('sx_members').select('user_id').eq('thread_id',id);if(alive())setRemovers((m.data||[]).filter(x=>x.can_remove_members).map(x=>x.user_id));const all=[...new Set((m.data||[]).map(x=>x.user_id as string))];const ids=all.filter(x=>x!==uid);const p=all.length?await supabase.from('profiles').select('id,display_name').in('id',all):null;const names=new Map((p?.data||[]).map(x=>[x.id,x.display_name]));if(!alive())return;
-  setPeers(ids.map(x=>({id:x,name:names.get(x)||'Vriend'})));setMembers(all.map(x=>({id:x,name:x===uid?(names.get(x)||session?.user.user_metadata?.display_name||'Jij'):(names.get(x)||'Vriend')})))},[id,uid,session?.user.user_metadata?.display_name]);
+  let m:{data:{user_id:string;can_remove_members?:boolean|null}[]|null}=await supabase.from('sx_members').select('user_id,can_remove_members').eq('thread_id',id);if((m as {error?:unknown}).error)m=await supabase.from('sx_members').select('user_id').eq('thread_id',id);if(alive())setRemovers((m.data||[]).filter(x=>x.can_remove_members).map(x=>x.user_id));const all=[...new Set((m.data||[]).map(x=>x.user_id as string))];const ids=all.filter(x=>x!==uid);const p=all.length?await supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',all):null;const names=new Map((p?.data||[]).map(x=>[x.id as string,profileName(x,'')]));if(!alive())return;setMyProfileName(names.get(uid)||null);
+  setPeers(ids.map(x=>({id:x,name:names.get(x)||'Vriend'})));setMembers(all.map(x=>({id:x,name:x===uid?(names.get(x)||myName):(names.get(x)||'Vriend')})))},[id,uid,myName]);
  useEffect(()=>{let alive=true;const timer=setTimeout(()=>void loadMeta(()=>alive),0);return()=>{alive=false;clearTimeout(timer)}},[loadMeta]);
  // Every photo change goes through setPhoto: when MY old wallpaper photo is replaced or removed (by me or another member,
  // seen live), it is deleted from storage so old wallpaper photos don't pile up (lib/chat-wallpaper.ts staleWallpaperPhoto).
@@ -114,8 +119,8 @@ export default function Chat({threadId,embedded=false}:{threadId?:string;embedde
  useEffect(()=>{let alive=true;const timer=setTimeout(()=>void loadWallpaper(()=>alive),0);return()=>{alive=false;clearTimeout(timer)}},[loadWallpaper]);
  async function changeWallpaper(next:WallpaperId){if(wallpaperBusy||wallpaperBlocked())return;const c=wallpaperChange(wallpaper,next);if(!c.ok){if(c.error)setNotice(c.error);setWallpaperOpen(false);return}
   const prev=wallpaper;setWallpaper(c.id);setWallpaperOpen(false);setWallpaperBusy(true);
-  try{const {error}=await supabase.rpc('sx_set_wallpaper',{p_thread_id:id,p_wallpaper:c.id,p_text:wallpaperChangeText(session?.user.user_metadata?.display_name||'Iemand',c.id)});if(error){setWallpaper(prev);setNotice(wallpaperErrorText(error)??friendlyError(error))}else{setPhoto(null);void load()}}finally{setWallpaperBusy(false)}}
- async function applyPhotoWallpaper(next:PhotoWallpaper):Promise<boolean>{const c=photoWallpaperChange({id:wallpaper,photo:wpPhoto},next,uid,session?.user.user_metadata?.display_name||'Iemand');if(!c.ok){if(c.error)setNotice(c.error);return false}
+  try{const {error}=await supabase.rpc('sx_set_wallpaper',{p_thread_id:id,p_wallpaper:c.id,p_text:wallpaperChangeText(myName,c.id)});if(error){setWallpaper(prev);setNotice(wallpaperErrorText(error)??friendlyError(error))}else{setPhoto(null);void load()}}finally{setWallpaperBusy(false)}}
+ async function applyPhotoWallpaper(next:PhotoWallpaper):Promise<boolean>{const c=photoWallpaperChange({id:wallpaper,photo:wpPhoto},next,uid,myName);if(!c.ok){if(c.error)setNotice(c.error);return false}
   const {error}=await supabase.rpc('sx_set_wallpaper_photo',{p_thread_id:id,p_path:c.photo.path,p_blur:c.photo.blur,p_text:c.line});if(error){setNotice(wallpaperErrorText(error)??friendlyError(error));return false}
   setWallpaper(PHOTO_WALLPAPER);setPhoto(c.photo);if(c.line)void load();return true}
  // Snapchat+: pick a photo from the Camera Roll (9:16 crop on iOS/Android), upload it to my own media folder, share it as the chat wallpaper.
@@ -146,7 +151,9 @@ export default function Chat({threadId,embedded=false}:{threadId?:string;embedde
  // Screenshot notification (native only; expo-screen-capture has no web screenshot event).
  // Best-effort: a live DB without 20261013150000_chat_step4 rejects kind='system' (23514); never show that as an error.
  const postSystem=useCallback(async(text:string)=>{const row=systemMessageRow(id,uid,text);if(!row)return;const {error}=await supabase.from('sx_messages').insert(row);if(error){if(!isSilentSystemMessageError(error))setNotice(friendlyError(error));else console.warn('[chat] system line skipped',error.code)}else void load()},[id,uid,load]);
- useEffect(()=>{if(Platform.OS==='web'||!uid)return;const sub=ScreenCapture.addScreenshotListener(()=>{const t=Date.now();if(!shouldReportScreenshot(lastShot.current,t))return;lastShot.current=t;void postSystem(screenshotText(session?.user.user_metadata?.display_name||'Je vriend',false))});return()=>sub.remove()},[uid,postSystem,session?.user.user_metadata?.display_name]);
+ // Latest open-snap state for the screenshot listener (no re-subscribe on every tap): "screenshot van een snap".
+ const openedRef=useRef(opened),rowsRef=useRef(rows);useEffect(()=>{openedRef.current=opened;rowsRef.current=rows},[opened,rows]);
+ useEffect(()=>{if(Platform.OS==='web'||!uid)return;const sub=ScreenCapture.addScreenshotListener(()=>{const t=Date.now();if(!shouldReportScreenshot(lastShot.current,t))return;lastShot.current=t;void postSystem(screenshotText(myName,false,screenshotSubject(openedRef.current,rowsRef.current,uid)))});return()=>sub.remove()},[uid,postSystem,myName]);
 
  // Auto-stop voice notes at the max length.
  useEffect(()=>{if(recorderState.isRecording&&recorderState.durationMillis>=VOICE_MAX_MS)void stopRecording(true)},[recorderState.isRecording,recorderState.durationMillis]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -197,7 +204,7 @@ export default function Chat({threadId,embedded=false}:{threadId?:string;embedde
  const cancelEdit=()=>{setEditing(null);setBody('');setCaret(0)};
  async function saveEdit(m:Message){const v=validateEdit(body);if(!v.ok){setNotice(v.error);return}if(isNoopEdit(m,v.text)){cancelEdit();return}const before=rows;setBusy(true);setRows(r=>applyEdit(r,m.id,v.text,new Date().toISOString()));cancelEdit();stopTyping();try{const {error}=await supabase.rpc('sx_edit_message',{p_message_id:m.id,p_text:v.text});if(error){setRows(before);setNotice(friendlyError(error))}else void load()}finally{setBusy(false)}}
  // Snapchat Verwijderen (own messages): confirm → gone for everyone, grey "<naam> heeft een chat verwijderd" line stays.
- function unsend(m:Message){confirm.ask({title:UNSEND_CONFIRM.title,message:UNSEND_CONFIRM.body,confirmLabel:UNSEND_CONFIRM.ok,destructive:true},async()=>{const before=rows;setRows(r=>applyUnsend(r,m.id,session?.user.user_metadata?.display_name,new Date().toISOString()));if(editing?.id===m.id)cancelEdit();if(replyTo?.id===m.id)setReplyTo(null);const {error}=await supabase.rpc('sx_unsend_message',{p_message_id:m.id});if(error){setRows(before);return friendlyError(error)}void load();return null})}
+ function unsend(m:Message){confirm.ask({title:UNSEND_CONFIRM.title,message:UNSEND_CONFIRM.body,confirmLabel:UNSEND_CONFIRM.ok,destructive:true},async()=>{const before=rows;setRows(r=>applyUnsend(r,m.id,myName,new Date().toISOString()));if(editing?.id===m.id)cancelEdit();if(replyTo?.id===m.id)setReplyTo(null);const {error}=await supabase.rpc('sx_unsend_message',{p_message_id:m.id});if(error){setRows(before);return friendlyError(error)}void load();return null})}
  async function send(){if(editing){if(!busy)void saveEdit(editing);return}const text=body.trim();if(!text||busy)return;setBusy(true);try{await createMessage('text',replyTo?replyBody(replyTo,text):text,null);setBody('');setCaret(0);setReplyTo(null);stopTyping()}catch(e){setNotice(friendlyError(e))}finally{setBusy(false)}}
  async function sendSticker(id:Parameters<typeof chatStickerBody>[0]){if(busy)return;setBusy(true);try{await createMessage('text',chatStickerBody(id),null)}catch(e){setNotice(friendlyError(e))}finally{setBusy(false)}}
  // Concept: unsent text stays with this chat (switching chats in the split view, leaving, reload). Not while editing a sent message.
@@ -226,7 +233,7 @@ export default function Chat({threadId,embedded=false}:{threadId?:string;embedde
  async function sendPoll(text:string){if(busy)return;setPollOpen(false);setBusy(true);try{await createMessage('text',text,null)}catch(e){setNotice(friendlyError(e))}finally{setBusy(false)}}
  // Opslaan in chat (long-press menu): optimistic grey highlight, server decides (sx_set_message_saved), revert on error.
  async function setSaved(m:Message,saved:boolean){const before=rows;setRows(r=>applySaved(r,m.id,saved,uid));const {error}=await supabase.rpc('sx_set_message_saved',{p_message_id:m.id,p_saved:saved});if(error){setRows(before);setNotice(friendlyError(error))}else void load()}
- async function changeRetention(mode:RetentionMode){if(mode===retention)return;const prev=retention;setRetention(mode);const {error}=await supabase.rpc('sx_set_retention',{p_thread_id:id,p_mode:mode,p_text:retentionChangeText(session?.user.user_metadata?.display_name||'Iemand',mode)});if(error){setRetention(prev);setNotice(friendlyError(error))}else void load()}
+ async function changeRetention(mode:RetentionMode){if(mode===retention)return;const prev=retention;setRetention(mode);const {error}=await supabase.rpc('sx_set_retention',{p_thread_id:id,p_mode:mode,p_text:retentionChangeText(myName,mode)});if(error){setRetention(prev);setNotice(friendlyError(error))}else void load()}
  function blockSender(senderId:string){if(!session)return;confirm.ask({title:'Gebruiker blokkeren?',message:'Jullie kunnen elkaar dan niet meer berichten. In een groepschat worden berichten van deze gebruiker verborgen.',confirmLabel:'Blokkeren',destructive:true},async()=>{const {error}=await supabase.from('sx_blocks').insert({blocker_id:uid,blocked_id:senderId});if(error)return friendlyError(error);setNotice('Gebruiker geblokkeerd');await load();await loadBlocks();return null})}
  // Snaps render as a Snapchat status line (red/purple ■ or ➤), never as an inline photo until tapped.
  const snapBubble=(item:Message,mine:boolean)=>{const st=messageStatus(item,uid,peerOpened.has(item.id),viewedAt[item.id]!==undefined);const showing=!!opened[item.id]&&!!item.media_path;
@@ -247,7 +254,7 @@ export default function Chat({threadId,embedded=false}:{threadId?:string;embedde
  const memberMenu=useMemberActions({threadId:String(id??''),me:uid,adminId:creatorId,members,removers,onChanged:()=>{void loadMeta();void load()}});
  const nameOf=(sid:string)=>(sid!==uid?nicknames.get(sid):undefined)??members.find(m=>m.id===sid)?.name??peers.find(p=>p.id===sid)?.name??null;
  const avatarOf=(sid:string)=><FriendAvatar id={sid} outfit={sid===uid?ownOutfit:friendOutfits.get(sid)} size={22} name={nameOf(sid)??undefined}/>;
- return <KeyboardAvoidingView style={s.root} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={90}>
+ return <KeyboardAvoidingView style={s.root} behavior={kavBehavior(Platform.OS)} keyboardVerticalOffset={chatKeyboardOffset(Platform.OS)}>
   {!embedded&&<Stack.Screen options={{headerShown:false,title}}/>}
   <ChatHeaderBar onBack={embedded?undefined:()=>router.canGoBack()?router.back():router.replace('/(tabs)/chats')} topInset={embedded?0:insets.top} onAudioCall={embedded?()=>router.push({pathname:'/call/[id]',params:{id:String(id),name:title,audio:'1'}}):undefined} title={title} streak={streak} retention={retention} onRetention={()=>setRetentionOpen(true)} onCall={()=>router.push({pathname:'/call/[id]',params:{id:String(id),name:title}})} avatar={!isGroup&&peers.length===1?<FriendAvatar id={peers[0].id} outfit={friendOutfits.get(peers[0].id)} size={34} name={peers[0].name}/>:undefined} onInfo={isGroup?()=>setInfoOpen(true):undefined} onSearch={()=>searchOpen?closeSearch():setSearchOpen(true)} onProfile={!isGroup&&peers.length===1?()=>router.push({pathname:'/friend/[id]',params:{id:peers[0].id}}):undefined} memberCount={isGroup?members.length:undefined}/>
   {searchOpen&&<View style={s.searchBar} testID="chat-search-bar"><Ionicons name="search" size={17} color={C.muted}/><TextInput autoFocus value={searchQ} onChangeText={onSearchText} placeholder={CHAT_SEARCH_TEXT.placeholder} placeholderTextColor={C.muted} style={s.searchInput} onSubmitEditing={()=>goHit(stepHit(hits.length,hitIdx,'older'))} returnKeyType="search" accessibilityLabel={CHAT_SEARCH_TEXT.placeholder} testID="chat-search-input"/><Text style={s.searchCount} testID="chat-search-count">{hitLabel(hits.length,hitIdx,searchQ)}</Text><Pressable onPress={()=>goHit(stepHit(hits.length,hitIdx,'older'))} disabled={!hits.length} accessibilityLabel={CHAT_SEARCH_TEXT.prev} hitSlop={8}><Ionicons name="chevron-up" size={22} color={hits.length?C.text:C.muted}/></Pressable><Pressable onPress={()=>goHit(stepHit(hits.length,hitIdx,'newer'))} disabled={!hits.length} accessibilityLabel={CHAT_SEARCH_TEXT.next} hitSlop={8}><Ionicons name="chevron-down" size={22} color={hits.length?C.text:C.muted}/></Pressable><Pressable onPress={closeSearch} accessibilityLabel={CHAT_SEARCH_TEXT.close} hitSlop={8} testID="chat-search-close"><Ionicons name="close" size={22} color={C.text}/></Pressable></View>}

@@ -4,7 +4,8 @@
  * Presentational only: app/(tabs)/profile.tsx loads the data, app/dev-avatar.tsx passes mock data.
  */
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { readableMaxWidth } from '../../lib/web-layout';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import type { Outfit } from '../../lib/avatar/outfit';
@@ -23,7 +24,9 @@ type Props = {
 const fmt = (n: number) => String(Math.max(0, Math.round(n))).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
 export function ProfileHome(p: Props) {
-  return <ScrollView style={s.root} contentContainerStyle={{ paddingTop: (p.topInset ?? 0) + 10, paddingHorizontal: 14, paddingBottom: 40 }}>
+  // Desktop web: centred readable column like Snapchat Web (lib/web-layout.ts), full width on phones/native.
+  const readable = readableMaxWidth(useWindowDimensions().width, Platform.OS);
+  return <ScrollView style={s.root} contentContainerStyle={[{ paddingTop: (p.topInset ?? 0) + 10, paddingHorizontal: 14, paddingBottom: 40 }, readable ? { width: '100%', maxWidth: readable, alignSelf: 'center' } : null]} testID={readable ? 'readable-column' : undefined}>
     <View style={s.top}>
       <Pressable onPress={p.onMenu} accessibilityLabel="Menu" hitSlop={8}><Ionicons name="menu" size={32} color="#FFF"/></Pressable>
       <View style={{ alignItems: 'center', flex: 1 }}>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import {kavBehavior} from '../../lib/keyboard';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputProps } from 'react-native';
 import { router } from 'expo-router';
 import Svg, { Defs, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
@@ -109,7 +110,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
   const canSubmit = !busy && (isLogin ? !!identifier && !!password : !!username && !!email && !!password && !!birthdate);
   return <View style={s.root}>
     <Backdrop/>
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={kavBehavior(Platform.OS)}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
         <View style={[s.body, { width: contentW }]}>
           <Logo/>

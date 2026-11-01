@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
-import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
+import {memoryGrid} from '../../lib/web-layout';
 import {Ionicons} from '@expo/vector-icons';
 import {PIN_LENGTH, flashbackTitle, groupByDate, isLocked, lockText, onThisDay, type Memory, type PinLock} from '../../lib/memories';
 
@@ -13,6 +14,7 @@ type Props = {
 
 /** Grid by date + 'Op deze dag' + 'Alleen voor mij' tab with pin pad. Presentational. */
 export function MemoriesView(p: Props) {
+  const grid = memoryGrid(useWindowDimensions().width, Platform.OS);
   const flash = onThisDay(p.memories, p.now, p.tzOffsetMin);
   const sections = p.tab === 'all' ? groupByDate(p.memories, p.now, {tzOffsetMin: p.tzOffsetMin}) : groupByDate(p.memories.filter(m => m.private), p.now, {tzOffsetMin: p.tzOffsetMin, includePrivate: true});
   return <View style={s.root}>
@@ -32,7 +34,7 @@ export function MemoriesView(p: Props) {
       {!sections.length && <Text style={s.empty}>{p.tab === 'all' ? 'Nog geen herinneringen. Bewaar een snap met de knop "Bewaren".' : 'Nog niets in Alleen voor mij.'}</Text>}
       {sections.map(sec => <View key={sec.key}>
         <Text style={s.section}>{sec.title}</Text>
-        <View style={s.grid}>{sec.items.map(m => <Pressable key={m.id} style={s.cell} onPress={() => p.onOpen(m)} accessibilityLabel={`Herinnering ${sec.title}`}>
+        <View style={s.grid}>{sec.items.map(m => <Pressable key={m.id} style={[s.cell, {width: grid.width, height: grid.height}]} onPress={() => p.onOpen(m)} accessibilityLabel={`Herinnering ${sec.title}`}>
           {p.renderThumb(m, s.thumb)}
           {m.media_type === 'video' && <Ionicons name="play" size={16} color="#fff" style={s.badge}/>}
           {m.private && <Ionicons name="lock-closed" size={14} color="#fff" style={s.badge}/>}

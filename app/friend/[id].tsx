@@ -83,7 +83,7 @@ export default function FriendProfileScreen(){
  const groupsTitle=sharedGroupsTitle(shared.groups.length);
  const charms=useMemo(()=>isFriend&&me?friendCharms({me,friend:id,now:loadedAt,offsetMin:-new Date(loadedAt).getTimezoneOffset(),friendsSince:sinceIso,relation,streak:streak?.count??0,messages:recentMsgs,sharedGroups:shared.groups.length,savedCount:savedRows.total}):[],[isFriend,me,id,loadedAt,sinceIso,relation,streak,recentMsgs,shared.groups.length,savedRows.total]);
  const charmsHead=charmsTitle(charms.length);
- return <GalaxyScreen>
+ return <GalaxyScreen readable>
   <Stack.Screen options={{headerShown:false}}/>
   <View style={[s.header,{paddingTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.canGoBack()?router.back():router.replace('/(tabs)/chats')} accessibilityLabel="Terug" hitSlop={10}><Ionicons name="chevron-back" size={28} color="white"/></Pressable><Text style={s.headerTitle}>Vriendschapsprofiel</Text><View style={{width:28}}/></View>
   {!p?<Text style={s.muted}>{loading&&!notice?'Profiel laden…':notice}</Text>:

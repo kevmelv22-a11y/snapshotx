@@ -37,5 +37,9 @@ Verwerking is **niet tijdelijk** (gegevens worden opgeslagen), behalve live gesp
 - **Uitloggen** verwijdert het pushtoken van dít toestel uit `sx_push_tokens` en logt alleen dit toestel uit. Account verwijderen verwijdert alle tokens (cascade).
 - Een melding bevat nooit chattekst of media, alleen wie je iets stuurde en een chat-ID om de juiste chat te openen.
 
+## Toelichting permissies (1 nov 2026, 12:00)
+- **Screenshotmelding in chats** (Android 14+): gebruikt `DETECT_SCREEN_CAPTURE` (installatiepermissie, geen pop-up). De app ziet alleen *dát* er een screenshot is gemaakt, nooit de afbeelding; er wordt niets extra verzameld. Op Android 13 en lager werkt de melding niet (we vragen bewust geen toegang tot foto's).
+- **Geen foreground services**: geen media-afspelen, camera, microfoon of schermdelen op de achtergrond (`FOREGROUND_SERVICE_*` geblokkeerd; de schermdeel-service van react-native-webrtc wordt uit het manifest gehaald door `plugins/withAndroidNoScreenShareService.js`). In de Play Console hoeft dus **geen** verklaring voor foreground services ingevuld te worden.
+
 ## Controle bij elke release
 - Nieuwe SDK of permissie? Werk dit document, `app.json` (`ios.privacyManifests` + `android.permissions/blockedPermissions`) en `lib/legal.ts` samen bij. `lib/android-config.test.mjs` bewaakt de Android-permissies.

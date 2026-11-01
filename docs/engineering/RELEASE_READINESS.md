@@ -59,9 +59,17 @@ The project now includes SDK 57 `expo-updates`, the EAS project URL, `appVersion
 - **Web**: Verkennen-raster op desktop (5 kolommen op 1440px i.p.v. één brede kolom), instellingen-achtige pagina's in een gecentreerde leeskolom (760px).
 - Play: release-opmerkingen versionCode 3, Data safety-toelichting pushtoken, RevenueCat-naamregel voor Play-product-ID's.
 
+## Sessie 01-11-2026 12:00 (Android/Play, web, chat)
+- Geen migraties, geen builds. Alleen-lezen: `eas credentials -p android` (profiel production) — uploadsleutel JKS, SHA-256 `79:28:8D:38:93:69:45:68:9A:27:1D:A9:F6:F7:7C:50:CD:68:41:D0:A3:F9:23:FF:90:BF:5E:DE:E2:D5:53:82`; FCM V1-sleutel staat er (project snapshot-x-2dcb7). RevenueCat gelezen: nog steeds geen Google Play-app.
+- **App Links**: `/.well-known/assetlinks.json` wordt nu altijd gegenereerd met de EAS-uploadsleutel (`lib/universal-links.ts` `EAS_UPLOAD_KEY_SHA256`); Play-app-ondertekeningssleutel later via `SNAPSHOTX_ANDROID_SHA256` erbij.
+- **Android-toetsenbord** (edge-to-edge): alle KeyboardAvoidingViews `padding` op Android (`lib/keyboard.ts`), pas actief in een nieuwe build.
+- **Play-manifest**: schermdeel-service van react-native-webrtc verwijderd (`plugins/withAndroidNoScreenShareService.js`), FGS camera/microfoon/projectie geblokkeerd, `DETECT_SCREEN_CAPTURE` expliciet. Pas actief in een nieuwe build.
+- **Chat**: eigen naam in systeemregels (screenshot, achtergrond, bewaren, verwijderen) = weergavenaam of @gebruikersnaam (was leeg → "Iemand"/"Je vriend"); "Gezien door", groepsleden, vriendenkiezers (nieuwe chat, snap versturen, groep) en verhaalreacties tonen @gebruikersnaam als er geen naam is. Screenshot terwijl een snap van de ander open is → "… heeft een screenshot van een snap gemaakt".
+- **Web**: één /map-route (de Map-tab; de dubbele `app/map.tsx` gaf na verversen een kaart zonder zijbalk), Vrienden/vriendprofiel/Mijn profiel in de leeskolom, Herinneringen-raster op desktop (7 staande tegels op 1440px i.p.v. 3 brede strepen), terugknop "Chat" in de kop van losse pagina's die direct via een link geopend worden.
+
 ## Open launch items (bijgewerkt 01-11-2026 06:00)
 
-- **Google Play**: verificatie account, gesloten test 12 testers × 14 dagen (persoonlijk account; plan in docs/google-play/CLOSED_TEST_NL.md), FCM V1-sleutel uploaden in EAS (keystore bestaat sinds build 06b14bd2; Kevins OK nodig), nieuwe AAB-build op verzoek (bevat de fixes van 06:00), SHA-256 → assetlinks.json, RevenueCat Play-app + `goog_`-key (docs/revenuecat/GOOGLE_PLAY_NL.md), Android-screenshots.
+- **Google Play**: verificatie account, gesloten test 12 testers × 14 dagen (persoonlijk account; plan in docs/google-play/CLOSED_TEST_NL.md), FCM V1-sleutel staat in EAS (gecontroleerd 01-11 12:00), nieuwe AAB-build op verzoek (bevat de fixes van 06:00), Play-app-ondertekenings-SHA-256 → assetlinks.json (uploadsleutel staat er al), RevenueCat Play-app + `goog_`-key (docs/revenuecat/GOOGLE_PLAY_NL.md), Android-screenshots.
 
 - **App Review-telefoonnummer**: nog niet door Kevin gegeven; Apple vereist het bij indienen (docs/app-store/METADATA_NL.md).
 - **Universal links**: code/config klaar (zie docs/web/WEB_NL.md). Nodig: Kevins eigen Apple Team ID in de web-env (`SNAPSHOTX_APPLE_TEAM_ID`) + web redeploy, Associated Domains-capability op App ID `com.snapshotx.app` (EAS synchroniseert die bij een production-build met eigen credentials). Ad-hoc-testbuilds blijven zonder associated domains.

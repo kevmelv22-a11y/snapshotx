@@ -1,4 +1,5 @@
 import React,{useEffect,useMemo,useState} from 'react';
+import {PROFILE_NAME_COLUMNS,profileName} from '../../lib/profile-name';
 import {ActivityIndicator,Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -29,7 +30,7 @@ export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,remo
  const memberMenu=useMemberActions({threadId,me,adminId:creatorId,members,removers,onChanged,beforeNavigate:onClose});
  const candidates=addableFriends(friends??[],memberIds);
  const outfits=useFriendOutfits([...memberIds.filter(id=>id!==me),...candidates.map(f=>f.id)]);
- useEffect(()=>{if(mode!=='add'||friends)return;let alive=true;void (async()=>{const r=await supabase.from('sx_friends').select('friend_id').eq('user_id',me);if(!alive)return;if(r.error){setNotice(friendlyError(r.error,'Je vrienden'));setFriends([]);return}const ids=(r.data||[]).map(x=>x.friend_id);if(!ids.length){setFriends([]);return}const p=await supabase.from('profiles').select('id,display_name').in('id',ids);if(!alive)return;const names=new Map((p.data||[]).map(x=>[x.id,x.display_name]));setFriends(ids.map(id=>({id,name:names.get(id)||'Vriend'})).sort((a,b)=>a.name.localeCompare(b.name,'nl')))})();return()=>{alive=false}},[mode,friends,me]);
+ useEffect(()=>{if(mode!=='add'||friends)return;let alive=true;void (async()=>{const r=await supabase.from('sx_friends').select('friend_id').eq('user_id',me);if(!alive)return;if(r.error){setNotice(friendlyError(r.error,'Je vrienden'));setFriends([]);return}const ids=(r.data||[]).map(x=>x.friend_id);if(!ids.length){setFriends([]);return}const p=await supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',ids);if(!alive)return;const names=new Map((p.data||[]).map(x=>[x.id,profileName(x,'')]));setFriends(ids.map(id=>({id,name:names.get(id)||'Vriend'})).sort((a,b)=>a.name.localeCompare(b.name,'nl')))})();return()=>{alive=false}},[mode,friends,me]);
 
  async function run(fn:()=>PromiseLike<{error:unknown}>,after?:()=>void){if(busy)return;setBusy(true);setNotice('');try{const {error}=await fn();if(error){setNotice(errText(error));return}after?.();onChanged()}catch(e){setNotice(errText(e))}finally{setBusy(false)}}
  function saveName(){const t=normalizeGroupTitle(draft);if(!t){setNotice(`Geef de groep een naam (max ${GROUP_TITLE_MAX} tekens).`);return}const nameOk=checkName(t,'group');if(!nameOk.ok){setNotice(nameOk.error);return}if(t===title){setMode('info');return}void run(()=>supabase.rpc('sx_rename_group',{p_thread_id:threadId,p_title:t}),()=>setMode('info'))}

@@ -1,4 +1,5 @@
 import React,{useState} from 'react';
+import {kavBehavior} from '../lib/keyboard';
 import {ActivityIndicator,KeyboardAvoidingView,Platform,Pressable,ScrollView,StyleSheet,Switch,Text,TextInput,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {router} from 'expo-router';
@@ -41,7 +42,7 @@ export default function ChangePassword(){
  }
  const canSave=!busy&&!!current&&!!next&&!!repeat;
  return <GalaxyScreen readable><View style={[s.header,{marginTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.back()} accessibilityLabel="Terug"><Ionicons name="chevron-back" color="white" size={27}/></Pressable><Text style={s.title}>Wachtwoord</Text><View style={{width:27}}/></View>
- <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}><ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+ <KeyboardAvoidingView style={{flex:1}} behavior={kavBehavior(Platform.OS)}><ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
   <View style={s.intro}><Ionicons name="lock-closed" size={24} color="#E7C8F2"/><Text style={s.introText}>Kies een sterk wachtwoord dat je nergens anders gebruikt. Snapshot X vraagt je nooit om je wachtwoord via chat of e-mail.</Text></View>
   <PasswordField label="Huidig wachtwoord" value={current} onChange={edit('current',setCurrent)} error={errors.current} autoComplete="current-password" testID="pw-current"/>
   <Text style={[s.forgot,s.forgotText]}>Wachtwoord vergeten? Log uit en kies „Wachtwoord vergeten” op het inlogscherm.</Text>

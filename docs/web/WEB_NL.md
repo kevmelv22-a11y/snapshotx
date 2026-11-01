@@ -67,3 +67,7 @@
 - **Bureaubladmeldingen** (Meldingen › Deze browser): browsermelding "Noor — stuurde je een chat" als het tabblad op de achtergrond staat; nooit de inhoud; respecteert hoofdschakelaar, "Chats en snaps" en gedempte chats; klik opent de chat — `lib/web-notify.ts`, `components/web/WebNotifier.tsx`.
 - **Geen verbinding**-balk + "Weer online" — `lib/connection-banner.ts`, `components/web/OfflineBanner.tsx`.
 - **Zoeken in chat** (🔍 in de chatkop, ook in de app): accent-/hoofdletterongevoelig, ↑/↓ springt tussen resultaten — `lib/chat-search.ts`.
+
+## Sessie 01-11-2026 12:00
+- `/.well-known/assetlinks.json` live met de EAS-uploadsleutel van com.snapshotx.app (zie docs/google-play/RELEASE_CHECKLIST_NL.md). De Play-sleutel komt er later bij via `SNAPSHOTX_ANDROID_SHA256`. AASA (iOS) blijft overgeslagen tot Kevins eigen Apple Team ID bekend is.
+- Eén `/map`-route (Map-tab), leeskolom voor Vrienden / vriendprofiel / Mijn profiel, Herinneringen-raster op desktop (`lib/web-layout.ts` `memoryGrid`), terugknop in de kop van losse pagina's zonder geschiedenis (`components/web/WebHeaderBack.tsx`: met geschiedenis "Terug", anders naar Chat).

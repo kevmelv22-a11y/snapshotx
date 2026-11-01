@@ -50,8 +50,15 @@ export function retentionChangeText(actor: string, mode: RetentionMode): string 
 }
 
 // ---------- Screenshot notification ----------
-export function screenshotText(actor: string, isMe: boolean): string {
-  return isMe ? 'Je hebt een screenshot van de chat gemaakt' : `${actor} heeft een screenshot van de chat gemaakt`;
+export type ScreenshotWhat = 'chat' | 'snap';
+/** "… van de chat" normally; "… van een snap" while a snap from someone else is open on screen (like Snapchat). */
+export function screenshotText(actor: string, isMe: boolean, what: ScreenshotWhat = 'chat'): string {
+  const of = what === 'snap' ? 'een snap' : 'de chat';
+  return isMe ? `Je hebt een screenshot van ${of} gemaakt` : `${actor} heeft een screenshot van ${of} gemaakt`;
+}
+/** What a screenshot right now captures: a snap when one sent by someone else is currently opened, else the chat. */
+export function screenshotSubject(opened: Readonly<Record<string, boolean>>, rows: readonly { id: string; kind: string; sender_id: string }[], me: string): ScreenshotWhat {
+  return rows.some(r => opened[r.id] && r.kind === 'snap' && r.sender_id !== me) ? 'snap' : 'chat';
 }
 /** Debounce: ignore repeated screenshot events within `windowMs` (OS can fire several). */
 export function shouldReportScreenshot(lastAt: number | null, now: number, windowMs = 3000): boolean {

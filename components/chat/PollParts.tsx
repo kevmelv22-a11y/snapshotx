@@ -1,4 +1,5 @@
 import React,{useState} from 'react';
+import {kavBehavior} from '../../lib/keyboard';
 import {KeyboardAvoidingView,Modal,Platform,Pressable,StyleSheet,Text,TextInput,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {C} from '../../lib/theme';
@@ -31,7 +32,7 @@ export function PollComposer({visible,onClose,onSend}:{visible:boolean;onClose:(
   const send=()=>{const r=pollBody(q,opts);if(!r.ok){setError(r.error);return}onSend(r.body);reset()};
   const ready=q.trim()&&opts.filter(o=>o.trim()).length>=POLL_MIN_OPTIONS;
   return <Modal transparent visible={visible} animationType="slide" onRequestClose={close}>
-    <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={s.backdrop}>
+    <KeyboardAvoidingView behavior={kavBehavior(Platform.OS)} style={s.backdrop}>
       <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Sluiten"/>
       <View style={s.sheet} testID="poll-composer">
         <View style={s.sheetHead}><Pressable onPress={close} hitSlop={10} accessibilityLabel="Annuleren" testID="poll-cancel"><Ionicons name="close" size={24} color={C.text}/></Pressable><Text style={s.title}>{POLL_LABEL.create}</Text><View style={{width:24}}/></View>

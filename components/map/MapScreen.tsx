@@ -4,19 +4,19 @@ import {Ionicons} from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import {router, useFocusEffect} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import FriendMap from '../components/FriendMap';
-import type {Pin, Point} from '../components/FriendMap.native';
-import {OwnAvatar} from '../components/avatar/OwnAvatar';
-import {FriendAvatar} from '../components/avatar/FriendAvatar';
-import {useWardrobeSync} from '../hooks/useWardrobeSync';
-import {useFriendOutfits} from '../hooks/useFriendOutfits';
-import {useSession} from '../hooks/useSession';
-import {DEMO_MODE, supabase} from '../lib/supabase';
-import {readAvatarAppearance} from '../lib/avatar';
-import {MapPrivacySheet, type PrivacyFriend} from '../components/map/MapPrivacySheet';
-import {DEFAULT_PRIVACY, ghostStatusText, isGhost, isSharing, lastSeenText, privacyFromRow, privacyToRow, type MapPrivacy} from '../lib/map-privacy';
+import FriendMap from '../FriendMap';
+import type {Pin, Point} from '../FriendMap.native';
+import {OwnAvatar} from '../avatar/OwnAvatar';
+import {FriendAvatar} from '../avatar/FriendAvatar';
+import {useWardrobeSync} from '../../hooks/useWardrobeSync';
+import {useFriendOutfits} from '../../hooks/useFriendOutfits';
+import {useSession} from '../../hooks/useSession';
+import {DEMO_MODE, supabase} from '../../lib/supabase';
+import {readAvatarAppearance} from '../../lib/avatar';
+import {MapPrivacySheet, type PrivacyFriend} from '../map/MapPrivacySheet';
+import {DEFAULT_PRIVACY, ghostStatusText, isGhost, isSharing, lastSeenText, privacyFromRow, privacyToRow, type MapPrivacy} from '../../lib/map-privacy';
 
-import {friendlyError} from '../lib/db-errors';
+import {friendlyError} from '../../lib/db-errors';
 type LocationRow = {user_id: string; latitude: number; longitude: number; sharing: boolean; home_confirmed?: boolean; updated_at: string; share_audience?: string; ghost_until?: string | null; ghost_forever?: boolean};
 
 /** Web demo (EXPO_PUBLIC_DEMO_MODE=1): no geolocation prompt, you stand in Arnhem like the iOS demo shots. */

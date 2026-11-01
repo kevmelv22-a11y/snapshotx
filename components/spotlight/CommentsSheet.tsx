@@ -1,4 +1,5 @@
 import React,{useState} from 'react';
+import {kavBehavior} from '../../lib/keyboard';
 import {KeyboardAvoidingView,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {formatCount} from '../../lib/spotlight';
@@ -14,7 +15,7 @@ export function CommentsSheet({item,social,names,height,bottomInset,onClose}:{it
  const thread=[...fresh.filter(c=>!known.has(c.id)),...fresh.filter(c=>known.has(c.id)).sort((a,b)=>rank.get(a.id)!-rank.get(b.id)!)],clean=normalizeComment(text),left=charsLeft(text);
  const post=()=>{if(!clean)return;social.onComment(item,clean);setText('')};
  const nameOf=(id:string)=>id===social.me?'Ik':names[id]||'Snapshotter';
- return <KeyboardAvoidingView style={StyleSheet.absoluteFill} behavior={Platform.OS==='ios'?'padding':undefined} pointerEvents="box-none">
+ return <KeyboardAvoidingView style={StyleSheet.absoluteFill} behavior={kavBehavior(Platform.OS)} pointerEvents="box-none">
   <Pressable style={s.backdrop} onPress={onClose} accessibilityLabel="Reacties sluiten" testID="comments-backdrop"/>
   <View style={[s.sheet,{height:Math.round(height*0.66),paddingBottom:bottomInset+8}]} testID="comments-sheet">
    <View style={s.grab}/>

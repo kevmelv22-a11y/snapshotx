@@ -179,7 +179,8 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.VIBRATE",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.DETECT_SCREEN_CAPTURE"
       ],
       "blockedPermissions": [
         "android.permission.ACCESS_BACKGROUND_LOCATION",
@@ -190,7 +191,10 @@
         "android.permission.ACCESS_MEDIA_LOCATION",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_PHONE_STATE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
+        "android.permission.FOREGROUND_SERVICE_CAMERA",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ]
     },
     "web": {
@@ -254,6 +258,7 @@
       "expo-font",
       "expo-asset",
       "./plugins/withIosSceneLifecycle",
+      "./plugins/withAndroidNoScreenShareService",
       [
         "expo-alternate-app-icons",
         [

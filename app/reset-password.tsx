@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+import {kavBehavior} from '../lib/keyboard';
 import {KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput} from 'react-native';
 import {router} from 'expo-router';
 import {Button} from '../components/UI';
@@ -32,7 +33,7 @@ export default function ResetPassword() {
     }
   }
 
-  return <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+  return <KeyboardAvoidingView style={s.root} behavior={kavBehavior(Platform.OS)}>
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
       <Text style={s.mark}>✦</Text>
       <Text style={s.heading}>Nieuw wachtwoord</Text>

@@ -1,4 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {PROFILE_NAME_COLUMNS,profileName} from '../../lib/profile-name';
 import {FlatList,Modal,Platform,useWindowDimensions,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {router,useFocusEffect,useLocalSearchParams} from 'expo-router';
@@ -82,7 +83,7 @@ export default function Chats(){
  const friendOutfits=useFriendOutfits(useMemo(()=>[...rows.filter(x=>!x.isGroup).flatMap(x=>x.peerIds),...friends.map(x=>x.id)],[rows,friends]),{live:true});
  // 🎂 next to 1:1 chats with a friend who is jarig today (Verjaardagsfeest on).
  const birthdays=useFriendBirthdays(useMemo(()=>rows.filter(x=>!x.isGroup).flatMap(x=>x.peerIds),[rows]));
- async function openComposer(){if(!uid)return;setError('');const result=await supabase.from('sx_friends').select('friend_id').eq('user_id',uid);if(result.error){setError(friendlyError(result.error,'Je vrienden'));return}const ids=(result.data||[]).map(x=>x.friend_id);friendOutfitCache.prune(ids);if(!ids.length){router.push('/(tabs)/friends');return}const p=await supabase.from('profiles').select('id,display_name').in('id',ids);if(p.error){setError(friendlyError(p.error));return}setFriends(p.data||[]);setSelected([]);setNewOpen(true)}
+ async function openComposer(){if(!uid)return;setError('');const result=await supabase.from('sx_friends').select('friend_id').eq('user_id',uid);if(result.error){setError(friendlyError(result.error,'Je vrienden'));return}const ids=(result.data||[]).map(x=>x.friend_id);friendOutfitCache.prune(ids);if(!ids.length){router.push('/(tabs)/friends');return}const p=await supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',ids);if(p.error){setError(friendlyError(p.error));return}setFriends((p.data||[]).map(x=>({...x,display_name:profileName(x)})));setSelected([]);setNewOpen(true)}
  async function createChat(){const ids=uuidList(selected);if(busy||!ids.length)return;const gName=checkName(groupName,'group');if(ids.length>1&&!gName.ok){setGroupNotice(gName.error);return}setGroupNotice('');setBusy(true);try{const {data,error:e}=await supabase.rpc('sx_open_thread',{participants:ids,group_title:ids.length>1?groupName.trim()||'Nieuwe groep':null});if(e)throw e;setNewOpen(false);setGroupName('');await load();if(!isUuid(data))throw new Error('Chat kon niet worden aangemaakt.');router.push({pathname:'/chat/[id]',params:{id:data}})}catch(e){setError(friendlyError(e))}finally{setBusy(false)}}
  function openDemo(row:ChatRow){setDemo(row);setDemoMessages([{id:0,own:false,text:row.id==='local-ai'?'Hoi! Dit is een lokale voorbeeldchat, geen echte AI-service. Je berichten blijven op dit toestel.':row.preview}]);setDemoInput('')}
  function sendDemo(){const text=demoInput.trim();if(!text)return;setDemoMessages(v=>[...v,{id:Date.now(),own:true,text}]);setDemoInput('')}

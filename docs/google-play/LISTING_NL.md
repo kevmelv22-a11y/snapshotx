@@ -53,7 +53,7 @@ Eerste versie van Snapshot X op Android: snaps, chats, verhalen, vriendenkaart, 
 ## Release-opmerkingen gesloten test, versionCode 3 (500)
 Voor de volgende AAB (na build 06b14bd2 / versionCode 2; alleen bouwen op Kevins verzoek).
 <nl-NL>
-Meldingen werken nu echt op Android: tik op een melding en de juiste chat opent meteen, ook als de app dicht was. In een open chat krijg je geen dubbele melding. Uitloggen stopt de meldingen op dit toestel. Snapshot X+-abonnementen tonen het juiste niveau (zoals Platinum). Geen testfuncties of demo meer in de app. De terugknop sluit eerst open vensters.
+Meldingen werken nu echt op Android: tik op een melding en de juiste chat opent meteen, ook als de app dicht was. In een open chat krijg je geen dubbele melding. Uitloggen stopt de meldingen op dit toestel. Snapshot X+-abonnementen tonen het juiste niveau (zoals Platinum). Geen testfuncties of demo meer in de app. De terugknop sluit eerst open vensters. Het toetsenbord bedekt het typveld niet meer. Links naar snapshot-x.nl/add openen de app.
 </nl-NL>
 
 ## Afbeeldingen

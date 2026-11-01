@@ -1,6 +1,6 @@
 # Snapshot X — Google Play launch-checklist
 
-Status 1 nov 2026 (06:00-sessie). Bouwen en indienen gebeurt **alleen op Kevins verzoek**. Niets hiervan is al in de Play Console gedaan.
+Status 1 nov 2026 (12:00-sessie). Bouwen en indienen gebeurt **alleen op Kevins verzoek**. Niets hiervan is al in de Play Console gedaan.
 
 ## Al klaar in de code
 - [x] `app.json` › `android.package` = `com.snapshotx.app`, `versionCode` 1 (EAS `production` verhoogt automatisch), adaptief icoon (voor-/achtergrond + monochroom voor Android 13-thema-iconen).
@@ -23,12 +23,17 @@ Status 1 nov 2026 (06:00-sessie). Bouwen en indienen gebeurt **alleen op Kevins 
 - [x] **RevenueCat Play-product-ID's** volgen `snapshot_x_<niveau>:<monthly|yearly>`; de app leidt het niveau en bron `play` daaruit af (`lib/revenuecat-logic.ts`).
 - [x] Release-opmerkingen voor versionCode 3 in `LISTING_NL.md`.
 
+- [x] **1 nov 2026, 12:00**: `https://snapshot-x.nl/.well-known/assetlinks.json` staat live met de SHA-256 van de **EAS-uploadsleutel** (`79:28:8D:38:…:D5:53:82`, alleen-lezen opgehaald via `eas credentials`; staat in `lib/universal-links.ts`). Daarmee werken App Links al voor builds die met die sleutel zijn ondertekend; voor installaties uit Google Play moet later de Play-sleutel erbij (punt 5).
+- [x] **FCM V1-sleutel staat in EAS** (gecontroleerd 1 nov 2026, 12:00, alleen-lezen): Google-serviceaccount `firebase-adminsdk-fbsvc@snapshot-x-2dcb7…`, project `snapshot-x-2dcb7`. Push op Android werkt dus vanaf de volgende build.
+- [x] **Toetsenbord op Android**: alle invoervelden (chat, reacties, verhaal-antwoord, peilingen, inloggen, wachtwoord, verjaardag) gebruiken `padding` op Android (`lib/keyboard.ts`); met edge-to-edge (Android 15+) bleef het typveld anders onder het toetsenbord.
+- [x] **Geen schermdeel-service**: `plugins/withAndroidNoScreenShareService.js` haalt de `mediaProjection`-service van react-native-webrtc uit het manifest; `FOREGROUND_SERVICE_CAMERA/MICROPHONE/MEDIA_PROJECTION` geblokkeerd; `DETECT_SCREEN_CAPTURE` expliciet (screenshotmelding Android 14+). Zie DATA_SAFETY_NL.md.
+
 ## Nog te doen (Kevin / volgende sessies)
 1. **Verificatie Play-ontwikkelaarsaccount** afwachten.
 2. **Nieuw persoonlijk account?** Google eist dan een **gesloten test met minstens 12 testers die 14 dagen achter elkaar meedoen** vóór productietoegang. Plan dit vroeg (organisatie-account via KvK Vonk Byte, gepland jan 2027, heeft die eis niet).
-3. **Pushmeldingen op Android (FCM)**: ✅ Firebase-project `snapshot-x-2dcb7` met Android-app `com.snapshotx.app`; `google-services.json` staat in de repo-root en is gekoppeld via `android.googleServicesFile` in app.json; FCM V1 API staat aan. Resterend: **FCM V1-serviceaccountsleutel** in EAS (`eas credentials` › Android › Push Notifications) wordt geüpload — controleren dat die er staat vóór de eerste build.
+3. **Pushmeldingen op Android (FCM)**: ✅ klaar — Firebase-project `snapshot-x-2dcb7`, `google-services.json` gekoppeld, FCM V1-sleutel staat in EAS (gecontroleerd 1 nov 12:00).
 4. **Eerste build**: volgens commit a6ad8c2 is er al een EAS production-build gemaakt (versionCode 2, build 06b14bd2), dus de Android-uploadsleutel bestaat in EAS. Nu kan de **FCM V1-sleutel** (`/workspace/secrets/snapshotx-fcm-service-account.json`, niet in git) via `eas credentials` › Android › Push Notifications (FCM V1) worden geüpload; dit moet Kevin goedkeuren (accountinstelling). De wijzigingen van deze sessie (audio-config, terugknop, geen testschermen) komen pas mee in een **nieuwe** build.
-5. **SHA-256** van de app-ondertekeningssleutel → `SNAPSHOTX_ANDROID_SHA256` → web redeploy → App Links geverifieerd.
+5. **SHA-256 van de Play-app-ondertekeningssleutel** (Play Console › Testen en vrijgeven › App-integriteit › App-ondertekening, na de eerste upload) → `SNAPSHOTX_ANDROID_SHA256=<waarde>` bij `npm run web:real` → web redeploy. De uploadsleutel staat er al in; de Play-sleutel wordt ernaast gezet.
 6. **RevenueCat Google Play**: zie `docs/revenuecat/GOOGLE_PLAY_NL.md`.
 7. **Screenshots** van de echte Android-build (telefoon, 9:16).
 8. **Demo-account** voor App-toegang vlak voor indienen opnieuw aanmaken (live DB bevat nu alleen Kevins account).
