@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { devOnly } from '../components/DevOnly';
 import { Text, View } from 'react-native';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useApp } from '../stores/app';
@@ -10,7 +11,7 @@ import type { FaceGeometry } from '../lib/face-filters/types';
  * still photo and injected face landmarks, so the face-filter rendering can be checked without a camera
  * (simulator / web). `img` = photo URL, `lm` = URL of {image:{width,height}, face: FaceGeometry|null}.
  */
-export default function DevFaceTest() {
+function DevFaceTest() {
   const { img, lm, filter } = useLocalSearchParams<{ img?: string; lm?: string; filter?: string }>();
   const setCapture = useApp((s) => s.setCapture);
   const [status, setStatus] = useState('Testfoto laden…');
@@ -37,3 +38,5 @@ export default function DevFaceTest() {
     <Text style={{ color: 'white' }}>{img ? status : 'Geef ?img=…&lm=… mee.'}</Text>
   </View>;
 }
+
+export default devOnly(DevFaceTest);

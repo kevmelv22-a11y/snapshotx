@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {FlatList,KeyboardAvoidingView,PanResponder,Platform,Pressable,StyleSheet,Text,TextInput,View,useWindowDimensions} from 'react-native';
+import {BackHandler,FlatList,KeyboardAvoidingView,PanResponder,Platform,Pressable,StyleSheet,Text,TextInput,View,useWindowDimensions} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import * as L from '../../lib/stories';
@@ -32,6 +32,9 @@ export function StoryViewer(p:Props){
  useEffect(()=>{if(viewersOpen&&story&&mine&&p.loadViewers)p.loadViewers(story).then(setViewers)},[viewersOpen,story?.id]);// eslint-disable-line react-hooks/exhaustive-deps
  const openPanel=(which:'reply'|'viewers')=>{hold(true);if(which==='reply')setReplyOpen(true);else setViewersOpen(true)};
  const closePanels=()=>{setReplyOpen(false);setViewersOpen(false);hold(false)};
+ // Android back button: close the reply field / viewers list first (story resumes) instead of leaving the viewer.
+ const panelOpen=replyOpen||viewersOpen,closeRef=useRef(closePanels);useEffect(()=>{closeRef.current=closePanels});
+ useEffect(()=>{if(Platform.OS!=='android'||!panelOpen)return;const sub=BackHandler.addEventListener('hardwareBackPress',()=>{closeRef.current();return true});return()=>sub.remove()},[panelOpen]);
  const ref=useRef({cursor,sizes,mine});useEffect(()=>{ref.current={cursor,sizes,mine}});
  // react-hooks/refs false positive: ref.current is only read inside the gesture-release handler, never during render.
  // eslint-disable-next-line react-hooks/refs

@@ -1,4 +1,5 @@
 import React from 'react';
+import { devOnly } from '../components/DevOnly';
 import {ScrollView,StyleSheet,Text,View} from 'react-native';
 import {Stack,useLocalSearchParams} from 'expo-router';
 import Svg,{Circle,Defs,LinearGradient,Path,Rect,Stop} from 'react-native-svg';
@@ -28,7 +29,7 @@ const LIEN:Outfit={...applyLook(DEFAULT_OUTFIT,{top:'top-rossano-silk-shirt',out
 const SEM:Outfit={...applyLook(DEFAULT_OUTFIT,{top:'top-strideon-neon-tee',outerwear:'outer-trivo-track-jacket'}),hairStyle:'afro',colors:{hair:'#1E1A19',skin:'#74432A'}};
 const noop=()=>{};
 
-export default function DevAvatar(){
+function DevAvatar(){
   const {scene='poses'}=useLocalSearchParams<{scene?:string}>();
   if(!__DEV__)return null;
   return <View style={{flex:1,backgroundColor:C.bg}}><Stack.Screen options={{headerShown:false}}/>
@@ -70,3 +71,5 @@ function DevEditor(){
 
 const st=StyleSheet.create({cell:{width:120,alignItems:'center',backgroundColor:'#FFE11A',borderRadius:14,paddingVertical:6},lbl:{color:'#111',fontWeight:'800',fontSize:12},h:{color:C.text,fontSize:18,fontWeight:'900',marginBottom:12},sub:{color:C.muted,fontSize:11}});
 void AVATAR_STICKERS;void AvatarStickerArt;
+
+export default devOnly(DevAvatar);

@@ -1,4 +1,5 @@
 import React,{useEffect,useState} from 'react';
+import { devOnly } from '../components/DevOnly';
 import {Pressable,StyleSheet,Text,TextInput,View} from 'react-native';
 import {Stack,router,useLocalSearchParams} from 'expo-router';
 import {C} from '../lib/theme';
@@ -10,7 +11,7 @@ import {activeTypers,computeStreak,isMessageVisible,retentionChangeText,screensh
 /** Dev-only harness for step 4 chat features with local mock data. No Supabase, works on Expo web.
  *  ?scene=overview|reactions|retention|recording|risk|after_view|empty  (default overview). */
 const ME='me',ARIA='aria',H=3600000;
-export default function DevChat(){
+function DevChat(){
   const {scene='overview'}=useLocalSearchParams<{scene?:string}>();
   const now=Date.parse('2026-10-13T12:00:00Z')+(scene==='risk'?8*H:0);
   const at=(minAgo:number)=>new Date(now-minAgo*60000).toISOString();
@@ -55,3 +56,5 @@ export default function DevChat(){
   </View>;
 }
 const s=StyleSheet.create({text:{color:C.text,fontSize:16},inputRow:{flexDirection:'row',alignItems:'center',backgroundColor:C.surface,padding:12},input:{flex:1,color:C.text,backgroundColor:C.elevated,borderRadius:20,padding:12},send:{color:C.yellow,fontSize:30,marginLeft:8},action:{fontSize:24,color:C.yellow,marginHorizontal:7},debug:{color:C.yellow,fontSize:10,textAlign:'center',padding:3}});
+
+export default devOnly(DevChat);

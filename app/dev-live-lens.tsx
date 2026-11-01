@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { devOnly } from '../components/DevOnly';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { FaceFilterOverlay } from '../components/FaceFilterOverlay';
@@ -20,7 +21,7 @@ type Sim = { frame: FeedFrame; drawn: FaceGeometry | null; fps: number };
  * `mirrored`, `aspect` aspect-fill crop), jittered and fed through the same LiveFaceTracker +
  * <FaceFilterOverlay live> as the real camera. `freeze=<s>` replays up to that time and stops.
  */
-export default function DevLiveLens() {
+function DevLiveLens() {
   const p = useLocalSearchParams<{ img?: string; lm?: string; filter?: string; freeze?: string; jitter?: string; dots?: string; mirrored?: string; aspect?: string }>();
   const [view, setView] = useState({ width: 0, height: 0 });
   const [data, setData] = useState<{ image: { width: number; height: number }; face: FaceGeometry } | null>(null);
@@ -102,3 +103,5 @@ const styles = StyleSheet.create({
   hudText: { color: 'white', fontSize: 12, fontWeight: '600' },
   dot: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: '#3CFF6B' },
 });
+
+export default devOnly(DevLiveLens);

@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+import { devOnly } from '../components/DevOnly';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {Stack, useLocalSearchParams} from 'expo-router';
 import {Ionicons} from '@expo/vector-icons';
@@ -15,7 +16,7 @@ const FRIENDS = [
   {id: 'noor', name: 'Noor', x: 0.42, y: 0.62, ago: 140},
   {id: 'sem', name: 'Sem', x: 0.78, y: 0.7, ago: 60 * 30},
 ];
-export default function DevMap() {
+function DevMap() {
   return __DEV__ ? <DevMapScreen/> : null;
 }
 
@@ -71,3 +72,5 @@ const s = StyleSheet.create({
   chipText: {color: '#fff', fontWeight: '700'},
   shade: {...StyleSheet.absoluteFill as object, backgroundColor: '#000A', justifyContent: 'flex-end'},
 });
+
+export default devOnly(DevMap);

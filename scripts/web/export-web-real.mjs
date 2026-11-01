@@ -8,7 +8,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { bundleLeaks, realWebEnvProblems } from '../../lib/web-env.ts';
+import { bundleLeaks, realWebEnvProblems, releaseBundleProblems } from '../../lib/web-env.ts';
 import { wellKnownFiles } from '../../lib/universal-links.ts';
 
 const env = { ...process.env };
@@ -27,7 +27,7 @@ const r = spawnSync('npx', ['expo', 'export', '--clear', '--platform', 'web', '-
 if (r.status !== 0) process.exit(r.status ?? 1);
 const files = []; const walk = d => { for (const f of readdirSync(d)) { const p = join(d, f); statSync(p).isDirectory() ? walk(p) : p.endsWith('.js') && files.push(p) } };
 walk(OUT);
-const leaks = files.flatMap(f => bundleLeaks(readFileSync(f, 'utf8')).map(l => `${f}: ${l}`));
+const leaks = files.flatMap(f => { const js = readFileSync(f, 'utf8'); return [...bundleLeaks(js), ...releaseBundleProblems(js)].map(l => `${f}: ${l}`); });
 if (leaks.length) { console.error('Bundle afgekeurd:\n- ' + leaks.join('\n- ')); process.exit(1); }
 // Universal links: AASA (no extension, JSON) / assetlinks.json — only when the env has Kevin's real team id / cert.
 for (const f of wk.files) { const p = join(OUT, f.path); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, JSON.stringify(f.json)); console.log('Geschreven: ' + p); }

@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+import { devOnly } from '../components/DevOnly';
 import {Text, View} from 'react-native';
 import {Stack, useLocalSearchParams} from 'expo-router';
 import {MemoriesView, MemoryDetail} from '../components/memories/MemoriesView';
@@ -16,7 +17,7 @@ const MOCK: Memory[] = [
   mk(11, '2026-10-11T20:00:00Z', {private: true}), mk(12, '2026-08-02T20:00:00Z', {private: true}), mk(13, '2024-10-13T12:00:00Z', {private: true}),
 ];
 const thumb = (m: Memory, style: any) => { const i = +m.id % 8; return <View style={[style, {backgroundColor: COLORS[i], alignItems: 'center', justifyContent: 'center'}]}><Text style={{fontSize: 34}}>{EMOJI[i]}</Text><Text style={{color: '#fff', fontSize: 10, fontWeight: '700'}}>{new Date(m.created_at).toLocaleDateString('nl-NL')}</Text></View>; };
-export default function DevMemories() {
+function DevMemories() {
   return __DEV__ ? <DevMemoriesScreen/> : null;
 }
 
@@ -36,3 +37,5 @@ function DevMemoriesScreen() {
       onSubmitPin={pin => { const ok = pin === '2580'; setLock(l => registerPinAttempt(l, ok, Date.now())); if (ok) setUnlocked(true); }} onOpen={setOpen}/>}
   </View>;
 }
+
+export default devOnly(DevMemories);

@@ -22,7 +22,10 @@
         "NSMicrophoneUsageDescription": "SnapShot X gebruikt je microfoon voor video, spraakberichten en (video)gesprekken.",
         "NSPhotoLibraryAddUsageDescription": "Bewaar snaps in je fotobibliotheek.",
         "NSPhotoLibraryUsageDescription": "SnapShot X opent je fotobibliotheek zodat je foto’s en video’s kunt versturen of een foto als chat-achtergrond kunt kiezen.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "audio"
+        ]
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -186,7 +189,8 @@
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
         "android.permission.ACCESS_MEDIA_LOCATION",
         "android.permission.SYSTEM_ALERT_WINDOW",
-        "android.permission.READ_PHONE_STATE"
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ]
     },
     "web": {
@@ -212,7 +216,7 @@
         "expo-camera",
         {
           "cameraPermission": "SnapShot X gebruikt je camera om snaps te maken en voor videogesprekken.",
-          "microphonePermission": "SnapShot X gebruikt je microfoon voor video, spraak en (video)gesprekken."
+          "microphonePermission": "SnapShot X gebruikt je microfoon voor video, spraakberichten en (video)gesprekken."
         }
       ],
       [
@@ -239,7 +243,14 @@
       ],
       "expo-sharing",
       "expo-video",
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "SnapShot X gebruikt je microfoon voor video, spraakberichten en (video)gesprekken.",
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
       "expo-font",
       "expo-asset",
       "./plugins/withIosSceneLifecycle",
@@ -332,7 +343,7 @@
         "@config-plugins/react-native-webrtc",
         {
           "cameraPermission": "SnapShot X gebruikt je camera voor videogesprekken met je vrienden.",
-          "microphonePermission": "SnapShot X gebruikt je microfoon voor (video)gesprekken met je vrienden."
+          "microphonePermission": "SnapShot X gebruikt je microfoon voor video, spraakberichten en (video)gesprekken."
         }
       ]
     ],

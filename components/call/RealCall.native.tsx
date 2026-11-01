@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Crypto from 'expo-crypto';
@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { useSession } from '../../hooks/useSession';
 import { C } from '../../lib/theme';
 import { callStatusText, nextCallState, type CallEvent, type CallState } from '../../lib/chat-features';
-import { CALL_ICE_SERVERS, RING_TIMEOUT_MS, callSessionTopic, endReasonText, parseSignal, userCallTopic } from '../../lib/call-signal';
+import { CALL_ICE_SERVERS, RING_TIMEOUT_MS, callSessionTopic, callerName, endReasonText, parseSignal, userCallTopic, type CallerProfile } from '../../lib/call-signal';
 import { activeCall, joinBroadcast, sendBroadcast, sendOnce } from '../../lib/call-channel';
 import type { RealCallProps } from './RealCall';
 
@@ -103,8 +103,8 @@ export default function RealCall({ threadId, name, role, callId: givenCallId, pe
         });
         if (ref.ended) return;
         if (role === 'caller') {
-          const { data: prof } = await supabase.from('profiles').select('display_name').eq('id', me).maybeSingle();
-          const invite = { callId, from: me, fromName: (prof as { display_name?: string } | null)?.display_name || 'Iemand', threadId, video: true };
+          const { data: prof } = await supabase.from('profiles').select('display_name, username').eq('id', me).maybeSingle();
+          const invite = { callId, from: me, fromName: callerName(prof as CallerProfile), threadId, video: true };
           const ring = () => { if (!ref.accepted && !ref.ended) void sendOnce(userCallTopic(peer!), 'invite', { ...invite, at: Date.now() }).catch(() => {}); };
           ring();
           for (let ms = 4000; ms < RING_TIMEOUT_MS; ms += 4000) ref.timers.push(setTimeout(ring, ms));
@@ -133,6 +133,19 @@ export default function RealCall({ threadId, name, role, callId: givenCallId, pe
     setFront(next);
   };
   const hangup = () => r.current.end?.('local', true);
+  // Android back button during a call: ask first instead of silently dropping the call (iOS has no back gesture here).
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (r.current.ended) return false;
+      Alert.alert('Gesprek beëindigen?', `Je hangt op bij ${name}.`, [
+        { text: 'Blijven', style: 'cancel' },
+        { text: 'Ophangen', style: 'destructive', onPress: () => r.current.end?.('local', true) },
+      ]);
+      return true;
+    });
+    return () => sub.remove();
+  }, [name]);
   const active = state === 'active';
   const status = state === 'ended' ? (note || callStatusText(state, 0)) : callStatusText(state, startedAt ? now - startedAt : 0);
 

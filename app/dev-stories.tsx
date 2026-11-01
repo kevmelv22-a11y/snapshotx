@@ -1,4 +1,5 @@
 import React from 'react';
+import { devOnly } from '../components/DevOnly';
 import {StyleSheet,Text,View} from 'react-native';
 import {Stack,useLocalSearchParams} from 'expo-router';
 import {StoryViewer,type ViewerStory} from '../components/stories/StoryViewer';
@@ -16,7 +17,7 @@ const SEEN=new Set(['c1','a1']);
 const VIEWS=['v1','v2','v3','v4','v5'].map((v,i)=>({story_id:'m2',viewer_id:v,viewed_at:new Date(NOW-(i*9+2)*60000).toISOString()}));
 const REACTIONS=[{story_id:'m2',user_id:'v2',emoji:'😍'},{story_id:'m2',user_id:'v4',emoji:'🔥'}];
 const media=(s:ViewerStory)=><View style={[StyleSheet.absoluteFill,{backgroundColor:COLORS[s.owner_id],alignItems:'center',justifyContent:'center'}]}><Text style={{fontSize:90}}>{{m1:'☕',m2:'🌅',a1:'🎶',a2:'🌃',a3:'💃',b1:'🚲',c1:'👟',d1:'🏖️'}[s.id]}</Text><Text style={{color:'#FFFFFF88',marginTop:12}}>mock-foto {s.id}</Text></View>;
-export default function DevStories(){
+function DevStories(){
  const {scene='rings'}=useLocalSearchParams<{scene?:string}>();
  const groups=groupStories(STORIES,SEEN,NOW,ME);
  const now=()=>NOW;
@@ -27,3 +28,5 @@ export default function DevStories(){
   loadViewers={async st=>viewersFor(st.id,VIEWS,REACTIONS,ME)} onReply={async()=>null}/></View>;
 }
 const s=StyleSheet.create({root:{flex:1,backgroundColor:'#120D1C',paddingTop:30},h:{color:'white',fontSize:26,fontWeight:'900',marginLeft:16},av:{width:78,height:78,borderRadius:39,alignItems:'center',justifyContent:'center'},avT:{color:'white',fontSize:30,fontWeight:'900'},n:{color:'white',fontWeight:'700',marginTop:6},m:{color:'#AAA',fontSize:12},m2:{color:'#CCC',margin:16}});
+
+export default devOnly(DevStories);

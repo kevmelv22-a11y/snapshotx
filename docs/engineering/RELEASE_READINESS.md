@@ -43,9 +43,16 @@ The project now includes SDK 57 `expo-updates`, the EAS project URL, `appVersion
 - Geen migraties, geen edge-function-deploys, geen builds. Android-config, Play-documenten en openbare pagina /account-verwijderen; zie docs/google-play/RELEASE_CHECKLIST_NL.md.
 - Firebase gekoppeld (01-11-2026): project `snapshot-x-2dcb7`, `google-services.json` in repo-root via `android.googleServicesFile`, FCM V1 aan; FCM V1-serviceaccountsleutel wordt in EAS geüpload; server-pushes zonder channelId vallen in kanaal `messages` (defaultChannel in app.json).
 
-## Open launch items (bijgewerkt 01-11-2026 03:00)
+## Sessie 01-11-2026 06:00 (echte productieversie + Android)
+- Geen migraties, geen builds. Webdeploy van de echte (niet-demo) versie.
+- Live gevonden en opgelost: `https://snapshot-x.nl/dev-staff` toonde een staffconsole met MOCK-backend (nepdata, geen echte toegang). Alle `app/dev-*`-schermen en Face Lab zijn nu `devOnly` (alleen dev-server of lokale demo-build).
+- Productiebundels bevatten geen demo-client/nepdata en geen demo-inlogknop meer (literal env-check die de bundler wegvouwt); `npm run web:real` keurt een bundle af die ze wel bevat.
+- Gesprekken: inkomend gesprek toont naam + @gebruikersnaam uit het eigen profiel-lookup (niet de naam uit het broadcast-bericht); beller stuurt @gebruikersnaam als er geen weergavenaam is; Android-terugknop vraagt eerst "Gesprek beëindigen?".
+- Android/iOS-config: geen foreground-service voor media (expo-audio), iOS `UIBackgroundModes: audio` expliciet, één microfoontekst. Pas actief in een nieuwe build.
 
-- **Google Play**: verificatie account, gesloten test 12 testers × 14 dagen (persoonlijk account), FCM V1-sleutel in EAS bevestigen (Firebase zelf klaar), eerste AAB-build op verzoek, SHA-256 → assetlinks.json, RevenueCat Play-app + `goog_`-key (docs/revenuecat/GOOGLE_PLAY_NL.md), Android-screenshots.
+## Open launch items (bijgewerkt 01-11-2026 06:00)
+
+- **Google Play**: verificatie account, gesloten test 12 testers × 14 dagen (persoonlijk account; plan in docs/google-play/CLOSED_TEST_NL.md), FCM V1-sleutel uploaden in EAS (keystore bestaat sinds build 06b14bd2; Kevins OK nodig), nieuwe AAB-build op verzoek (bevat de fixes van 06:00), SHA-256 → assetlinks.json, RevenueCat Play-app + `goog_`-key (docs/revenuecat/GOOGLE_PLAY_NL.md), Android-screenshots.
 
 - **App Review-telefoonnummer**: nog niet door Kevin gegeven; Apple vereist het bij indienen (docs/app-store/METADATA_NL.md).
 - **Universal links**: code/config klaar (zie docs/web/WEB_NL.md). Nodig: Kevins eigen Apple Team ID in de web-env (`SNAPSHOTX_APPLE_TEAM_ID`) + web redeploy, Associated Domains-capability op App ID `com.snapshotx.app` (EAS synchroniseert die bij een production-build met eigen credentials). Ad-hoc-testbuilds blijven zonder associated domains.

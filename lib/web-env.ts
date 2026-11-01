@@ -45,3 +45,15 @@ export function bundleLeaks(js: string): string[] {
   if (/"role"\s*:\s*"service_role"/.test(js)) out.push('service_role in bundle');
   return out;
 }
+
+/** Demo leftovers that must not be in a production (non-demo) bundle: the demo login button and the
+ *  in-memory demo client with its seeded demo chats. Store builds and snapshot-x.nl are the real app only. */
+// Built at runtime so this checker (which is itself in the web bundle) never contains the text it looks for.
+const DEMO_BUTTON_TEXT = ['Start', 'demo', 'als', 'Kevin'].join(' ');
+
+export function releaseBundleProblems(js: string): string[] {
+  const out: string[] = [];
+  if (js.includes(DEMO_BUTTON_TEXT)) out.push('demo-inlogknop in bundle');
+  if (/DEMO MODE \(EXPO_PUBLIC_DEMO_MODE=1\)|demo\/strand\.svg|'demo\/koffie\.svg'|"demo\/koffie\.svg"/.test(js)) out.push('demo-client (nepdata) in bundle');
+  return out;
+}

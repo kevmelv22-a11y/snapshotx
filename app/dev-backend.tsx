@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { devOnly } from '../components/DevOnly';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { C } from '../lib/theme';
@@ -31,7 +32,7 @@ const ROWS: Row[] = [
 ];
 const REASON: Record<string, string> = { viewed: 'bekeken + timer', 'unopened-30d': '30 dagen ongeopend', 'story-24h': '24 uur', 'chat-retention': 'chatinstelling', 'chat-unopened-31d': '31 dagen ongeopend' };
 
-export default function DevBackend() {
+function DevBackend() {
   const q = useLocalSearchParams<{ push?: string; t?: string }>();
   const provider = useMemo(() => new MockPushProvider(true, () => T0), []);
   const tokens = useMemo(() => new MemoryTokenStore(), []);
@@ -99,3 +100,5 @@ const s = StyleSheet.create({
   gone: { opacity: 0.55 }, pill: { color: '#111', backgroundColor: '#FFFC00', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, fontWeight: '800', fontSize: 12, overflow: 'hidden' },
   pillGone: { backgroundColor: '#FF4D5E', color: 'white' }, pillKeep: { backgroundColor: '#3ddc84' },
 });
+
+export default devOnly(DevBackend);

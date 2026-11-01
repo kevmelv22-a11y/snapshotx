@@ -1,4 +1,5 @@
 import React from 'react';
+import { devOnly } from '../components/DevOnly';
 import {StyleSheet,Text,View} from 'react-native';
 import Svg,{Circle,Defs,LinearGradient,Path,Rect,Stop} from 'react-native-svg';
 import {Stack} from 'expo-router';
@@ -7,7 +8,7 @@ import {timingSummary} from '../lib/snap-edit';
 import {C} from '../lib/theme';
 
 /** Dev-only harness: the snap editor over a local mock photo. No Supabase, no camera, works on Expo web. */
-export default function DevSnapEditor(){
+function DevSnapEditor(){
   const ed=useSnapEditor();
   if(!__DEV__)return null;
   return <View style={{flex:1,backgroundColor:C.bg}}>
@@ -28,3 +29,5 @@ function MockPhoto(){return <Svg width="100%" height="100%" viewBox="0 0 390 844
   <Rect width="390" height="844" fill="url(#sky)"/><Circle cx="195" cy="470" r="70" fill="#ffd166"/>
   <Rect y="480" width="390" height="200" fill="url(#sea)"/><Path d="M0 680 Q195 640 390 680 L390 844 L0 844 Z" fill="#e9c46a"/>
 </Svg>}
+
+export default devOnly(DevSnapEditor);

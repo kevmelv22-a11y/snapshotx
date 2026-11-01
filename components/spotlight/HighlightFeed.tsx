@@ -1,5 +1,5 @@
-import React,{useRef,useState} from 'react';
-import {Animated,FlatList,Pressable,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
+import React,{useEffect,useRef,useState} from 'react';
+import {Animated,BackHandler,FlatList,Platform,Pressable,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {formatCount,pageFromOffset,toggleLike} from '../../lib/spotlight';
@@ -15,6 +15,8 @@ export function HighlightFeed({items,names,renderMedia,onLike,onShare,onReport,o
  const win=useWindowDimensions(),h=forced??win.height,insets=useSafeAreaInsets();
  const [state,setState]=useState<Record<string,{liked:boolean;likes:number;shares:number}>>({}),[index,setIndex]=useState(0);
  const [sheetFor,setSheetFor]=useState<HighlightItem|null>(null),[burst,setBurst]=useState<string|null>(null);
+ // Android back button closes the comments sheet first instead of leaving Uitgelicht.
+ useEffect(()=>{if(Platform.OS!=='android'||!sheetFor)return;const sub=BackHandler.addEventListener('hardwareBackPress',()=>{setSheetFor(null);return true});return()=>sub.remove()},[sheetFor]);
  const lastTap=useRef<{id:string;at:number}|null>(null),burstAnim=useRef(new Animated.Value(0)).current;
  const get=(i:HighlightItem)=>state[i.id]??{liked:i.liked,likes:i.likes,shares:i.shares};
  const heartBurst=(id:string)=>{setBurst(id);burstAnim.setValue(0);Animated.sequence([Animated.spring(burstAnim,{toValue:1,useNativeDriver:true,friction:4}),Animated.delay(350),Animated.timing(burstAnim,{toValue:0,duration:220,useNativeDriver:true})]).start(()=>setBurst(null))};

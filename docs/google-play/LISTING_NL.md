@@ -70,4 +70,4 @@ Instructie (Engels): "Log in with the provided account. Report: long-press a cha
 - **Gezondheid**: Geen gezondheidsfuncties.
 - **Foto- en videorechten**: de app vraagt **geen** READ_MEDIA_IMAGES/VIDEO (geblokkeerd in app.json); foto kiezen gaat via de systeem-fotokiezer, opslaan in de galerij via MediaStore zonder leesrecht. Niets te verklaren.
 - **Locatie op de achtergrond**: niet gebruikt (ACCESS_BACKGROUND_LOCATION geblokkeerd).
-- **Volledig scherm-meldingen / foreground service**: niet gevraagd voor gesprekken; `FOREGROUND_SERVICE_MEDIA_PLAYBACK` komt van expo-audio/expo-video (afspelen van spraak/video). Als Play daarom vraagt: "media playback of voice messages and videos the user started".
+- **Volledig scherm-meldingen / foreground service**: geen. Sinds 1 nov 2026 staat achtergrond-afspelen van expo-audio uit (`enableBackgroundPlayback: false`) en is `FOREGROUND_SERVICE_MEDIA_PLAYBACK` geblokkeerd in app.json, dus Play vraagt **geen** verklaring voor foreground services. (react-native-webrtc declareert alleen een `mediaProjection`-service voor schermdelen, die de app niet start.)

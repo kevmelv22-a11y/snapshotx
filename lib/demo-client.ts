@@ -15,12 +15,13 @@ import { FORWARD_ERRORS, FORWARD_MAX_TARGETS, canForward, forwardBody, forwardEx
 import { MEDIA_ERRORS, canReadMedia } from './media-access';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, canRemoveMember, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, groupRightsText, isGroupThread, normalizeGroupTitle } from './group-chat';
 import { WALLPAPER_ERRORS, WALLPAPER_IDS, canDeleteOwnMedia, isPhotoWallpaperPath, wallpaperChangeText, wallpaperUploader } from './chat-wallpaper';
+import { DEMO_EMAIL } from './demo-constants';
 
 type Err = { message: string; code?: string; details?: string };
 type Res = { data: unknown; error: Err | null; count?: number | null };
 const H = 3600e3, D = 86400e3;
 const ME = MOCK_IDS.owner;
-export const DEMO_EMAIL = 'demo@snapshotx.app';
+export { DEMO_EMAIL };
 
 let seq = 0;
 const newId = () => `de${(Date.now() % 1e6).toString(16).padStart(6, '0')}-0000-4000-8000-${(++seq).toString(16).padStart(12, '0')}`;

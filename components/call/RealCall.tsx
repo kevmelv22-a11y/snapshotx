@@ -10,6 +10,7 @@ import { C } from '../../lib/theme';
 import { callStatusText, nextCallState, type CallEvent, type CallState } from '../../lib/chat-features';
 import { startCall, type PeerLike } from '../../lib/call-engine';
 import { activeCall, joinBroadcast, sendBroadcast, sendOnce } from '../../lib/call-channel';
+import { callerName, type CallerProfile } from '../../lib/call-signal';
 
 export type RealCallProps = { threadId: string; name: string; role: 'caller' | 'callee'; callId?: string; peerId?: string; audioOnly?: boolean };
 
@@ -62,8 +63,8 @@ export default function RealCall({ threadId, name, role, callId: givenCallId, pe
         if (!nav?.mediaDevices?.getUserMedia || !RTC) throw Object.assign(new Error('no media'), { name: 'NoMediaDevices' });
         let fromName = 'Iemand';
         if (role === 'caller') {
-          const { data: prof } = await supabase.from('profiles').select('display_name').eq('id', me).maybeSingle();
-          fromName = (prof as { display_name?: string } | null)?.display_name || fromName;
+          const { data: prof } = await supabase.from('profiles').select('display_name, username').eq('id', me).maybeSingle();
+          fromName = callerName(prof as CallerProfile);
         }
         if (gone) return;
         handle = startCall<WebStream>({

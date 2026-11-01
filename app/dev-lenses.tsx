@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { devOnly } from '../components/DevOnly';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Ellipse, Path, Rect } from 'react-native-svg';
 import { Redirect, useLocalSearchParams } from 'expo-router';
@@ -93,7 +94,7 @@ function PhotoBench({ name, filterId, burst, tS, base, hud }: { name: string; fi
   </View>;
 }
 
-export default function DevLenses() {
+function DevLenses() {
   const p = useLocalSearchParams<{ grid?: string; filter?: string; expr?: string; phase?: string; t?: string; photo?: string; burst?: string; base?: string; hud?: string }>();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const filterId: PhotoFilterId = isPhotoFilterId(p.filter) ? p.filter : 'dragon';
@@ -160,3 +161,5 @@ const styles = StyleSheet.create({
   hud: { position: 'absolute', left: 10, right: 10, bottom: 34, backgroundColor: '#000000B0', borderRadius: 10, padding: 8, gap: 2 },
   hudText: { color: 'white', fontSize: 12, fontWeight: '600' },
 });
+
+export default devOnly(DevLenses);

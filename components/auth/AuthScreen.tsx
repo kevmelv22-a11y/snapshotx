@@ -5,7 +5,7 @@ import Svg, { Defs, LinearGradient, Path, Rect, Stop, Text as SvgText } from 're
 import { supabase, DEMO_MODE } from '../../lib/supabase';
 import { WEB_FOOTER, showDemoLoginButton } from '../../lib/web-layout';
 import { authRedirectUrl } from '../../lib/web-env';
-import { DEMO_EMAIL } from '../../lib/demo-client';
+import { DEMO_EMAIL } from '../../lib/demo-constants';
 import { friendlyError } from '../../lib/db-errors';
 import { classifyIdentifier, validateRegister } from '../../lib/auth-form';
 import { newPasswordError, passwordStrength } from '../../lib/password-change';
@@ -140,7 +140,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
           </Pressable>
           {isLogin && <Pressable onPress={() => void recover()} disabled={busy} style={s.linkBtn}><Text style={s.link}>Wachtwoord vergeten?</Text></Pressable>}
           {isLogin && <Text style={[s.legalSmall, s.linkBtn]} testID="auth-privacy"><Text accessibilityRole="link" onPress={() => router.push(LEGAL_LINKS.privacy.route)}>{LEGAL_LINKS.privacy.label}</Text>{'  ·  '}<Text accessibilityRole="link" onPress={() => router.push(LEGAL_LINKS.terms.route)}>{LEGAL_LINKS.terms.label}</Text></Text>}
-          {SHOW_DEMO_BUTTON && isLogin && <Pressable onPress={() => { void supabase.auth.signInWithPassword({ email: DEMO_EMAIL, password: 'demo' }).then(() => router.replace('/(tabs)')); }} style={s.linkBtn} testID="auth-demo"><Text style={s.link}>Start demo als Kevin</Text></Pressable>}
+          {process.env.EXPO_PUBLIC_DEMO_BUTTON === '1' && SHOW_DEMO_BUTTON && isLogin && <Pressable onPress={() => { void supabase.auth.signInWithPassword({ email: DEMO_EMAIL, password: 'demo' }).then(() => router.replace('/(tabs)')); }} style={s.linkBtn} testID="auth-demo"><Text style={s.link}>Start demo als Kevin</Text></Pressable>}
         </View>
         {Platform.OS === 'web' && <Text style={s.webFooter} testID="web-footer">{WEB_FOOTER}</Text>}
       </ScrollView>
@@ -151,7 +151,8 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
 // Literal process.env access so Expo inlines it at build time.
 /** E-mail links (bevestigen / wachtwoord herstellen) komen op web terug op dezelfde site, in de app via snapshotx://. */
 const AUTH_REDIRECT = authRedirectUrl(Platform.OS, typeof window !== 'undefined' ? window.location?.origin : undefined);
-const SHOW_DEMO_BUTTON = showDemoLoginButton(DEMO_MODE, process.env.EXPO_PUBLIC_DEMO_BUTTON, typeof window !== 'undefined' ? window.location?.hostname : undefined);
+// Literal env check first: release bundles fold this to `false` and the minifier drops the demo button entirely.
+const SHOW_DEMO_BUTTON = process.env.EXPO_PUBLIC_DEMO_BUTTON === '1' && showDemoLoginButton(DEMO_MODE, process.env.EXPO_PUBLIC_DEMO_BUTTON, typeof window !== 'undefined' ? window.location?.hostname : undefined);
 
 const s = StyleSheet.create({ webFooter: { color: '#9C93A6', fontSize: 12, textAlign: 'center', marginTop: 28, marginBottom: 12 }, 
   root: { flex: 1, backgroundColor: '#140E10', overflow: 'hidden' },

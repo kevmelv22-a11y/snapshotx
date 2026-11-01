@@ -2,7 +2,7 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { getInstallationId } from './deviceIdentity';
-import { DemoClient } from './demo-client';
+import type { DemoClient } from './demo-client';
 
 /** Web demo build: EXPO_PUBLIC_DEMO_MODE=1 swaps in an in-memory client (no Supabase traffic at all). */
 export const DEMO_MODE = process.env.EXPO_PUBLIC_DEMO_MODE === '1';
@@ -18,7 +18,12 @@ const fetchWithInstallationId: typeof fetch = async (input, init) => {
   return fetch(input, { ...init, headers });
 };
 
-export const supabase = DEMO_MODE ? (new DemoClient() as unknown as ReturnType<typeof createClient>) : createClient(url!, key!, {
+// The literal env comparison (not DEMO_MODE) lets the production bundler fold this to `false` before collecting
+// dependencies, so store builds and snapshot-x.nl never ship the demo client or its seeded demo data.
+export const supabase = process.env.EXPO_PUBLIC_DEMO_MODE === '1'
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  ? (new (require('./demo-client') as { DemoClient: typeof DemoClient }).DemoClient() as unknown as ReturnType<typeof createClient>)
+  : createClient(url!, key!, {
   auth: { storage: AsyncStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
   global: { fetch: fetchWithInstallationId },
 });

@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { supabase, DEMO_MODE } from '../../lib/supabase';
 import { useSession } from '../../hooks/useSession';
 import { C } from '../../lib/theme';
-import { RING_TIMEOUT_MS, callSessionTopic, parseInvite, parseSignal, userCallTopic, type CallInvite } from '../../lib/call-signal';
+import { RING_TIMEOUT_MS, callSessionTopic, incomingCallerLabel, parseInvite, parseSignal, userCallTopic, type CallInvite, type CallerProfile } from '../../lib/call-signal';
 import { activeCall, joinBroadcast, sendOnce } from '../../lib/call-channel';
 
 /** Listens on the signed-in user's call topic and shows an in-app incoming-call sheet (no CallKit).
@@ -13,6 +13,7 @@ export default function IncomingCall() {
   const { session } = useSession();
   const me = session?.user.id;
   const [invite, setInvite] = useState<CallInvite | null>(null);
+  const [callerOf, setCallerOf] = useState<{ callId: string; profile: CallerProfile } | null>(null);
   const seen = useRef(new Set<string>());
 
   useEffect(() => {
@@ -29,6 +30,15 @@ export default function IncomingCall() {
     return () => { gone = true; void supabase.removeChannel(ch); };
   }, [me]);
 
+  // Who is calling: the callee looks the caller up itself (RLS: friends' profiles), so the sheet shows the real name + @username.
+  useEffect(() => {
+    if (!invite) return;
+    let gone = false;
+    void supabase.from('profiles').select('display_name, username').eq('id', invite.from).maybeSingle()
+      .then(({ data }) => { if (!gone && data) setCallerOf({ callId: invite.callId, profile: data as CallerProfile }); }, () => {});
+    return () => { gone = true; };
+  }, [invite]);
+
   // While ringing: vibrate, stop on caller hang-up or timeout.
   useEffect(() => {
     if (!invite || !me) return;
@@ -42,12 +52,14 @@ export default function IncomingCall() {
   }, [invite, me]);
 
   if (!invite || !me) return null;
-  const accept = () => { const inv = invite; setInvite(null); router.push({ pathname: '/call/[id]', params: { id: inv.threadId, name: inv.fromName, role: 'callee', callId: inv.callId, peer: inv.from, ...(inv.video ? {} : { audio: '1' }) } }); };
+  const who = incomingCallerLabel(invite, callerOf?.callId === invite.callId ? callerOf.profile : null);
+  const accept = () => { const inv = invite; setInvite(null); router.push({ pathname: '/call/[id]', params: { id: inv.threadId, name: who.name, role: 'callee', callId: inv.callId, peer: inv.from, ...(inv.video ? {} : { audio: '1' }) } }); };
   const decline = () => { const inv = invite; setInvite(null); void sendOnce(callSessionTopic(inv.callId), 'signal', { type: 'decline', from: me }).catch(() => {}); };
   return <Modal visible transparent animationType="slide" onRequestClose={decline}>
     <View style={s.wrap}><View style={s.card} testID="incoming-call">
-      <View style={s.avatar}><Text style={s.avatarText}>{invite.fromName.slice(0, 1).toUpperCase()}</Text></View>
-      <Text style={s.name}>{invite.fromName}</Text>
+      <View style={s.avatar}><Text style={s.avatarText}>{who.name.replace(/^@/, '').slice(0, 1).toUpperCase()}</Text></View>
+      <Text style={s.name}>{who.name}</Text>
+      {!!who.handle && <Text style={s.handle}>{who.handle}</Text>}
       <Text style={s.sub}>{invite.video ? 'belt je via video…' : 'belt je…'}</Text>
       <View style={s.row}>
         <Pressable onPress={decline} accessibilityLabel="Weigeren" style={[s.btn, { backgroundColor: '#ff3b30' }]}><Text style={s.btnText}>Weigeren</Text></Pressable>
@@ -82,6 +94,6 @@ const s = StyleSheet.create({
   wrap: { flex: 1, justifyContent: 'flex-start', paddingTop: 70, paddingHorizontal: 16, backgroundColor: '#0008' },
   card: { backgroundColor: '#1b1430', borderRadius: 24, padding: 24, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#ffffff22' },
   avatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' }, avatarText: { color: C.text, fontSize: 36, fontWeight: '800' },
-  name: { color: C.text, fontSize: 22, fontWeight: '800' }, sub: { color: C.muted, fontSize: 14 },
+  name: { color: C.text, fontSize: 22, fontWeight: '800' }, sub: { color: C.muted, fontSize: 14 }, handle: { color: C.muted, fontSize: 15, marginTop: -4 },
   row: { flexDirection: 'row', gap: 16, marginTop: 12 }, btn: { paddingVertical: 14, paddingHorizontal: 26, borderRadius: 30 }, btnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

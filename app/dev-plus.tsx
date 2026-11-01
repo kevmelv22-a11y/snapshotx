@@ -1,4 +1,5 @@
 import React,{useState} from 'react';
+import { devOnly } from '../components/DevOnly';
 import {Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {Stack,useLocalSearchParams} from 'expo-router';
@@ -9,7 +10,7 @@ import {AppIconPicker,Locked,NameWithBadge,Paywall,PriorityReplyBadge,RewatchPil
 /** Dev-only harness for Snapshot X+ with local mock data (no Supabase, no store).
  *  ?scene=paywall|icons|icons_free|rewatch|replies|badge|wallpaper|bff|bff_free  ?plus=0 for a non-subscriber. */
 const now=Date.parse('2026-10-13T12:00:00Z');
-export default function DevPlus(){
+function DevPlus(){
   const {scene='paywall',plus:pq}=useLocalSearchParams<{scene?:string;plus?:string}>();
   const plus=pq!=='0'&&!scene.endsWith('_free');
   const [plan,setPlan]=useState<PlanId>('sx_plus_yearly');const [tier,setTier]=useState<Tier>('plus');const [icon,setIcon]=useState('neon');const [wp,setWp]=useState<Record<string,string>>({t1:'aurora'});
@@ -33,3 +34,5 @@ const s=StyleSheet.create({p:{padding:18,gap:12},h:{color:C.text,fontSize:18,fon
   reply:{flexDirection:'row',gap:10,alignItems:'center',backgroundColor:C.surface,borderRadius:12,padding:10},av:{width:38,height:38,borderRadius:19,backgroundColor:C.purple,alignItems:'center',justifyContent:'center'},
   card:{backgroundColor:C.cardBg,borderRadius:14,padding:14,alignSelf:'stretch',marginTop:10},chat:{height:300,padding:14,gap:8,justifyContent:'flex-end',overflow:'hidden'},bub:{backgroundColor:C.elevated,borderRadius:16,padding:10},
   pin:{flexDirection:'row',gap:3,alignItems:'center',backgroundColor:C.yellow,borderRadius:10,paddingHorizontal:7,paddingVertical:3}});
+
+export default devOnly(DevPlus);

@@ -7,6 +7,8 @@ import {callStatusText,nextCallState,type CallEvent,type CallState} from '../../
 import {DEMO_MODE} from '../../lib/supabase';
 import {isUuid} from '../../lib/chat-ids';
 import RealCall from '../../components/call/RealCall';
+import {DEV_TOOLS} from '../../components/DevOnly';
+import {callScreenMode} from '../../lib/release-guard';
 
 /** Video/voice call screen. With the real backend this is a real 1:1 WebRTC call: iOS/Android use
  *  components/call/RealCall.native.tsx (react-native-webrtc), the browser uses components/call/RealCall.tsx.
@@ -14,8 +16,21 @@ import RealCall from '../../components/call/RealCall';
 export default function CallScreen(){
   const p=useLocalSearchParams<{id:string;name?:string;state?:CallState;role?:string;callId?:string;peer?:string;audio?:string}>();
   // Voice-only calls exist in the browser (Snapchat Web phone button); the native call screen is always video.
-  if(!DEMO_MODE&&!p.state&&isUuid(p.id))return <><Stack.Screen options={{headerShown:false,gestureEnabled:false}}/><RealCall threadId={p.id} name={p.name||'Vriend'} role={p.role==='callee'?'callee':'caller'} callId={p.callId} peerId={p.peer} audioOnly={Platform.OS==='web'&&p.audio==='1'}/></>;
+  const mode=callScreenMode({demo:DEMO_MODE,devTools:DEV_TOOLS,realId:isUuid(p.id),hasState:!!p.state});
+  if(mode==='unavailable')return <CallUnavailable/>;
+  if(mode==='real')return <><Stack.Screen options={{headerShown:false,gestureEnabled:false}}/><RealCall threadId={p.id} name={p.name||'Vriend'} role={p.role==='callee'?'callee':'caller'} callId={p.callId} peerId={p.peer} audioOnly={Platform.OS==='web'&&p.audio==='1'}/></>;
   return <DemoCall/>;
+}
+/** Release builds: an invalid or expired call link never shows a fake call. */
+function CallUnavailable(){
+  const insets=useSafeAreaInsets();
+  return <View style={[s.root,s.gone,{paddingTop:insets.top+40}]} testID="call-unavailable">
+    <Stack.Screen options={{headerShown:false}}/>
+    <Text style={s.goneIcon}>📵</Text>
+    <Text style={s.name}>Gesprek niet beschikbaar</Text>
+    <Text style={s.goneText}>Dit gesprek bestaat niet (meer). Bel je vriend opnieuw vanuit de chat.</Text>
+    <Pressable onPress={()=>router.canGoBack()?router.back():router.replace('/(tabs)/chats')} accessibilityRole="button" accessibilityLabel="Terug naar chats" style={s.goneBtn}><Text style={s.goneBtnText}>Terug naar chats</Text></Pressable>
+  </View>;
 }
 function DemoCall(){
   const {name='Vriend',state:initial}=useLocalSearchParams<{id:string;name?:string;state?:CallState}>();
@@ -61,4 +76,6 @@ const s=StyleSheet.create({
   self:{position:'absolute',right:16,width:100,height:150,borderRadius:16,backgroundColor:'#333a',borderWidth:2,borderColor:'#fff5',alignItems:'center',justifyContent:'center'},selfOff:{color:C.text,fontSize:12},
   controls:{position:'absolute',left:0,right:0,bottom:0,flexDirection:'row',justifyContent:'space-evenly',paddingTop:20,backgroundColor:'#0008'},
   ctl:{width:60,height:60,borderRadius:30,backgroundColor:'#ffffff2a',alignItems:'center',justifyContent:'center'},hang:{backgroundColor:'#ff3b30',transform:[{rotate:'135deg'}]},ctlIcon:{fontSize:24},
+  gone:{alignItems:'center',paddingHorizontal:28,gap:12,backgroundColor:C.bg},goneIcon:{fontSize:64,marginBottom:6},goneText:{color:C.muted,fontSize:15,textAlign:'center',lineHeight:21,maxWidth:360},
+  goneBtn:{marginTop:14,backgroundColor:C.purple,borderRadius:24,paddingHorizontal:22,paddingVertical:12},goneBtnText:{color:C.text,fontWeight:'800',fontSize:15},
 });

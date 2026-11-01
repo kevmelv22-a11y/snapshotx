@@ -68,3 +68,20 @@ export function parseSignal(p: unknown, me: string): CallSignal | null {
 export function endReasonText(r: 'declined' | 'busy' | 'hangup' | 'timeout' | 'failed' | 'local'): string {
   return r === 'declined' ? 'Gesprek geweigerd' : r === 'busy' ? 'In gesprek' : r === 'timeout' ? 'Geen antwoord' : r === 'failed' ? 'Verbinding mislukt' : 'Gesprek beëindigd';
 }
+
+export type CallerProfile = { display_name?: string | null; username?: string | null } | null | undefined;
+
+/** Name the caller puts in the invite: display name, else @username, never a user id. */
+export function callerName(p: CallerProfile): string {
+  const name = typeof p?.display_name === 'string' ? p.display_name.trim() : '';
+  const user = typeof p?.username === 'string' ? p.username.trim() : '';
+  return (name || (user ? `@${user}` : '') || 'Iemand').slice(0, 60);
+}
+
+/** What the incoming-call sheet shows. The callee's own profile lookup of `invite.from` wins over the name in the
+ *  broadcast payload (anyone could put any name there); the payload name is only a fallback. Second line: @username. */
+export function incomingCallerLabel(invite: Pick<CallInvite, 'fromName'>, p: CallerProfile): { name: string; handle: string } {
+  const user = typeof p?.username === 'string' ? p.username.trim() : '';
+  const name = typeof p?.display_name === 'string' && p.display_name.trim() ? p.display_name.trim().slice(0, 60) : user ? `@${user}` : invite.fromName;
+  return { name, handle: user && name !== `@${user}` ? `@${user}` : '' };
+}

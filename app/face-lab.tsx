@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { devOnly } from '../components/DevOnly';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useIsFocused } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,7 +8,7 @@ import { createFaceDetectorOutput, useImageFaceDetector, type Face } from 'react
 import { imageRectToCoverView, type Rect, type Size } from '../lib/face-mapping';
 
 /** Diagnostic route only. The production Expo Camera and photo overlays remain unchanged. */
-export default function FaceLab() {
+function FaceLab() {
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
   const camera = useRef<CameraRef>(null);
@@ -124,3 +125,5 @@ const styles = StyleSheet.create({
   action: { color: '#FFE436', fontSize: 17, fontWeight: '700' },
   error: { position: 'absolute', top: 115, left: 12, right: 12, color: '#FF6B6B', backgroundColor: '#100515CC', padding: 10 },
 });
+
+export default devOnly(FaceLab);
