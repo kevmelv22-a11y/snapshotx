@@ -2,14 +2,15 @@
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import type { Delivered, PushPayload, PushProvider } from './push';
+import { ANDROID_CHANNELS, type Delivered, type PushPayload, type PushProvider } from './push';
 
 export class ExpoPushProvider implements PushProvider {
   readonly name = 'expo' as const;
   async requestPermission() {
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('messages', { name: 'Berichten', importance: Notifications.AndroidImportance.HIGH });
-      await Notifications.setNotificationChannelAsync('social', { name: 'Vrienden', importance: Notifications.AndroidImportance.DEFAULT });
+      for (const c of ANDROID_CHANNELS) await Notifications.setNotificationChannelAsync(c.id, { name: c.name, description: c.description,
+        importance: c.importance === 'high' ? Notifications.AndroidImportance.HIGH : Notifications.AndroidImportance.DEFAULT,
+        lightColor: '#C43CE5', lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE });
     }
     const cur = await Notifications.getPermissionsAsync();
     if (cur.granted) return true;

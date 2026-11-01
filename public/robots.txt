@@ -4,6 +4,7 @@ Allow: /$
 Allow: /help
 Allow: /privacy
 Allow: /voorwaarden
+Allow: /account-verwijderen
 Disallow: /staff
 Disallow: /chat
 Disallow: /call

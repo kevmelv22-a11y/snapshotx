@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {Linking,ScrollView,Text,View} from 'react-native';
+import {Linking,Platform,ScrollView,Text,View} from 'react-native';
 import {Stack,router,useLocalSearchParams} from 'expo-router';
 import {Paywall} from '../components/plus/PlusParts';
 import {usePlusStore} from '../stores/plus';
@@ -19,7 +19,7 @@ function RevenueCatPaywallScreen(){
   const done=()=>router.replace('/plus-manage');
   return <View style={{flex:1}}><Stack.Screen options={{headerShown:false}}/>
     {RcPaywall&&<RcPaywall style={{flex:1}} options={{displayCloseButton:true}} onPurchaseCompleted={done} onRestoreCompleted={({customerInfo})=>{if(customerInfo.entitlements.active.snapshot_x)done();else setErr('Geen eerdere aankopen gevonden')}}
-      onPurchaseError={({error})=>setErr(purchaseErrorMessage(error))} onRestoreError={({error})=>setErr(purchaseErrorMessage(error))}
+      onPurchaseError={({error})=>setErr(purchaseErrorMessage(error,Platform.OS))} onRestoreError={({error})=>setErr(purchaseErrorMessage(error,Platform.OS))}
       onDismiss={()=>{if(router.canGoBack())router.back();else router.replace('/settings')}}/>}
     {!!(err??sub.error)&&<Text style={{color:'#FFD400',textAlign:'center',padding:12}}>{err??sub.error}</Text>}</View>;
 }

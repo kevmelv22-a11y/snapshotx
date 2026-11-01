@@ -10,7 +10,7 @@ import {useOwnProfile} from '../hooks/useOwnProfile';
 import {SUPPORT_EMAIL} from '../lib/legal';
 import {CRISIS_LINES,HELP_CATEGORIES,SUPPORT_TOPICS,findArticle,searchHelp,supportMailto,type HelpArticle,type SupportTopicId} from '../lib/help-center';
 
-const purple='#AE16C7',PUBLIC_ROUTES=new Set(['/privacy','/voorwaarden']);
+const purple='#AE16C7',PUBLIC_ROUTES=new Set(['/privacy','/voorwaarden','/account-verwijderen']);
 type IconName=React.ComponentProps<typeof Ionicons>['name'];
 
 /** Help en support (Snapchat "Ondersteuning"): searchable FAQ, crisis numbers, pre-filled support mail. Works signed out too (public /help). */

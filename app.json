@@ -154,9 +154,12 @@
             ]
           }
         ]
-      }
+      },
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.snapshotx.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#040404",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -164,7 +167,26 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.snapshotx.app"
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "blockedPermissions": [
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_PHONE_STATE"
+      ]
     },
     "web": {
       "favicon": "./assets/snapshotx-app-icon.png"
@@ -195,7 +217,9 @@
       [
         "expo-media-library",
         {
-          "savePhotosPermission": "SnapShot X bewaart snaps in je fotobibliotheek."
+          "savePhotosPermission": "SnapShot X bewaart snaps in je fotobibliotheek.",
+          "granularPermissions": [],
+          "isAccessMediaLocationEnabled": false
         }
       ],
       [
@@ -204,7 +228,14 @@
           "locationWhenInUsePermission": "SnapShot X gebruikt je locatie alleen wanneer je ervoor kiest die op de vriendenkaart te delen."
         }
       ],
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#C43CE5",
+          "defaultChannel": "messages"
+        }
+      ],
       "expo-sharing",
       "expo-video",
       "expo-audio",

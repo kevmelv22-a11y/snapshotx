@@ -42,5 +42,6 @@ export const HIDDEN_HEADER_TITLES: Readonly<Record<string, string>> = {
   birthday: 'Verjaardag',
   privacy: 'Privacybeleid',
   voorwaarden: 'Voorwaarden',
+  'account-verwijderen': 'Account verwijderen',
   help: 'Help',
 };

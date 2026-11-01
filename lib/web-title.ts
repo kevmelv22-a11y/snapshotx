@@ -23,6 +23,7 @@ const ROUTE_TITLES: readonly (readonly [RegExp, string])[] = [
   [/^\/help(\/|$)/, 'Help en support'],
   [/^\/privacy(\/|$)/, 'Privacybeleid'],
   [/^\/voorwaarden(\/|$)/, 'Gebruiksvoorwaarden'],
+  [/^\/account-verwijderen(\/|$)/, 'Account verwijderen'],
   [/^\/my-data(\/|$)/, 'Mijn gegevens'],
   [/^\/memories(\/|$)/, 'Herinneringen'],
   [/^\/discover(\/|$)/, 'Ontdekken'],

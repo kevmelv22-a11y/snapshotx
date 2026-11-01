@@ -9,6 +9,13 @@ export type PushEvent =
 export type PushPayload = { title: string; body: string; data: { kind: PushKind; route: string }; channel: 'messages' | 'social' };
 export type Delivered = PushPayload & { id: string; at: number };
 
+/** Android notification channels (created before asking permission; 'messages' is also the default FCM channel in app.json,
+ *  so server pushes without a channelId land there). Users can tune each one in Android › Instellingen › Meldingen. */
+export const ANDROID_CHANNELS = [
+  { id: 'messages', name: 'Berichten en snaps', description: 'Nieuwe chats, snaps en screenshotmeldingen', importance: 'high' },
+  { id: 'social', name: 'Vrienden', description: 'Vriendschapsverzoeken en nieuwe vrienden', importance: 'default' },
+] as const satisfies readonly { id: PushPayload['channel']; name: string; description: string; importance: 'high' | 'default' }[];
+
 export interface PushProvider {
   readonly name: 'mock' | 'expo';
   requestPermission(): Promise<boolean>;

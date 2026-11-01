@@ -1,8 +1,19 @@
 /** Pure RevenueCat helpers (no React Native imports) so they run under `node --test`. */
 export const RC_ENTITLEMENT = 'snapshot_x';
-/** Public RevenueCat Test Store SDK key (safe to ship). Production needs an `appl_` key via EXPO_PUBLIC_REVENUECAT_IOS_KEY. */
+/** Public RevenueCat Test Store SDK key (safe to ship). Production needs an `appl_` key (EXPO_PUBLIC_REVENUECAT_IOS_KEY)
+ *  and a `goog_` key (EXPO_PUBLIC_REVENUECAT_ANDROID_KEY); see docs/revenuecat/GOOGLE_PLAY_NL.md. */
 export const RC_TEST_KEY = 'test_FHajsikJnhKazfUlcsUduRIJtqI';
 export const rcApiKey = (env: string | undefined): string => (env && env.trim()) || RC_TEST_KEY;
+export type StoreOs = 'ios' | 'android' | string;
+/** Public SDK key for this platform: iOS → appl_ key, Android → goog_ key; a key of the other store is never used. */
+export function rcApiKeyFor(os: StoreOs, env: { ios?: string; android?: string }): string {
+  const key = rcApiKey(os === 'android' ? env.android : env.ios);
+  if (os === 'android' && key.startsWith('appl_')) return RC_TEST_KEY;
+  if (os === 'ios' && key.startsWith('goog_')) return RC_TEST_KEY;
+  return key;
+}
+/** Store name in user-facing Dutch copy. */
+export const storeName = (os: StoreOs): string => (os === 'android' ? 'Google Play' : 'App Store');
 
 type InfoLike = { entitlements?: { active?: Record<string, { expirationDate?: string | null; willRenew?: boolean; latestPurchaseDate?: string; productIdentifier?: string; periodType?: string } | undefined> } } | null | undefined;
 /** isPro: the `snapshot_x` entitlement is active. */
@@ -23,12 +34,12 @@ export function mapPackages<P extends PkgLike>(offering: { availablePackages?: P
 
 type ErrLike = { code?: string | number; userCancelled?: boolean | null; message?: string } | null | undefined;
 /** Dutch user message for a purchase/restore error; null when the user cancelled (stay silent). */
-export function purchaseErrorMessage(e: ErrLike): string | null {
+export function purchaseErrorMessage(e: ErrLike, os: StoreOs = 'ios'): string | null {
   if (!e) return null;
   const code = String(e.code ?? '');
   if (e.userCancelled || code === '1') return null;
   if (code === '10' || code === '35') return 'Geen verbinding. Controleer je internet en probeer het opnieuw.';
-  if (code === '2' || code === '32') return 'Er is een probleem met de App Store. Probeer het later opnieuw.';
+  if (code === '2' || code === '32') return `Er is een probleem met ${os === 'android' ? 'Google Play' : 'de App Store'}. Probeer het later opnieuw.`;
   if (code === '20') return 'Je betaling wordt nog verwerkt. Je krijgt toegang zodra die is goedgekeurd.';
   if (code === '3') return 'Aankopen zijn niet toegestaan op dit toestel.';
   if (code === '5') return 'Dit product is nu niet beschikbaar.';

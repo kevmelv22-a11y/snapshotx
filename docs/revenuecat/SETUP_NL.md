@@ -25,6 +25,7 @@ De app gebruikt RevenueCat voor Snapshot X+ (entitlement `snapshot_x`). In de ap
 
 ## 3. Key in de app
 - In `.env` of als EAS-secret/environment variable: `EXPO_PUBLIC_REVENUECAT_IOS_KEY=appl_…`
+- Android: `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=goog_…` — zie **GOOGLE_PLAY_NL.md**.
 - Zonder deze variabele valt de app terug op de test-key (alleen Test Store).
 
 ## 4. Testen

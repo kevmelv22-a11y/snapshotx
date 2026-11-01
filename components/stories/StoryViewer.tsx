@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {FlatList,KeyboardAvoidingView,PanResponder,Pressable,StyleSheet,Text,TextInput,View,useWindowDimensions} from 'react-native';
+import {FlatList,KeyboardAvoidingView,PanResponder,Platform,Pressable,StyleSheet,Text,TextInput,View,useWindowDimensions} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import * as L from '../../lib/stories';
@@ -52,7 +52,7 @@ export function StoryViewer(p:Props){
    {mine?<Pressable style={s.pill} onPress={()=>openPanel('viewers')}><Ionicons name="eye-outline" size={18} color="white"/><Text style={s.text}>{viewers?L.viewersLabel(viewers.total):'Kijkers'}</Text><Ionicons name="chevron-up" size={18} color="white"/></Pressable>
    :<Pressable style={s.pill} onPress={()=>openPanel('reply')}><Ionicons name="chatbubble-outline" size={18} color="white"/><Text style={s.text}>Antwoorden aan {name}</Text></Pressable>}
   </View>}
-  {replyOpen&&!mine&&<KeyboardAvoidingView behavior="padding" style={[s.sheet,{paddingBottom:insets.bottom+12}]}><Text style={s.sheetTitle}>Antwoord op verhaal van {name}</Text><View style={s.row}><TextInput autoFocus value={reply} onChangeText={setReply} placeholder="Stuur een bericht…" placeholderTextColor="#aaa" style={s.input} onSubmitEditing={send}/><Pressable onPress={send} accessibilityLabel="Versturen" style={s.send}><Ionicons name="send" size={20} color="black"/></Pressable></View><Pressable onPress={closePanels}><Text style={s.meta}>Annuleren</Text></Pressable></KeyboardAvoidingView>}
+  {replyOpen&&!mine&&<KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={[s.sheet,{paddingBottom:insets.bottom+12}]}><Text style={s.sheetTitle}>Antwoord op verhaal van {name}</Text><View style={s.row}><TextInput autoFocus value={reply} onChangeText={setReply} placeholder="Stuur een bericht…" placeholderTextColor="#aaa" style={s.input} onSubmitEditing={send}/><Pressable onPress={send} accessibilityLabel="Versturen" style={s.send}><Ionicons name="send" size={20} color="black"/></Pressable></View><Pressable onPress={closePanels}><Text style={s.meta}>Annuleren</Text></Pressable></KeyboardAvoidingView>}
   {viewersOpen&&mine&&<View style={[s.sheet,{maxHeight:'60%',paddingBottom:insets.bottom+12}]}><View style={s.row}><Text style={[s.sheetTitle,{flex:1}]}>{viewers?L.viewersLabel(viewers.total):'Kijkers laden…'}</Text><Pressable onPress={closePanels} accessibilityLabel="Sluiten"><Ionicons name="chevron-down" size={26} color="white"/></Pressable></View>
    {viewers&&viewers.total===0&&<Text style={s.meta}>Nog niemand heeft dit verhaal bekeken.</Text>}
    <FlatList data={viewers?.viewers??[]} keyExtractor={v=>v.userId} renderItem={({item})=><View style={s.viewer}><View style={s.avatarSm}><Text style={s.avatarText}>{(p.names[item.userId]||'?').slice(0,1)}</Text></View><Text style={[s.text,{flex:1}]}>{p.names[item.userId]||'Vriend'}</Text>{!!item.emoji&&<Text style={{fontSize:20}}>{item.emoji}</Text>}<Text style={s.meta}>{L.ageLabel(item.viewedAt,clockNow())}</Text></View>}/>

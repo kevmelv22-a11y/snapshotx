@@ -21,8 +21,8 @@ export const HELP_CATEGORIES: HelpCategory[] = [
       a: ['Wijzig meteen je wachtwoord en zet „Uitloggen op andere toestellen” aan.', 'Kom je niet meer in je account? Mail ons via ' + SUPPORT_EMAIL + ' vanaf het e-mailadres van je account.'],
       action: { label: 'Wachtwoord wijzigen', route: '/change-password' } },
     { id: 'account-verwijderen', q: 'Hoe verwijder ik mijn account?', keywords: 'opzeggen stoppen wissen weg',
-      a: ['Ga naar Instellingen › Account verwijderen en typ VERWIJDER. Je profiel, berichten, verhalen en opgeslagen media worden definitief verwijderd.', 'Heb je Snapshot X+? Zeg dat apart op in de abonnementen van je Apple ID.'],
-      action: { label: 'Account verwijderen', route: '/delete-account' } },
+      a: ['Ga naar Instellingen › Account verwijderen en typ VERWIJDER. Je profiel, berichten, verhalen en opgeslagen media worden definitief verwijderd.', 'Heb je Snapshot X+? Zeg dat apart op in de abonnementen van je Apple ID of in Google Play.', 'Geen app meer? Mail support@snapshot-x.nl vanaf het e-mailadres van je account (zie snapshot-x.nl/account-verwijderen).'],
+      action: { label: 'Account verwijderen', route: '/account-verwijderen' } },
   ] },
   { id: 'snaps', title: 'Snaps, chats en verhalen', icon: 'chatbubbles-outline', articles: [
     { id: 'verdwijnen', q: 'Wanneer verdwijnen snaps en chats?', keywords: 'verwijderd weg bewaren 24 uur',
@@ -68,12 +68,12 @@ export const HELP_CATEGORIES: HelpCategory[] = [
   ] },
   { id: 'plus', title: 'Snapshot X+ en betalingen', icon: 'sparkles-outline', articles: [
     { id: 'opzeggen', q: 'Hoe zeg ik Snapshot X+ op?', keywords: 'abonnement stoppen annuleren',
-      a: ['Op iPhone: Instellingen van je telefoon › je naam › Abonnementen › Snapshot X+. In de app vind je dit ook onder Instellingen › Abonnement beheren.', 'Opzeggen kan tot 24 uur voor het einde van de periode.'],
+      a: ['Op iPhone: Instellingen van je telefoon › je naam › Abonnementen › Snapshot X+.', 'Op Android: open de Google Play Store › je profielfoto › Betalingen en abonnementen › Abonnementen › Snapshot X+.', 'In de app vind je dit ook onder Instellingen › Abonnement beheren.', 'Opzeggen kan tot 24 uur voor het einde van de periode.'],
       action: { label: 'Snapshot X+', route: '/plus' } },
     { id: 'terugbetaling', q: 'Kan ik mijn geld terugkrijgen?', keywords: 'refund terugbetaling geld',
-      a: ['Betalingen lopen via de App Store. Vraag een terugbetaling aan via reportaproblem.apple.com.'] },
+      a: ['Betalingen lopen via de App Store (iPhone) of Google Play (Android).', 'iPhone: vraag een terugbetaling aan via reportaproblem.apple.com.', 'Android: vraag een terugbetaling aan via play.google.com › Bestelgeschiedenis.'] },
     { id: 'herstellen', q: 'Mijn aankoop is weg', keywords: 'herstellen restore kwijt nieuwe telefoon',
-      a: ['Log in met hetzelfde account en hetzelfde Apple ID. Open Snapshot X+ en kies „Aankopen herstellen”.'],
+      a: ['Log in met hetzelfde Snapshot X-account en hetzelfde Apple ID (iPhone) of Google-account (Android). Open Snapshot X+ en kies „Aankopen herstellen”.'],
       action: { label: 'Snapshot X+', route: '/plus' } },
   ] },
 ];

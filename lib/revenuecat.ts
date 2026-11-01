@@ -3,7 +3,7 @@ import {Platform} from 'react-native';
 import type {CustomerInfo,PurchasesOffering,PurchasesPackage} from 'react-native-purchases';
 import {DEMO_MODE} from './supabase';
 import {loadRcSdk} from './rc-sdk';
-import {RC_ENTITLEMENT,mapPackages,purchaseErrorMessage,rcApiKey} from './revenuecat-logic';
+import {RC_ENTITLEMENT,mapPackages,purchaseErrorMessage,rcApiKeyFor} from './revenuecat-logic';
 export * from './revenuecat-logic';
 
 export const RC_ENABLED=Platform.OS!=='web'&&!DEMO_MODE;
@@ -14,7 +14,7 @@ export function configureRevenueCat():boolean{
   const s=sdk();if(!s)return false;if(configured)return true;
   try{
     if(__DEV__)void s.Purchases.setLogLevel(s.Purchases.LOG_LEVEL.DEBUG);
-    s.Purchases.configure({apiKey:rcApiKey(process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY)});
+    s.Purchases.configure({apiKey:rcApiKeyFor(Platform.OS,{ios:process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,android:process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY})});
     configured=true;
   }catch(e){console.warn('[revenuecat] configure failed',e)}
   return configured;
@@ -30,7 +30,7 @@ export async function rcOfferings():Promise<{current:PurchasesOffering|null;pack
   const o=await s.Purchases.getOfferings();return{current:o.current,packages:mapPackages(o.current)};
 }
 export type RcResult={ok:true;info:CustomerInfo|null}|{ok:false;message:string|null};
-const fail=(e:unknown):RcResult=>({ok:false,message:purchaseErrorMessage(e as never)});
+const fail=(e:unknown):RcResult=>({ok:false,message:purchaseErrorMessage(e as never,Platform.OS)});
 export async function rcPurchase(pkg:PurchasesPackage):Promise<RcResult>{const s=sdk();if(!s||!configured)return{ok:false,message:'Aankopen werkt alleen in de app.'};
   try{return{ok:true,info:(await s.Purchases.purchasePackage(pkg)).customerInfo}}catch(e){return fail(e)}}
 export async function rcRestore():Promise<RcResult>{const s=sdk();if(!s||!configured)return{ok:false,message:'Herstellen werkt alleen in de app.'};

@@ -3,14 +3,14 @@
  *  on the web they are public pages (https://snapshot-x.nl/privacy and /voorwaarden), no login needed.
  *  The text describes what the app really does (see the migrations / Edge Functions it names). */
 export type LegalSection = { heading: string; body: string[] };
-export type LegalDoc = { route: '/privacy' | '/voorwaarden'; title: string; updated: string; intro: string; sections: LegalSection[] };
+export type LegalDoc = { route: '/privacy' | '/voorwaarden' | '/account-verwijderen'; title: string; updated: string; intro: string; sections: LegalSection[] };
 
 /** Support contact (provided by Kevin, 30 okt 2026). Also in app.json extra.supportEmail + App Store metadata. */
 export const SUPPORT_EMAIL = 'support@snapshot-x.nl';
 export const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}`;
 export const SUPPORT_LINK = { label: 'Contact en support', description: SUPPORT_EMAIL, url: SUPPORT_MAILTO } as const;
 
-export const LEGAL_UPDATED = '29 oktober 2026';
+export const LEGAL_UPDATED = '1 november 2026';
 export const LEGAL_LINKS = {
   privacy: { label: 'Privacybeleid', description: 'Welke gegevens we gebruiken en waarom', route: '/privacy' },
   terms: { label: 'Gebruiksvoorwaarden', description: 'De afspraken voor het gebruik van Snapshot X', route: '/voorwaarden' },
@@ -34,7 +34,7 @@ export const PRIVACY: LegalDoc = {
     { heading: 'Waarvoor we gegevens gebruiken', body: [
       'Om de app te laten werken: berichten afleveren, verhalen tonen, vrienden voorstellen en meldingen sturen.',
       'Voor veiligheid: meldingen van gebruikers beoordelen, misbruik tegengaan en strengere standaardinstellingen voor gebruikers van 13 tot en met 17 jaar.',
-      'Voor Snapshot X+: bijhouden welk abonnement je hebt. Betalingen lopen via de App Store; wij zien geen betaalgegevens.',
+      'Voor Snapshot X+: bijhouden welk abonnement je hebt. Betalingen lopen via de App Store (iPhone) of Google Play (Android); wij zien geen betaalgegevens.',
       'We verkopen je gegevens niet en gebruiken ze niet voor advertenties van derden.',
     ] },
     { heading: 'Hoe lang we bewaren', body: [
@@ -45,12 +45,12 @@ export const PRIVACY: LegalDoc = {
     { heading: 'Wie je gegevens kan zien', body: [
       'Alleen de mensen met wie je iets deelt. Wie je blokkeert, kan je niet meer berichten en ziet je verhalen niet meer.',
       'Onze moderatoren zien alleen wat nodig is om een melding te beoordelen.',
-      'We gebruiken dienstverleners voor opslag, inloggen en pushmeldingen (zoals Supabase en Expo). Zij verwerken gegevens alleen in onze opdracht.',
+      'We gebruiken dienstverleners voor opslag, inloggen, abonnementen en pushmeldingen (zoals Supabase, Expo, RevenueCat, Apple en Google). Zij verwerken gegevens alleen in onze opdracht.',
     ] },
     { heading: 'Jouw rechten en keuzes', body: [
       'Je kunt je naam, privacy-instellingen, locatie delen en vindbaarheid in vriendensuggesties zelf aanpassen in Instellingen.',
-      'Je kunt via Instellingen › Mijn gegevens meteen een kopie van je gegevens downloaden (JSON-bestand).',
-      'Je kunt je account en je inhoud op elk moment zelf definitief verwijderen via Instellingen › Account verwijderen.',
+      'Je kunt via Instellingen › Mijn gegevens meteen een kopie van je gegevens downloaden (HTML- en/of JSON-bestand).',
+      'Je kunt je account en je inhoud op elk moment zelf definitief verwijderen via Instellingen › Account verwijderen. Heb je de app niet meer? Kijk dan op snapshot-x.nl/account-verwijderen.',
       'Je hebt het recht op inzage, correctie, verwijdering, beperking en bezwaar (AVG). Je kunt ook een klacht indienen bij de Autoriteit Persoonsgegevens.',
     ] },
     { heading: 'Leeftijd', body: ['Snapshot X is voor iedereen van 13 jaar en ouder. Ben je jonger, maak dan geen account aan.'] },
@@ -84,7 +84,8 @@ export const TERMS: LegalDoc = {
       'Let op: ontvangers kunnen een screenshot maken. Deel niets wat je niet wilt laten zien.',
     ] },
     { heading: 'Snapshot X+', body: [
-      'Snapshot X+ is een optioneel abonnement met extra functies. Het wordt via je App Store-account afgerekend en automatisch verlengd tot je het opzegt in de abonnementsinstellingen van je Apple ID, uiterlijk 24 uur voor het einde van de periode.',
+      'Snapshot X+ is een optioneel abonnement met extra functies. Het wordt via je App Store-account (iPhone) of Google Play-account (Android) afgerekend en automatisch verlengd tot je het opzegt in de abonnementsinstellingen van je Apple ID of in Google Play › Betalingen en abonnementen, uiterlijk 24 uur voor het einde van de periode.',
+      'Terugbetalingen lopen via Apple (reportaproblem.apple.com) of Google Play, volgens hun regels.',
     ] },
     { heading: 'Beëindigen', body: [
       'Je kunt je account altijd zelf verwijderen via Instellingen › Account verwijderen. Bij ernstige of herhaalde overtredingen kunnen wij je account beëindigen.',
@@ -97,6 +98,35 @@ export const TERMS: LegalDoc = {
 };
 
 export const LEGAL_DOCS = [PRIVACY, TERMS] as const;
+
+/** Public account-deletion page (Google Play Data safety requires a web URL where users can request deletion without the
+ *  app): https://snapshot-x.nl/account-verwijderen. Works signed out; signed in it links to the in-app deletion screen. */
+export const ACCOUNT_DELETION_URL = 'https://snapshot-x.nl/account-verwijderen';
+export const ACCOUNT_DELETION: LegalDoc = {
+  route: '/account-verwijderen', title: 'Account verwijderen', updated: LEGAL_UPDATED,
+  intro: 'Zo verwijder je je Snapshot X-account van Vonk Byte en de gegevens die erbij horen, ook als je de app niet meer op je telefoon hebt.',
+  sections: [
+    { heading: 'Zelf verwijderen (direct)', body: [
+      'Open de Snapshot X-app op je iPhone of Android, of log in op snapshot-x.nl.',
+      'Ga naar Instellingen › Account verwijderen, typ VERWIJDER en bevestig. Je account wordt meteen definitief verwijderd.',
+    ] },
+    { heading: 'Zonder de app', body: [
+      `Mail naar ${SUPPORT_EMAIL} vanaf het e-mailadres van je account, met als onderwerp „Account verwijderen” en je gebruikersnaam.`,
+      'We controleren of het verzoek echt van jou komt, verwijderen je account binnen 30 dagen en sturen je een bevestiging.',
+    ] },
+    { heading: 'Wat we verwijderen', body: [
+      'Je profiel, gebruikersnaam, weergavenaam, e-mailadres, wachtwoord, geboortedatum en telefoonnummer.',
+      'Je vrienden, verzoeken, chats, berichten, snaps, verhalen, Herinneringen, chat-achtergronden, je avatar en de kleding uit de Kast.',
+      'Je gedeelde locatie, pushmeldingstokens en inloggeschiedenis. Berichten en verhalen die je hebt gemaakt verdwijnen ook voor anderen.',
+    ] },
+    { heading: 'Wat we kort kunnen bewaren', body: [
+      'Alleen wat de wet verplicht of wat nodig is om ernstig misbruik tegen te gaan (zoals een actieve blokkade wegens overtredingen), en zo kort mogelijk.',
+      'Een abonnement loopt via de App Store of Google Play. Zeg dat daar zelf op; verwijderen van je account stopt het abonnement niet automatisch.',
+    ] },
+    { heading: 'Liever eerst een kopie?', body: ['Download vooraf je gegevens via Instellingen › Mijn gegevens (HTML en/of JSON).'] },
+    CONTACT,
+  ],
+};
 export function legalDoc(route: string): LegalDoc | null {
-  return LEGAL_DOCS.find(d => d.route === route || d.route === `/${route.replace(/^\//, '')}`) ?? null;
+  return [...LEGAL_DOCS, ACCOUNT_DELETION].find(d => d.route === route || d.route === `/${route.replace(/^\//, '')}`) ?? null;
 }

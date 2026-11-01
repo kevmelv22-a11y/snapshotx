@@ -14,7 +14,7 @@ import {useSubscription} from '../hooks/useSubscription';
 export default function PlusManage(){
   const st=usePlusStore();const now=useNow();const [confirm,setConfirm]=useState<string|null>(null);const [notice,setNotice]=useState<string|null>(null);
   const live=st.entitlements.filter(e=>isEntitlementActive(e,now));const sub=useSubscription();
-  // Real build: RevenueCat Customer Center handles cancel/refund/change via the App Store.
+  // Real build: RevenueCat Customer Center handles cancel/refund/change via the App Store or Google Play.
   if(sub.enabled)return <ScrollView contentContainerStyle={s.c}><Stack.Screen options={{title:'Abonnement beheren'}}/>
     <View style={s.card}><Text style={s.h}>{sub.isPro?'Snapshot X+ actief':'Geen actief abonnement'}</Text>
       {sub.isPro?<Pressable style={s.btn} onPress={()=>void sub.presentCustomerCenter()}><Text style={s.btnT}>Abonnement beheren</Text></Pressable>
