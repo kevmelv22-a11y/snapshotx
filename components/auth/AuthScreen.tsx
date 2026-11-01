@@ -8,7 +8,10 @@ import { WEB_FOOTER, showDemoLoginButton } from '../../lib/web-layout';
 import { authRedirectUrl } from '../../lib/web-env';
 import { DEMO_EMAIL } from '../../lib/demo-constants';
 import { friendlyError } from '../../lib/db-errors';
-import { classifyIdentifier, validateRegister } from '../../lib/auth-form';
+import { GENDER_REQUIRED_ERROR, REGISTER_GENDERS, classifyIdentifier, registerMetadata, validateRegister, type RegisterGender } from '../../lib/auth-form';
+import { AvatarBust } from '../avatar/AvatarBust';
+import { defaultOutfitFor } from '../../lib/avatar/outfit';
+import { useWardrobe } from '../../stores/wardrobe';
 import { newPasswordError, passwordStrength } from '../../lib/password-change';
 import { LEGAL_CONSENT, LEGAL_LINKS } from '../../lib/legal';
 import { peekPendingAdd } from '../../lib/pending-add';
@@ -58,6 +61,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [identifier, setIdentifier] = useState(''), [password, setPassword] = useState('');
   const [username, setUsername] = useState(''), [email, setEmail] = useState(''), [birthdate, setBirthdate] = useState(''), [phone, setPhone] = useState('');
+  const [gender, setGender] = useState<RegisterGender | null>(null);
   const [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
   const { width } = useWindowDimensions();
   const contentW = Math.min(width, 480);
@@ -96,10 +100,13 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
   async function register() {
     const v = validateRegister({ username, email, password, birthdate, phone });
     if (!v.ok) { setNotice(v.error); return; }
+    if (!gender) { setNotice(GENDER_REQUIRED_ERROR); return; }
     setBusy(true); setNotice('');
     try {
-      const { data, error } = await supabase.auth.signUp({ email: v.email, password, options: { emailRedirectTo: AUTH_REDIRECT, data: { username: v.username, display_name: v.username, birthdate: v.birthdate, is_teen: v.teen, ...(v.phone ? { phone: v.phone } : {}) } } });
+      const { data, error } = await supabase.auth.signUp({ email: v.email, password, options: { emailRedirectTo: AUTH_REDIRECT, data: registerMetadata(v, gender) } });
       if (error) throw error;
+      // Same as saveCharacter: user_metadata.gender is on the account; the local wardrobe gets the matching start look.
+      if (data.session) useWardrobe.getState().setGender(gender);
       if (data.session) { router.replace('/(tabs)/profile'); return; }
       setNotice('Controleer je e-mail om je account te bevestigen.');
     } catch (e) { setNotice(friendlyError(e)); } finally { setBusy(false); }
@@ -107,7 +114,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
 
   const isLogin = mode === 'login';
   const addBanner = pendingAddText(peekPendingAdd());
-  const canSubmit = !busy && (isLogin ? !!identifier && !!password : !!username && !!email && !!password && !!birthdate);
+  const canSubmit = !busy && (isLogin ? !!identifier && !!password : !!username && !!email && !!password && !!birthdate && !!gender);
   return <View style={s.root}>
     <Backdrop/>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={kavBehavior(Platform.OS)}>
@@ -126,6 +133,15 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: AuthMode }
             <Field label="Gebruikersnaam, e-mail of telefoon" value={identifier} onChangeText={setIdentifier} autoComplete="username" textContentType="username"/>
             <Field label="Wachtwoord" value={password} onChangeText={setPassword} secureTextEntry autoComplete="password" textContentType="password" onSubmitEditing={() => canSubmit && void login()}/>
           </> : <>
+            <Text style={s.label}>Ik ben een…</Text>
+            <View style={s.genderRow} accessibilityRole="radiogroup" accessibilityLabel="Jongen of meisje">
+              {REGISTER_GENDERS.map(g => { const on = gender === g.value; return <Pressable key={g.value} onPress={() => { setGender(g.value); setNotice(''); }} style={({ pressed }) => [s.genderCard, on && s.genderCardOn, pressed && { transform: [{ scale: 0.97 }] }]} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={g.label} testID={`register-gender-${g.value}`}>
+                <AvatarBust outfit={defaultOutfitFor(g.value)} size={86} ring={on ? 3 : 0} ringColor={CYAN} label={g.label} background={g.value === 'male' ? '#5BC8FF' : '#FF8AD8'}/>
+                <Text style={[s.genderText, on && s.genderTextOn]}>{g.emoji} {g.label}</Text>
+                {on && <View style={s.genderCheck}><Text style={s.genderCheckText}>✓</Text></View>}
+              </Pressable>; })}
+            </View>
+            <Text style={[s.hint, { marginTop: 0 }]}>Hiermee krijg je meteen de juiste avatar. Later aan te passen in de avatar-editor.</Text>
             <Field label="Gebruikersnaam" placeholder="bijv. kevin.dev" value={username} onChangeText={setUsername} autoComplete="username-new"/>
             <Field label="E-mail" placeholder="jij@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" textContentType="emailAddress"/>
             <Field label="Wachtwoord" placeholder="Minimaal 8 tekens" value={password} onChangeText={setPassword} secureTextEntry autoComplete="password-new" textContentType="newPassword"/>
@@ -175,6 +191,13 @@ const s = StyleSheet.create({ webFooter: { color: '#9C93A6', fontSize: 12, textA
   input: { alignSelf: 'stretch', width: '100%', minWidth: 0, height: 56, borderRadius: 14, paddingHorizontal: 18, fontSize: 17, color: '#FFFFFF', backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
   hint: { color: 'rgba(255,255,255,0.6)', fontSize: 13, lineHeight: 18, marginTop: -4, marginBottom: 18 },
   strength: { marginTop: -6, marginBottom: 12, gap: 5 }, strengthBar: { flexDirection: 'row', gap: 5 }, strengthSeg: { flex: 1, height: 4, borderRadius: 2 }, strengthText: { fontSize: 12, fontWeight: '700' },
+  genderRow: { flexDirection: 'row', gap: 12, marginBottom: 10 },
+  genderCard: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.14)', gap: 8 },
+  genderCardOn: { backgroundColor: 'rgba(46,230,255,0.14)', borderColor: CYAN },
+  genderText: { color: 'rgba(255,255,255,0.85)', fontSize: 17, fontWeight: '700' },
+  genderTextOn: { color: '#FFFFFF' },
+  genderCheck: { position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: CYAN, alignItems: 'center', justifyContent: 'center' },
+  genderCheckText: { color: '#000', fontWeight: '900', fontSize: 14 },
   notice: { color: '#FFD4C8', textAlign: 'center', marginBottom: 12 },
   cta: { alignSelf: 'stretch', height: 56, borderRadius: 999, backgroundColor: CYAN, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   ctaText: { color: '#000', fontSize: 18, fontWeight: '700' },

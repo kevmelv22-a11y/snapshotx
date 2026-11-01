@@ -70,3 +70,17 @@ export function validateRegister(i: RegisterInput, now = new Date()): RegisterCh
   if (i.phone.trim()) { phone = normalizePhone(i.phone); if (!phone) return { ok: false, error: 'Mobiel nummer: gebruik het formaat +31612345678.' }; }
   return { ok: true, username, email, birthdate: isoDate(birth), age, teen: age <= TEEN_MAX_AGE, phone };
 }
+
+/** Required character choice at registration ("Jongen" / "Meisje"): picks the male/female avatar art and start look. */
+export type RegisterGender = 'male' | 'female';
+export const REGISTER_GENDERS: readonly { value: RegisterGender; label: string; emoji: string }[] = [
+  { value: 'male', label: 'Jongen', emoji: '🙋‍♂️' },
+  { value: 'female', label: 'Meisje', emoji: '🙋‍♀️' },
+];
+export const GENDER_REQUIRED_ERROR = 'Kies of je een jongen of een meisje bent.';
+/** Returns the stored value ('male' | 'female') or null for anything else. */
+export function parseRegisterGender(v: unknown): RegisterGender | null { return v === 'male' || v === 'female' ? v : null; }
+/** Sign-up metadata shared with saveCharacter (user_metadata.gender → profiles.gender via sx_profile_gender_from_auth). */
+export function registerMetadata(v: { username: string; birthdate: string; teen: boolean; phone: string | null }, gender: RegisterGender) {
+  return { username: v.username, display_name: v.username, birthdate: v.birthdate, is_teen: v.teen, gender, ...(v.phone ? { phone: v.phone } : {}) };
+}
