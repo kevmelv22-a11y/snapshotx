@@ -131,6 +131,8 @@ export const WARDROBE_ITEMS: WardrobeItem[] = [
   item('top-gae-jersey', 'top', 'Go Ahead Eagles', 'Rood-geel Go Ahead Eagles-thuisshirt', null, ['#E2001A', '#FFD200'], { variant: 'polo' }),
   item('top-nac-jersey', 'top', 'NAC Breda', 'Geel-zwart NAC Breda-thuisshirt', null, ['#FFE600', '#111111'], { variant: 'tee' }),
   item('top-volendam-jersey', 'top', 'FC Volendam', 'Oranje FC Volendam-thuisshirt met witte kraag', null, ['#F47B20', '#FFFFFF'], { variant: 'tee' }),
+  item('top-mvv-jersey', 'top', 'MVV Maastricht', 'Rood MVV Maastricht-thuisshirt met witte kraag en biezen', null, ['#D7141E', '#FFFFFF'], { variant: 'tee' }),
+  item('top-fortuna-jersey', 'top', 'Fortuna Sittard', 'Geel-groen Fortuna Sittard-thuisshirt', null, ['#FFD600', '#00853E'], { variant: 'tee' }),
   item('top-acmilan-jersey', 'top', 'AC Milan', 'Rood-zwart gestreept voetbalshirt', null, ['#D0102B', '#000000'], { variant: 'tee', pattern: 'stripes' }),
   item('top-juventus-jersey', 'top', 'Juventus', 'Zwart-wit gestreept Juventus-shirt', null, ['#000000', '#FFFFFF'], { variant: 'tee', pattern: 'stripes' }),
   item('top-inter-jersey', 'top', 'Inter', 'Blauw-zwart gestreept voetbalshirt', null, ['#0068A8', '#000000'], { variant: 'tee', pattern: 'stripes' }),

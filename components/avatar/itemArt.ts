@@ -36,6 +36,8 @@ export const ITEM_ART: Record<string, number> = {
   'top-gae-jersey': require('../../assets/avatar-art/items/top-gae-jersey.png'),
   'top-nac-jersey': require('../../assets/avatar-art/items/top-nac-jersey.png'),
   'top-volendam-jersey': require('../../assets/avatar-art/items/top-volendam-jersey.png'),
+  'top-mvv-jersey': require('../../assets/avatar-art/items/top-mvv-jersey.png'),
+  'top-fortuna-jersey': require('../../assets/avatar-art/items/top-fortuna-jersey.png'),
   'top-ploeg-navy-halfzip': require('../../assets/avatar-art/items/top-ploeg-navy-halfzip.png'),
   'outer-klompz-raincoat': require('../../assets/avatar-art/items/outer-klompz-raincoat.png'),
   'top-acmilan-jersey': require('../../assets/avatar-art/items/top-acmilan-jersey.png'),
