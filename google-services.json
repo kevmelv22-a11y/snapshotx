@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "320449474500",
+    "project_id": "snapshot-x-2dcb7",
+    "storage_bucket": "snapshot-x-2dcb7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:320449474500:android:73ecd3f06c183111f77e91",
+        "android_client_info": {
+          "package_name": "com.snapshotx.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwfmf1j0kkVDS5kduMPmgyB4l0xBJdZTc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

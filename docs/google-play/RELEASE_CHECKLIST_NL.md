@@ -17,7 +17,7 @@ Status 1 nov 2026 (03:00-sessie). Bouwen en indienen gebeurt **alleen op Kevins 
 ## Nog te doen (Kevin / volgende sessies)
 1. **Verificatie Play-ontwikkelaarsaccount** afwachten.
 2. **Nieuw persoonlijk account?** Google eist dan een **gesloten test met minstens 12 testers die 14 dagen achter elkaar meedoen** vóór productietoegang. Plan dit vroeg (organisatie-account via KvK Vonk Byte, gepland jan 2027, heeft die eis niet).
-3. **Pushmeldingen op Android (FCM)**: Firebase-project aanmaken, Android-app `com.snapshotx.app` toevoegen, `google-services.json` downloaden en via `android.googleServicesFile` / EAS-secret meegeven, en de **FCM V1-serviceaccountsleutel** uploaden in EAS (`eas credentials` › Android › Push Notifications). Zonder dit krijgt Android geen pushtoken.
+3. **Pushmeldingen op Android (FCM)**: ✅ Firebase-project `snapshot-x-2dcb7` met Android-app `com.snapshotx.app`; `google-services.json` staat in de repo-root en is gekoppeld via `android.googleServicesFile` in app.json; FCM V1 API staat aan. Resterend: **FCM V1-serviceaccountsleutel** in EAS (`eas credentials` › Android › Push Notifications) wordt geüpload — controleren dat die er staat vóór de eerste build.
 4. **Eerste build** (op verzoek): `npx eas-cli build --platform android --profile production` (AAB). EAS maakt een uploadsleutel; Google Play App Signing beheert de echte sleutel.
 5. **SHA-256** van de app-ondertekeningssleutel → `SNAPSHOTX_ANDROID_SHA256` → web redeploy → App Links geverifieerd.
 6. **RevenueCat Google Play**: zie `docs/revenuecat/GOOGLE_PLAY_NL.md`.

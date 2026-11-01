@@ -41,11 +41,11 @@ The project now includes SDK 57 `expo-updates`, the EAS project URL, `appVersion
 
 ## Sessie 01-11-2026 03:00 (Android / Google Play)
 - Geen migraties, geen edge-function-deploys, geen builds. Android-config, Play-documenten en openbare pagina /account-verwijderen; zie docs/google-play/RELEASE_CHECKLIST_NL.md.
-- Push op Android heeft nog Firebase (google-services.json + FCM V1-sleutel in EAS) nodig; server-pushes zonder channelId vallen in kanaal `messages` (defaultChannel in app.json).
+- Firebase gekoppeld (01-11-2026): project `snapshot-x-2dcb7`, `google-services.json` in repo-root via `android.googleServicesFile`, FCM V1 aan; FCM V1-serviceaccountsleutel wordt in EAS geüpload; server-pushes zonder channelId vallen in kanaal `messages` (defaultChannel in app.json).
 
 ## Open launch items (bijgewerkt 01-11-2026 03:00)
 
-- **Google Play**: verificatie account, gesloten test 12 testers × 14 dagen (persoonlijk account), Firebase/FCM, eerste AAB-build op verzoek, SHA-256 → assetlinks.json, RevenueCat Play-app + `goog_`-key (docs/revenuecat/GOOGLE_PLAY_NL.md), Android-screenshots.
+- **Google Play**: verificatie account, gesloten test 12 testers × 14 dagen (persoonlijk account), FCM V1-sleutel in EAS bevestigen (Firebase zelf klaar), eerste AAB-build op verzoek, SHA-256 → assetlinks.json, RevenueCat Play-app + `goog_`-key (docs/revenuecat/GOOGLE_PLAY_NL.md), Android-screenshots.
 
 - **App Review-telefoonnummer**: nog niet door Kevin gegeven; Apple vereist het bij indienen (docs/app-store/METADATA_NL.md).
 - **Universal links**: code/config klaar (zie docs/web/WEB_NL.md). Nodig: Kevins eigen Apple Team ID in de web-env (`SNAPSHOTX_APPLE_TEAM_ID`) + web redeploy, Associated Domains-capability op App ID `com.snapshotx.app` (EAS synchroniseert die bij een production-build met eigen credentials). Ad-hoc-testbuilds blijven zonder associated domains.
