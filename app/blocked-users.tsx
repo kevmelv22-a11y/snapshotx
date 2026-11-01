@@ -72,7 +72,7 @@ export default function BlockedUsers() {
     setBusyId(null);
   }
 
-  return <GalaxyScreen>
+  return <GalaxyScreen readable>
     <View style={[s.header, {paddingTop: Math.max(insets.top, 14)}]}>
       <Pressable onPress={() => router.back()} accessibilityLabel="Terug" hitSlop={12}>
         <Ionicons name="chevron-back" color="white" size={28}/>

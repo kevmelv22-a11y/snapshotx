@@ -20,6 +20,7 @@ De app kiest de SDK-key per platform (`rcApiKeyFor` in `lib/revenuecat-logic.ts`
    | `snapshot_x_platinum` | `monthly`, `yearly` | `snapshot_x_platinum:monthly`, `…:yearly` |
    | `snapshot_x_storage` | `monthly`, `yearly` | `snapshot_x_storage:monthly`, `…:yearly` |
    Google Play kent geen "monthly" als los product-ID per abonnement zoals Apple; RevenueCat koppelt `abonnement:basisabonnement`.
+   **Houd deze namen exact aan**: de app leest het niveau uit het product-ID (`rcProductPlan` in `lib/revenuecat-logic.ts`): `platinum`/`family`/`lens`/`storage` in het ID → dat niveau, anders X+; `monthly`/`yearly` → periode. Een Play-aankoop krijgt bron `play` (een App Store-aankoop `app_store`). Getest in `lib/revenuecat.test.mjs` voor alle ID's in deze tabel.
 5. **Monetiseren › In-app-producten**: `lifetime` (eenmalig, niet-verbruikbaar).
 6. Prijzen in EUR gelijk aan iOS (`lib/plus.ts`): X+ € 3,49/mnd of € 29,99/jaar (7 dagen gratis proberen), Family € 5,99/mnd, Lens € 6,99/mnd, Platinum € 11,99/mnd of € 109,99/jaar, Herinneringen-opslag € 1,79/mnd of € 17,99/jaar; `lifetime`: TODO(Kevin) prijs kiezen. Proefperiode: als **aanbieding** (gratis proefperiode, 7 dagen, nieuwe klanten) op de basisabonnementen van `snapshot_x_plus`, niet als apart product.
 

@@ -1,4 +1,5 @@
 import React,{useEffect,useState} from 'react';
+import {PROFILE_NAME_COLUMNS,profileNames} from '../lib/profile-name';
 import {Share,Text,View} from 'react-native';
 import {Stack,router} from 'expo-router';
 import {supabase} from '../lib/supabase';
@@ -30,7 +31,7 @@ export default function Uitgelicht(){
   if(list.length){const l=await supabase.from('sx_highlight_comment_likes').select('comment_id,user_id').in('comment_id',list.map(x=>x.id));if(on)setCLikes((l.data||[]) as SpotCommentLike[])}
   const subSet=new Set((s.data||[]).map((x:{creator_id:string})=>x.creator_id));setSubs(subSet);setItems(ranked.map(i=>({...i,subscribedAtLoad:subSet.has(i.owner_id)})));
   setBlocked(new Set((b.data||[]).map((x:{blocked_id:string})=>x.blocked_id)));
-  const ids=[...new Set([...ranked.map(i=>i.owner_id),...list.map(x=>x.user_id)])];if(ids.length){const p=await supabase.from('profiles').select('id,display_name').in('id',ids);if(on&&p.data)setNames(Object.fromEntries(p.data.map(x=>[x.id,x.display_name])))}})();return()=>{on=false}},[me]);
+  const ids=[...new Set([...ranked.map(i=>i.owner_id),...list.map(x=>x.user_id)])];if(ids.length){const p=await supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',ids);if(on&&p.data)setNames(profileNames(p.data))}})();return()=>{on=false}},[me]);
  const ownOutfit=useOwnOutfit(me),outfits=useFriendOutfits(Object.keys(names).filter(id=>id!==me));
  const social:HighlightSocial|undefined=me?{me,now,subscribed:subs,
   thread:i=>commentThread(comments,cLikes,i.id,me,now,blocked),count:i=>commentCount(comments,i.id,blocked),

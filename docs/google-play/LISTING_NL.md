@@ -50,6 +50,12 @@ Snapshot X is voor iedereen van 13 jaar en ouder.
 Eerste versie van Snapshot X op Android: snaps, chats, verhalen, vriendenkaart, gesprekken en je eigen personage.
 </nl-NL>
 
+## Release-opmerkingen gesloten test, versionCode 3 (500)
+Voor de volgende AAB (na build 06b14bd2 / versionCode 2; alleen bouwen op Kevins verzoek).
+<nl-NL>
+Meldingen werken nu echt op Android: tik op een melding en de juiste chat opent meteen, ook als de app dicht was. In een open chat krijg je geen dubbele melding. Uitloggen stopt de meldingen op dit toestel. Snapshot X+-abonnementen tonen het juiste niveau (zoals Platinum). Geen testfuncties of demo meer in de app. De terugknop sluit eerst open vensters.
+</nl-NL>
+
 ## Afbeeldingen
 | Onderdeel | Eis Google Play | Bestand |
 |---|---|---|

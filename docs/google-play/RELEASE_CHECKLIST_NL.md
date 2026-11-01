@@ -19,6 +19,10 @@ Status 1 nov 2026 (06:00-sessie). Bouwen en indienen gebeurt **alleen op Kevins 
 - [x] **Android-terugknop**: tijdens een gesprek eerst "Gesprek beëindigen?"; in verhalen sluit hij eerst het antwoordveld/kijkerslijst, in Uitgelicht eerst de reacties.
 - [x] Gesloten-testplan + uitnodigingstekst + testerschecklist: `CLOSED_TEST_NL.md`.
 
+- [x] **Meldingen op Android (1 nov 2026, 09:00)**: kanalen worden aangemaakt vóór de toestemmingsvraag (Android 13+), tik op een melding opent de chat (ook bij koude start), geen banner voor de chat die open is, token stil ververst bij inloggen, Uitloggen verwijdert het token van dit toestel. Komt mee in de volgende build.
+- [x] **RevenueCat Play-product-ID's** volgen `snapshot_x_<niveau>:<monthly|yearly>`; de app leidt het niveau en bron `play` daaruit af (`lib/revenuecat-logic.ts`).
+- [x] Release-opmerkingen voor versionCode 3 in `LISTING_NL.md`.
+
 ## Nog te doen (Kevin / volgende sessies)
 1. **Verificatie Play-ontwikkelaarsaccount** afwachten.
 2. **Nieuw persoonlijk account?** Google eist dan een **gesloten test met minstens 12 testers die 14 dagen achter elkaar meedoen** vóór productietoegang. Plan dit vroeg (organisatie-account via KvK Vonk Byte, gepland jan 2027, heeft die eis niet).

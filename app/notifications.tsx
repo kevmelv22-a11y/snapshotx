@@ -1,30 +1,20 @@
 import React,{useState} from 'react';
 import {ActivityIndicator,Platform,Pressable,ScrollView,StyleSheet,Switch,Text,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
 import {router} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {GalaxyScreen} from '../components/GalaxyScreen';
 import {useSession} from '../hooks/useSession';
 import {useNotifyPrefs} from '../hooks/useNotifyPrefs';
-import {supabase} from '../lib/supabase';
 import {friendlyError} from '../lib/db-errors';
+import {registerPushDevice} from '../lib/push-device';
 import {NOTIFY_SECTIONS,notifySummary} from '../lib/notification-prefs';
 import {webNotifyStatus,type BrowserPermission} from '../lib/web-notify';
 import {browserPermission,setWebNotify,useWebNotifyOn} from '../components/web/WebNotifier';
 const purple='#AE16C7';
 
-/** Ask iOS/Android for permission and save this device's Expo push token (same flow as before in Instellingen). */
-async function registerDevice(uid:string):Promise<string>{
- if(Platform.OS==='web')return 'Pushmeldingen werken in de Snapshot X-app op je telefoon. Je keuzes hier gelden daar ook.';
- const p=await Notifications.requestPermissionsAsync();
- if(p.status!=='granted')throw new Error('Meldingen zijn niet toegestaan op dit toestel. Zet ze aan via Instellingen › Snapshot X › Meldingen op je iPhone.');
- const projectId=Constants.expoConfig?.extra?.eas?.projectId;if(!projectId)throw new Error('EAS projectId ontbreekt.');
- const {data:token}=await Notifications.getExpoPushTokenAsync({projectId});
- const {error}=await supabase.from('sx_push_tokens').upsert({user_id:uid,token});if(error)throw error;
- return 'Dit toestel is geregistreerd voor meldingen.';
-}
+/** Ask iOS/Android for permission and save this device's Expo push token (Android: channels first). */
+const registerDevice=(uid:string)=>registerPushDevice(uid,{prompt:true});
 
 /** Snapchat "Meldingen": master switch, per-kind switches, device registration. */
 export default function NotificationSettings(){
@@ -35,7 +25,7 @@ export default function NotificationSettings(){
  const webOn=useWebNotifyOn(),[webPerm,setWebPerm]=useState<BrowserPermission>(browserPermission);
  async function toggleWeb(v:boolean){setWebPerm(await setWebNotify(v))}
  async function master(v:boolean){await update('enabled',v);if(v)void register()}
- return <GalaxyScreen><View style={[s.header,{marginTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.back()} accessibilityLabel="Terug"><Ionicons name="chevron-back" color="white" size={27}/></Pressable><Text style={s.title}>Meldingen</Text><View style={{width:27}}/></View>
+ return <GalaxyScreen readable><View style={[s.header,{marginTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.back()} accessibilityLabel="Terug"><Ionicons name="chevron-back" color="white" size={27}/></Pressable><Text style={s.title}>Meldingen</Text><View style={{width:27}}/></View>
  <ScrollView contentContainerStyle={s.content}>
   <View style={s.master}><Ionicons name={prefs.enabled?'notifications':'notifications-off-outline'} size={24} color="#E7C8F2"/><View style={s.rowBody}><Text style={s.masterText}>Meldingen inschakelen</Text><Text style={s.description} testID="notify-summary">{loading?'Laden…':notifySummary(prefs)}</Text></View><Switch value={prefs.enabled} onValueChange={v=>void master(v)} trackColor={{true:purple}} accessibilityLabel="Meldingen inschakelen" testID="notify-enabled"/></View>
   {NOTIFY_SECTIONS.map(sec=><View key={sec.title}><Text style={s.section}>{sec.title}</Text>{sec.options.map(o=><View key={o.key} style={[s.row,!prefs.enabled&&s.off]}><View style={s.rowBody}><Text style={s.rowText}>{o.label}</Text><Text style={s.description}>{o.description}</Text></View><Switch value={prefs.enabled&&prefs[o.key]} disabled={!prefs.enabled} onValueChange={v=>void update(o.key,v)} trackColor={{true:purple}} accessibilityLabel={o.label} testID={`notify-${o.key}`}/></View>)}</View>)}

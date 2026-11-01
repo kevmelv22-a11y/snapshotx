@@ -49,7 +49,7 @@ export default function MyData(){
    setProgress('Bestand maken…');await deliver(result,format);setMedia(got);setDone(result)}
   catch(e){setError(friendlyError(e,'Gegevens downloaden'))}finally{setBusy(false);setProgress('')}
  }
- return <GalaxyScreen><View style={[s.header,{marginTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.back()} accessibilityLabel="Terug"><Ionicons name="chevron-back" color="white" size={27}/></Pressable><Text style={s.title}>Mijn gegevens</Text><View style={{width:27}}/></View>
+ return <GalaxyScreen readable><View style={[s.header,{marginTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.back()} accessibilityLabel="Terug"><Ionicons name="chevron-back" color="white" size={27}/></Pressable><Text style={s.title}>Mijn gegevens</Text><View style={{width:27}}/></View>
  <ScrollView contentContainerStyle={s.content}>
   <View style={s.intro}><Ionicons name="download-outline" size={26} color="#E7C8F2"/><Text style={s.introText}>Download een kopie van wat Snapshot X over jou bewaart. Kies wat je wilt ontvangen; je krijgt meteen een bestand dat je kunt bewaren of delen: HTML om te lezen in je browser, JSON voor andere apps.</Text></View>
   <View style={s.sectionRow}><Text style={s.section}>Wat wil je downloaden?</Text><Pressable onPress={()=>{setDone(null);setError('');setChosen(all?[]:ALL_CATEGORIES)}} testID="my-data-all"><Text style={s.all}>{all?'Niets selecteren':'Alles selecteren'}</Text></Pressable></View>

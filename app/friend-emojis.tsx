@@ -14,7 +14,7 @@ export default function FriendEmojisScreen(){
  const choices=useFriendEmojis(st=>uid?st.choices[uid]:undefined),choose=useFriendEmojis(st=>st.choose),reset=useFriendEmojis(st=>st.reset);
  const [editing,setEditing]=useState<FriendEmojiKind|null>(null);
  const custom=!!choices&&Object.keys(choices).length>0;
- return <GalaxyScreen><Stack.Screen options={{headerShown:false}}/>
+ return <GalaxyScreen readable><Stack.Screen options={{headerShown:false}}/>
   <View style={[s.header,{paddingTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.canGoBack()?router.back():router.replace('/settings')} accessibilityLabel="Terug" hitSlop={10}><Ionicons name="chevron-back" size={27} color="white"/></Pressable><Text style={s.title}>{"Vriend-emoji's"}</Text><View style={{width:27}}/></View>
   <ScrollView contentContainerStyle={[s.content,{paddingBottom:insets.bottom+40}]} testID="friend-emojis">
    <Text style={s.intro}>{"Deze emoji's staan naast de namen van je vrienden in Chat en op hun Vriendschapsprofiel. Alleen jij ziet ze. Tik op een emoji om hem te wijzigen."}</Text>

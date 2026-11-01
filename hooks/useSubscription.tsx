@@ -1,5 +1,5 @@
 import React,{createContext,useCallback,useContext,useEffect,useMemo,useRef,useState} from 'react';
-import {AppState} from 'react-native';
+import {AppState,Platform} from 'react-native';
 import type {CustomerInfo,PurchasesOffering,PurchasesPackage} from 'react-native-purchases';
 import {useSession} from './useSession';
 import {usePlusStore,useIsPlus} from '../stores/plus';
@@ -21,7 +21,7 @@ export function SubscriptionProvider({children}:{children:React.ReactNode}){
   // RevenueCat + own sx_entitlements rows (staff/promo grants); highest tier wins. Demo mode keeps the mock store.
   const rcEnts=useRef<Entitlement[]>([]),srvEnts=useRef<Entitlement[]>([]),[serverPlus,setServerPlus]=useState(false);
   const publish=useCallback(()=>{const now=Date.now();if(!RC_ENABLED&&DEMO_MODE)return;setServerPlus(isPlus(srvEnts.current,now));usePlusStore.getState().setEntitlements(mergeEntitlements(rcEnts.current,srvEnts.current,now))},[]);
-  const apply=useCallback((i:CustomerInfo|null)=>{setInfo(i);if(RC_ENABLED&&i){rcEnts.current=rcToEntitlements(i);publish()}},[publish]);
+  const apply=useCallback((i:CustomerInfo|null)=>{setInfo(i);if(RC_ENABLED&&i){rcEnts.current=rcToEntitlements(i,Platform.OS);publish()}},[publish]);
   const refreshServer=useCallback(async()=>{if(DEMO_MODE)return;if(!uid){srvEnts.current=[];publish();return}
     const {data,error}=await supabase.from('sx_entitlements').select(SX_ENTITLEMENT_COLUMNS).eq('user_id',uid);
     if(error){console.warn('[entitlements] load',error.message);return}

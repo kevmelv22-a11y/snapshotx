@@ -1,4 +1,5 @@
 import React,{useCallback,useState} from 'react';
+import {PROFILE_NAME_COLUMNS,profileName} from '../../lib/profile-name';
 import {Pressable,StyleSheet,Text,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {router,useFocusEffect} from 'expo-router';
@@ -41,9 +42,9 @@ export default function Profile(){
   const problems=[f.error&&friendlyError(f.error,'Vrienden'),s.error&&friendlyError(s.error,'Stories'),l.error&&friendlyError(l.error,'Locatie')].filter(Boolean) as string[];
   setNotice([...new Set(problems)].join('\n'));
   const ids=(f.data||[]).map(x=>x.friend_id as string);if(!ids.length){setFriends([]);return}
-  const [n,st]=await Promise.all([supabase.from('profiles').select('id,display_name').in('id',ids),supabase.from('sx_stories').select('id,owner_id,expires_at').in('owner_id',ids).gt('expires_at',now)]);
+  const [n,st]=await Promise.all([supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',ids),supabase.from('sx_stories').select('id,owner_id,expires_at').in('owner_id',ids).gt('expires_at',now)]);
   const storyIds=(st.data||[]).map(x=>x.id as string);const v=storyIds.length?await supabase.from('sx_story_views').select('story_id').eq('viewer_id',uid).in('story_id',storyIds):{data:[]};
-  if(!active)return;const names=new Map((n.data||[]).map(x=>[x.id,x.display_name])),seen=(v.data||[]).map(x=>x.story_id as string),t=Date.now();
+  if(!active)return;const names=new Map((n.data||[]).map(x=>[x.id,profileName(x)])),seen=(v.data||[]).map(x=>x.story_id as string),t=Date.now();
   setFriends(ids.map(id=>({id,name:names.get(id)||'Vriend',ring:storyRingState((st.data||[]).filter(x=>x.owner_id===id).map(x=>({id:x.id,expiresAt:Date.parse(x.expires_at)})),seen,t)})));
  })();return()=>{active=false}},[uid]));
  const nowMs=useNow(),start=useStartOutfit(uid),tier=useTier(),ents=usePlusStore(x=>x.entitlements),appIcon=useEffectiveAppIcon(),mine=ents.find(e=>e.tier===tier);

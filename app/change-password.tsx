@@ -40,7 +40,7 @@ export default function ChangePassword(){
   }catch(e){setNotice(passwordChangeError(e,'update'))}finally{setBusy(false)}
  }
  const canSave=!busy&&!!current&&!!next&&!!repeat;
- return <GalaxyScreen><View style={[s.header,{marginTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.back()} accessibilityLabel="Terug"><Ionicons name="chevron-back" color="white" size={27}/></Pressable><Text style={s.title}>Wachtwoord</Text><View style={{width:27}}/></View>
+ return <GalaxyScreen readable><View style={[s.header,{marginTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.back()} accessibilityLabel="Terug"><Ionicons name="chevron-back" color="white" size={27}/></Pressable><Text style={s.title}>Wachtwoord</Text><View style={{width:27}}/></View>
  <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}><ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
   <View style={s.intro}><Ionicons name="lock-closed" size={24} color="#E7C8F2"/><Text style={s.introText}>Kies een sterk wachtwoord dat je nergens anders gebruikt. Snapshot X vraagt je nooit om je wachtwoord via chat of e-mail.</Text></View>
   <PasswordField label="Huidig wachtwoord" value={current} onChange={edit('current',setCurrent)} error={errors.current} autoComplete="current-password" testID="pw-current"/>

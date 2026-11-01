@@ -1,4 +1,5 @@
 import {supabase} from './supabase';
+import {PROFILE_NAME_COLUMNS,profileName} from './profile-name';
 import {chatPreviewText} from './avatar/poses';
 import {replyText} from './chat-replies';
 import {hasUnreadMention} from './chat-mentions';
@@ -64,10 +65,10 @@ export async function loadChatRows(uid:string,myName?:string|null):Promise<ChatR
   if(receiptError){const e=receiptError as {code?:string;message?:string};console.warn('[chat-list] receipts',e.code,e.message);receiptRows=[]}
   // My own name is needed too: @mentions of me are matched by name; members who left (receipts) for "… uit de groep verwijderd".
   const nameIds=[...new Set([...peerIds,...receiptRows.map(x=>x.user_id)])].filter(x=>x!==uid);
-  const profiles=nameIds.length?await supabase.from('profiles').select('id,display_name').in('id',[...nameIds,uid]):null;
+  const profiles=nameIds.length?await supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',[...nameIds,uid]):null;
   // Names/read marks are extras: an unavailable table must not hide the chat list itself.
   if(profiles?.error)console.warn('[chat-list] profiles',profiles.error.code,profiles.error.message);
-  const names=new Map((profiles?.data||[]).map(x=>[x.id,x.display_name]));
+  const names=new Map((profiles?.data||[]).map(x=>[x.id,profileName(x,'')||null]));
   const resolve=nameResolver([...names].map(([id,name])=>({id,name})));
   const read=new Set(receiptRows.filter(x=>x.user_id===uid).map(x=>x.message_id));
   const peerOpened=new Set(receiptRows.filter(x=>x.user_id!==uid&&x.opened_at!==null).map(x=>x.message_id));

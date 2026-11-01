@@ -51,6 +51,7 @@ import {PollBubble,PollComposer} from '../../components/chat/PollParts';
 import {POLL_LABEL,applyVote,nextVote,parsePoll,tallyPoll,type PollVote} from '../../lib/chat-polls';
 import {ForwardSheet} from '../../components/chat/ForwardSheet';
 import {FORWARD_LABEL,canForward} from '../../lib/chat-forward';
+import {activeChat,setActiveChat} from '../../lib/active-chat';
 import {isSilentSystemMessageError,systemMessageRow,threadIdFromParam} from '../../lib/chat-ids';
 import {WallpaperSheet} from '../../components/chat/WallpaperSheet';
 import type {WallpaperId} from '../../lib/plus';
@@ -138,6 +139,8 @@ export default function Chat({threadId,embedded=false}:{threadId?:string;embedde
  useEffect(()=>{const t=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(t)},[]);
  // Text and ordinary attachments become read when this conversation is open.
  // One-time snaps are deliberately excluded: their receipt is claimed only by sx_claim_snap.
+ // Foreground pushes for this chat show no banner while it is on screen (components/PushSync.tsx).
+ useFocusEffect(useCallback(()=>{if(!id)return;setActiveChat(id);return()=>{if(activeChat()===id)setActiveChat(null)}},[id]));
  useFocusEffect(useCallback(()=>{if(!uid)return;const ids=rows.filter(m=>m.sender_id!==uid&&m.kind!=='snap'&&m.kind!=='system').map(m=>m.id);if(!ids.length)return;let active=true;void (async()=>{const {data,error}=await supabase.from('sx_receipts').select('message_id').eq('user_id',uid).in('message_id',ids);if(error||!active)return;const read=new Set((data||[]).map(x=>x.message_id));const at=new Date().toISOString();const pending=ids.filter(message_id=>!read.has(message_id)).map(message_id=>({message_id,user_id:uid,opened_at:at,replay_count:0}));if(pending.length){const result=await supabase.from('sx_receipts').insert(pending);if(result.error&&active)setNotice(friendlyError(result.error));else if(active)setViewedAt(v=>({...v,...Object.fromEntries(pending.map(x=>[x.message_id,Date.parse(at)]))}))}})();return()=>{active=false}},[rows,uid]));
 
  // Screenshot notification (native only; expo-screen-capture has no web screenshot event).

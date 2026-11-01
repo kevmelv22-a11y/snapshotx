@@ -32,5 +32,10 @@ Gebaseerd op wat de app echt doet (lib/legal.ts privacybeleid, app.json privacym
 
 Verwerking is **niet tijdelijk** (gegevens worden opgeslagen), behalve live gesprekken (niet opgeslagen).
 
+### Pushtoken (toelichting, 1 nov 2026)
+- Het Expo-pushtoken (via FCM) wordt pas opgeslagen na toestemming voor meldingen (Android 13+: systeemvraag; kanalen "Berichten en snaps" en "Vrienden" bestaan al vóór die vraag). Bij elke start wordt het token stil ververst, alleen als toestemming al gegeven is en "Meldingen inschakelen" aan staat — de app vraagt nooit zomaar om toestemming.
+- **Uitloggen** verwijdert het pushtoken van dít toestel uit `sx_push_tokens` en logt alleen dit toestel uit. Account verwijderen verwijdert alle tokens (cascade).
+- Een melding bevat nooit chattekst of media, alleen wie je iets stuurde en een chat-ID om de juiste chat te openen.
+
 ## Controle bij elke release
 - Nieuwe SDK of permissie? Werk dit document, `app.json` (`ios.privacyManifests` + `android.permissions/blockedPermissions`) en `lib/legal.ts` samen bij. `lib/android-config.test.mjs` bewaakt de Android-permissies.

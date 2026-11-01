@@ -27,7 +27,7 @@ export default function Birthday(){
   catch{setNotice('Opslaan lukte niet. Controleer je verbinding en probeer het opnieuw.')}finally{setBusy(false)}
  }
  const b=state.birth,today=b?isBirthdayToday(b):false,z=b?zodiacOf(b):null;
- return <GalaxyScreen><View style={[s.header,{marginTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.back()} accessibilityLabel="Terug"><Ionicons name="chevron-back" color="white" size={27}/></Pressable><Text style={s.title}>Verjaardag</Text><View style={{width:27}}/></View>
+ return <GalaxyScreen readable><View style={[s.header,{marginTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.back()} accessibilityLabel="Terug"><Ionicons name="chevron-back" color="white" size={27}/></Pressable><Text style={s.title}>Verjaardag</Text><View style={{width:27}}/></View>
  <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}><ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
   {b?<View style={[s.card,today&&s.cardToday]} testID="bd-card"><Text style={s.cake}>{today?'🎉':'🎂'}</Text><Text style={s.date}>{formatBirthdateNl(b)}</Text><Text style={s.meta}>{ageOn(b,localDay())} jaar · {z!.emoji} {z!.name}</Text><View style={s.countdown}><Ionicons name="time-outline" size={16} color="#E7C8F2"/><Text style={s.countdownText} testID="bd-countdown">{birthdayCountdownLabel(b)}</Text></View></View>
    :<View style={s.card} testID="bd-empty"><Text style={s.cake}>🎂</Text><Text style={s.date}>Geen geboortedatum</Text><Text style={s.meta}>Vul je geboortedatum in zodat vrienden je kunnen feliciteren.</Text></View>}

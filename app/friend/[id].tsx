@@ -1,4 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import {PROFILE_NAME_COLUMNS,profileName} from '../../lib/profile-name';
 import {Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {Stack,router,useLocalSearchParams} from 'expo-router';
 import {Ionicons} from '@expo/vector-icons';
@@ -52,8 +53,8 @@ export default function FriendProfileScreen(){
   const tids=(mine.data||[]).map(x=>x.thread_id as string);
   if(tids.length){
    const [mem,th]=await Promise.all([supabase.from('sx_members').select('thread_id,user_id').in('thread_id',tids),supabase.from('sx_threads').select('id,title,is_group').in('id',tids)]);
-   const ids=[...new Set((mem.data||[]).map(x=>x.user_id as string))];const names=ids.length?await supabase.from('profiles').select('id,display_name').in('id',ids):null;
-   const nm=new Map((names?.data||[]).map(x=>[x.id as string,x.display_name as string]));
+   const ids=[...new Set((mem.data||[]).map(x=>x.user_id as string))];const names=ids.length?await supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',ids):null;
+   const nm=new Map((names?.data||[]).map(x=>[x.id as string,profileName(x)]));
    if(!alive())return;
    const sc=mem.error?{directId:null,groups:[]}:sharedChats(mem.data||[],th.data||[],me,id,u=>nm.get(u)||'Vriend');setShared(sc);
    if(sc.directId){const m=await supabase.from('sx_messages').select('sender_id,kind,created_at').eq('thread_id',sc.directId).eq('kind','snap').order('created_at',{ascending:false}).limit(200);

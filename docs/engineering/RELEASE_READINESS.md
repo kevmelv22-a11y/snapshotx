@@ -50,6 +50,15 @@ The project now includes SDK 57 `expo-updates`, the EAS project URL, `appVersion
 - Gesprekken: inkomend gesprek toont naam + @gebruikersnaam uit het eigen profiel-lookup (niet de naam uit het broadcast-bericht); beller stuurt @gebruikersnaam als er geen weergavenaam is; Android-terugknop vraagt eerst "Gesprek beëindigen?".
 - Android/iOS-config: geen foreground-service voor media (expo-audio), iOS `UIBackgroundModes: audio` expliciet, één microfoontekst. Pas actief in een nieuwe build.
 
+## Sessie 01-11-2026 09:00 (meldingen, Android/Play, web)
+- Geen migraties, geen builds. Live DB alleen gelezen (kolommen/policies van `sx_push_tokens`: user_id, token, updated_at; PK user_id+token; RLS eigen rijen).
+- **Pushmeldingen echt aangesloten** (iOS + Android, pas actief in een nieuwe build): `components/PushSync.tsx` in de root-layout — tik op een melding opent de juiste chat (ook bij koude start via `getLastNotificationResponse`), banner op de voorgrond behalve in de open chat, stille token-verversing bij inloggen (alleen als toestemming al gegeven is en Meldingen aan staat). Eén registratiepad `lib/push-device.ts` (Android-kanalen vóór de toestemmingsvraag, Android-tekst bij weigering). Pure regels: `lib/push-logic.ts` + tests.
+- **Uitloggen** verwijdert het pushtoken van dit toestel en logt alleen dit toestel uit (`scope: 'local'`; was globaal = alle toestellen).
+- **RevenueCat**: niveau uit het product-ID (`rcProductPlan`, ook Play-ID's `snapshot_x_platinum:monthly`), bron `play` op Google Play; Platinum/Lens/Family toonden eerder altijd X+.
+- **Gebruikersnamen**: verhalen, Uitgelicht, profiel, vriendschapsprofiel, chatlijst en doorsturen tonen @gebruikersnaam als iemand geen weergavenaam heeft (`lib/profile-name.ts`).
+- **Web**: Verkennen-raster op desktop (5 kolommen op 1440px i.p.v. één brede kolom), instellingen-achtige pagina's in een gecentreerde leeskolom (760px).
+- Play: release-opmerkingen versionCode 3, Data safety-toelichting pushtoken, RevenueCat-naamregel voor Play-product-ID's.
+
 ## Open launch items (bijgewerkt 01-11-2026 06:00)
 
 - **Google Play**: verificatie account, gesloten test 12 testers × 14 dagen (persoonlijk account; plan in docs/google-play/CLOSED_TEST_NL.md), FCM V1-sleutel uploaden in EAS (keystore bestaat sinds build 06b14bd2; Kevins OK nodig), nieuwe AAB-build op verzoek (bevat de fixes van 06:00), SHA-256 → assetlinks.json, RevenueCat Play-app + `goog_`-key (docs/revenuecat/GOOGLE_PLAY_NL.md), Android-screenshots.

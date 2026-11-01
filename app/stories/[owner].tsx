@@ -1,4 +1,5 @@
 import React,{useCallback,useEffect,useState} from 'react';
+import {PROFILE_NAME_COLUMNS,profileNames} from '../../lib/profile-name';
 import {Text,View} from 'react-native';
 import {Stack,router,useLocalSearchParams} from 'expo-router';
 import {supabase} from '../../lib/supabase';
@@ -15,9 +16,9 @@ export default function StoriesViewerScreen(){
  const [groups,setGroups]=useState<StoryGroup<Story>[]|null>(null),[seen,setSeen]=useState<Set<string>>(new Set()),[names,setNames]=useState<Record<string,string>>({}),[start,setStart]=useState(0),[err,setErr]=useState('');
  useEffect(()=>{if(!me)return;let on=true;(async()=>{const now=Date.now();const [st,vw]=await Promise.all([supabase.from('sx_stories').select('*').gt('expires_at',new Date(now).toISOString()).order('created_at').limit(300),supabase.from('sx_story_views').select('story_id').eq('viewer_id',me)]);if(!on)return;if(st.error){setErr(friendlyError(st.error));return}
   const seenSet=new Set((vw.data||[]).map(v=>v.story_id as string));const g=groupStories(st.data||[],seenSet,now,me);setSeen(seenSet);setStart(Math.max(0,g.findIndex(x=>x.ownerId===owner)));setGroups(g);
-  const ids=g.map(x=>x.ownerId);if(ids.length){const p=await supabase.from('profiles').select('id,display_name').in('id',ids);if(on&&p.data)setNames(Object.fromEntries(p.data.map(x=>[x.id,x.display_name])))}})();return()=>{on=false}},[me,owner]);
+  const ids=g.map(x=>x.ownerId);if(ids.length){const p=await supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',ids);if(on&&p.data)setNames(profileNames(p.data))}})();return()=>{on=false}},[me,owner]);
  const onViewed=useCallback((s:ViewerStory)=>{if(me&&s.owner_id!==me)void supabase.from('sx_story_views').upsert({story_id:s.id,viewer_id:me})},[me]);
- const loadViewers=useCallback(async(s:ViewerStory)=>{const [v,r]=await Promise.all([supabase.from('sx_story_views').select('story_id,viewer_id,viewed_at').eq('story_id',s.id).order('viewed_at',{ascending:false}).limit(500),supabase.from('sx_story_reactions').select('story_id,user_id,emoji').eq('story_id',s.id)]);const res=viewersFor(s.id,v.data||[],r.data||[],s.owner_id);const ids=res.viewers.map(x=>x.userId).filter(id=>!names[id]);if(ids.length){const p=await supabase.from('profiles').select('id,display_name').in('id',ids);if(p.data)setNames(n=>({...n,...Object.fromEntries(p.data.map(x=>[x.id,x.display_name]))}))}return res},[names]);
+ const loadViewers=useCallback(async(s:ViewerStory)=>{const [v,r]=await Promise.all([supabase.from('sx_story_views').select('story_id,viewer_id,viewed_at').eq('story_id',s.id).order('viewed_at',{ascending:false}).limit(500),supabase.from('sx_story_reactions').select('story_id,user_id,emoji').eq('story_id',s.id)]);const res=viewersFor(s.id,v.data||[],r.data||[],s.owner_id);const ids=res.viewers.map(x=>x.userId).filter(id=>!names[id]);if(ids.length){const p=await supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',ids);if(p.data)setNames(n=>({...n,...Object.fromEntries(p.data.map(x=>[x.id,x.display_name]))}))}return res},[names]);
  // Story replies always go to the 1:1 chat (Snapchat). sx_open_thread returns the stable 1:1 thread (or creates it);
  // before, the first shared thread was used, which could be a group chat.
  const onReply=useCallback(async(s:ViewerStory,body:string)=>{if(!me)return 'Niet ingelogd';const t=await supabase.rpc('sx_open_thread',{participants:[s.owner_id],group_title:null});if(t.error||!t.data)return t.error?friendlyError(t.error,'Antwoorden'):'Je hebt nog geen chat met deze vriend';

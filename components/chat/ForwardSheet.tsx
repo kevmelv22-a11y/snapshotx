@@ -1,4 +1,5 @@
 import React,{useEffect,useMemo,useState} from 'react';
+import {PROFILE_NAME_COLUMNS,profileName} from '../../lib/profile-name';
 import {ActivityIndicator,Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -19,8 +20,8 @@ export function ForwardSheet({me,myName,threadId,messageId,excerpt,onClose,onDon
  const insets=useSafeAreaInsets();
  const [targets,setTargets]=useState<ForwardTarget[]|null>(null),[query,setQuery]=useState(''),[selected,setSelected]=useState<string[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  useEffect(()=>{let alive=true;void (async()=>{try{const [chats,fr]=await Promise.all([loadChatRows(me,myName),supabase.from('sx_friends').select('friend_id').eq('user_id',me)]);
-   const ids=(fr.data||[]).map(x=>x.friend_id as string);const p=ids.length?await supabase.from('profiles').select('id,display_name').in('id',ids):null;
-   if(alive)setTargets(forwardTargets(chats,(p?.data||[]) as {id:string;display_name:string|null}[],threadId))}catch(e){if(alive){setTargets([]);setNotice(friendlyError(e,'Je chats'))}}})();return()=>{alive=false}},[me,myName,threadId]);
+   const ids=(fr.data||[]).map(x=>x.friend_id as string);const p=ids.length?await supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',ids):null;
+   if(alive)setTargets(forwardTargets(chats,(p?.data||[]).map(x=>({id:x.id as string,display_name:profileName(x)})),threadId))}catch(e){if(alive){setTargets([]);setNotice(friendlyError(e,'Je chats'))}}})();return()=>{alive=false}},[me,myName,threadId]);
  const shown=useMemo(()=>filterTargets(targets??[],query),[targets,query]);
  const outfits=useFriendOutfits(useMemo(()=>(targets??[]).filter(t=>t.kind!=='group').map(t=>t.peerIds[0]).filter(Boolean),[targets]));
  const sections:[string,ForwardTarget[]][]=[[FORWARD_LABEL.groups,shown.filter(t=>t.kind==='group')],[FORWARD_LABEL.recent,shown.filter(t=>t.kind==='chat')],[FORWARD_LABEL.friends,shown.filter(t=>t.kind==='friend')]];
