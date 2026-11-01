@@ -7,7 +7,7 @@ Status 1 nov 2026 (12:00-sessie). Bouwen en indienen gebeurt **alleen op Kevins 
 - [x] Permissies minimaal: camera, microfoon, locatie (alleen tijdens gebruik), meldingen. **Geblokkeerd**: achtergrondlocatie, READ_MEDIA_IMAGES/VIDEO/AUDIO (Play-beleid foto/video-rechten), SYSTEM_ALERT_WINDOW, READ_PHONE_STATE. Bewaakt door `lib/android-config.test.mjs`.
 - [x] `allowBackup: false` (geen chats/sessies in Google-back-ups; past bij Data safety).
 - [x] Meldingen: wit X-icoon (`assets/notification-icon.png`), accentkleur, standaardkanaal `messages`; kanalen "Berichten en snaps" en "Vrienden" (privé op het vergrendelscherm).
-- [x] App Links: verified intent filter voor `https://snapshot-x.nl/add/*` en `www.` (app.config.js). Website-kant: `assetlinks.json` zodra de SHA-256 bekend is (zie docs/web/WEB_NL.md).
+- [x] App Links: verified intent filter voor `https://snapshot-x.nl/add/*` (app.config.js; alleen het hoofddomein — `www.` stuurt door met 308 en kan daardoor niet geverifieerd worden). Website-kant: `assetlinks.json` zodra de SHA-256 bekend is (zie docs/web/WEB_NL.md).
 - [x] Android-terugknop sluit eerst de open editor-tool / het vriendenvenster in de snap-editor; alle Modals hebben `onRequestClose`.
 - [x] Toetsenbord: tabbalk verbergt zich op Android als het toetsenbord open is; verhaal-antwoordveld schuift niet dubbel.
 - [x] RevenueCat kiest de `goog_`-key op Android; teksten noemen Google Play i.p.v. alleen de App Store (instellingen, help, voorwaarden, privacy).

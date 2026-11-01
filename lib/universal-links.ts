@@ -11,6 +11,10 @@
 export const APP_BUNDLE_ID = 'com.snapshotx.app';
 export const ANDROID_PACKAGE = 'com.snapshotx.app';
 export const LINK_HOSTS = ['snapshot-x.nl', 'www.snapshot-x.nl'] as const;
+/** Android verified App Links: apex only. www.snapshot-x.nl answers with a 308 redirect, and Android's verifier does not
+ *  follow redirects for /.well-known/assetlinks.json; on Android ≤ 11 one failing host fails the whole filter. All QR and
+ *  share links use the apex host (lib/friend-code.ts). */
+export const ANDROID_LINK_HOSTS = ['snapshot-x.nl'] as const;
 /** Paths that open in the app. Everything else (privacy, help, terms, web chat) stays on the website. */
 export const APP_LINK_PATHS = ['/add/*'] as const;
 
@@ -77,5 +81,5 @@ export function wellKnownFiles(env: Record<string, string | undefined>): { files
 /** Native config: iOS associated domains (only when opted in) and Android verified intent filters for /add. */
 export function iosAssociatedDomains(): string[] { return LINK_HOSTS.map(h => `applinks:${h}`); }
 export function androidIntentFilters() {
-  return [{ action: 'VIEW', autoVerify: true, data: LINK_HOSTS.map(host => ({ scheme: 'https', host, pathPrefix: '/add/' })), category: ['BROWSABLE', 'DEFAULT'] }];
+  return [{ action: 'VIEW', autoVerify: true, data: ANDROID_LINK_HOSTS.map(host => ({ scheme: 'https', host, pathPrefix: '/add/' })), category: ['BROWSABLE', 'DEFAULT'] }];
 }
