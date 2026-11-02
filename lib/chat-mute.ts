@@ -2,7 +2,7 @@
  *  A silent chat stays in the feed and still gets new messages, but no push banners/sounds.
  *  Pure helpers; per-account state lives in stores/chatFeed.ts (device-local) and is mirrored
  *  best-effort to public.sx_thread_mutes so the push-message edge function can skip it
- *  (migration 20261027120000_chat_mutes.sql — NOT applied). */
+ *  (migration 20261027120000_chat_mutes.sql — live). */
 
 export const MUTE_ALWAYS = 'always' as const;
 /** threadId -> ISO end time, or 'always'. */

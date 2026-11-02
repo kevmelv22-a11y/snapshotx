@@ -1,8 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View,Share} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {router, useFocusEffect, useLocalSearchParams} from 'expo-router';
-import {Share} from 'react-native';
 import {FriendCodeScanner} from '../../components/FriendCodeScanner';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';

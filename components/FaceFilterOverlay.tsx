@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, Ellipse, G, Line, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { balaclavaShape, faceFrame, smoothClosedPath, stickerMatrix, type BalaclavaShape } from '../lib/face-filters/geometry';
 import { NEUTRAL_EXPRESSION, effectActive, effectAgeS, type ExpressionState } from '../lib/face-filters/expressions';
-import { burstParticles, worldParticles, type Particle, type WorldKind } from '../lib/face-filters/worldEffects';
+import { burstParticles, worldParticles, type Particle } from '../lib/face-filters/worldEffects';
 import { lensTrigger, worldKind } from '../lib/lens-effects';
 import type { FaceGeometry, Pt } from '../lib/face-filters/types';
 import { photoFilter, type PhotoFilterId } from '../lib/photo-filters';

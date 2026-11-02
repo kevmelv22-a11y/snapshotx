@@ -1,4 +1,4 @@
-import React,{useEffect,useReducer,useState} from 'react';
+import React,{useEffect,useReducer,useRef,useState} from 'react';
 import {Platform,Pressable,StyleSheet,Text,View} from 'react-native';
 import {Stack,router,useLocalSearchParams} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -39,8 +39,10 @@ function DemoCall(){
   const [startedAt,setStartedAt]=useState<number|null>(()=>initial==='active'?Date.now()-83000:null),[now,setNow]=useState(()=>Date.now());
   // Start the call timer when the call becomes active (in the event, not in an effect).
   const send=(e:CallEvent)=>{if(startedAt===null&&nextCallState(state,e)==='active')setStartedAt(Date.now());dispatch(e)};
+  // Simulated answer timer reads the latest send (current state/startedAt), not the one from the first render.
+  const sendRef=useRef(send);useEffect(()=>{sendRef.current=send});
   const [muted,setMuted]=useState(false),[camOff,setCamOff]=useState(false),[front,setFront]=useState(true);
-  useEffect(()=>{if(initial)return;const a=setTimeout(()=>send('answer'),2500),b=setTimeout(()=>{setStartedAt(t=>t??Date.now());dispatch('connected')},3500);return()=>{clearTimeout(a);clearTimeout(b)}},[initial]);
+  useEffect(()=>{if(initial)return;const a=setTimeout(()=>sendRef.current('answer'),2500),b=setTimeout(()=>{setStartedAt(t=>t??Date.now());dispatch('connected')},3500);return()=>{clearTimeout(a);clearTimeout(b)}},[initial]);
   useEffect(()=>{if(state==='ended'&&!initial){const t=setTimeout(()=>router.canGoBack()&&router.back(),1200);return()=>clearTimeout(t)}},[state,initial]);
   useEffect(()=>{const t=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(t)},[]);
   const active=state==='active';

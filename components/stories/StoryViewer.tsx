@@ -19,7 +19,7 @@ export function StoryViewer(p:Props){
  const sizes=useMemo(()=>p.groups.map(g=>g.stories.length),[p.groups]);
  const [cursor,setCursor]=useState<L.Cursor>(()=>{const g=p.initialGroup??0;return {group:g,story:p.groups[g]?L.startIndex(p.groups[g].stories,p.seen):0}});
  const [clock,setClock]=useState<L.Clock>(()=>{const n=clockNow();const c={elapsed:(p.initialProgress??0)*L.PHOTO_DURATION_MS,runningSince:n};return p.initialPaused?L.pauseClock(c,n):c});
- const [tick,setTick]=useState(0),[replyOpen,setReplyOpen]=useState(!!p.initialReplyOpen),[reply,setReply]=useState(''),[notice,setNotice]=useState('');
+ const [,setTick]=useState(0),[replyOpen,setReplyOpen]=useState(!!p.initialReplyOpen),[reply,setReply]=useState(''),[notice,setNotice]=useState('');
  const [viewersOpen,setViewersOpen]=useState(!!p.initialViewersOpen),[viewers,setViewers]=useState<{viewers:L.Viewer[];total:number}|null>(null);
  const group=p.groups[cursor.group],story=group?.stories[cursor.story];const mine=group?.ownerId===p.meId;
  const paused=clock.runningSince==null;

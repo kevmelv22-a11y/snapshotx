@@ -24,7 +24,7 @@ export const useChatFeed = create<FeedState>()(persist((set, get) => ({
     const now = Date.now();
     set(s => ({ mutes: { ...s.mutes, [uid]: pruneMutes(setMute(s.mutes[uid], id, option, now), now) } }));
     // Best-effort server mirror so the push-message edge function skips silent chats
-    // (needs migration 20261027120000_chat_mutes.sql; without it this errors and stays device-local).
+    // (migration 20261027120000_chat_mutes.sql is live; a failed write keeps the mute device-local).
     const row = muteRow(uid, id, muteUntil(option, now));
     void (row
       ? supabase.from('sx_thread_mutes').upsert(row, { onConflict: 'user_id,thread_id' })

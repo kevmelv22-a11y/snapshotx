@@ -70,7 +70,7 @@ export default function WardrobeScreen() {
   const [modeFilter, setModeFilter] = useState<ModeFilter>('featured');
   const [pending, setPending] = useState<Pending | null>(null);
   const [saveCheck, setSaveCheck] = useState<WardrobeItem[] | null>(null);
-  const [reaction, setReaction] = useState<Reaction>(null);
+  const [, setReaction] = useState<Reaction>(null);
   const [toast, setToast] = useState<{ text: string; warn?: boolean } | null>(null);
   const [zoom, setZoom] = useState(0.5);
   const reactionIndex = useRef(0);

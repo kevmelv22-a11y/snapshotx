@@ -20,7 +20,6 @@ export const hasLensArt = (id: PhotoFilterId) => LENS_ART_IDS.includes(id);
 type Props = { filterId: PhotoFilterId; face: FaceGeometry; width: number; height: number; uid: string; triggerOn: boolean; ageS: number };
 
 const n = (v: number) => (Math.round(v * 1000) / 1000).toString();
-const pts = (p: Pt[]) => p.map((q, i) => `${i ? 'L' : 'M'}${n(q.x)} ${n(q.y)}`).join('') + 'Z';
 /** Closed Catmull-Rom spline (like geometry.smoothClosedPath, but with 3 decimals for eye-distance units). */
 function smoothClosedPath(p: Pt[]): string {
   const k = p.length;

@@ -6,7 +6,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Defs, Ellipse, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { applyLook, DEFAULT_OUTFIT, type Outfit } from '../../lib/avatar/outfit';
 import { TRY_LOOKS } from '../../lib/avatar/modeLooks';
 import type { PoseId } from '../../lib/avatar/poses';

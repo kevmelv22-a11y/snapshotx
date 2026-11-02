@@ -67,6 +67,14 @@ The project now includes SDK 57 `expo-updates`, the EAS project URL, `appVersion
 - **Chat**: eigen naam in systeemregels (screenshot, achtergrond, bewaren, verwijderen) = weergavenaam of @gebruikersnaam (was leeg → "Iemand"/"Je vriend"); "Gezien door", groepsleden, vriendenkiezers (nieuwe chat, snap versturen, groep) en verhaalreacties tonen @gebruikersnaam als er geen naam is. Screenshot terwijl een snap van de ander open is → "… heeft een screenshot van een snap gemaakt".
 - **Web**: één /map-route (de Map-tab; de dubbele `app/map.tsx` gaf na verversen een kaart zonder zijbalk), Vrienden/vriendprofiel/Mijn profiel in de leeskolom, Herinneringen-raster op desktop (7 staande tegels op 1440px i.p.v. 3 brede strepen), terugknop "Chat" in de kop van losse pagina's die direct via een link geopend worden.
 
+## Sessie 02-11-2026 22:48
+
+- **Android-pushmeldingen**: push-message (edge function v9) stuurt nu `priority: 'high'` en `channelId: 'messages'` (Berichten en snaps), zodat Android het toestel wekt en het juiste kanaal gebruikt.
+- **Gedeeld toestel**: nieuwe RPC `sx_claim_push_token` (migratie 20261102221000, live) — als iemand anders op dezelfde telefoon inlogt en meldingen registreert, verdwijnt de token-rij van het vorige account; dat account krijgt hier geen pushes meer.
+- **Karakter (Jongen/Meisje) volgt de avatar-editor**: trigger `sx_profile_gender_sync_from_auth` op auth.users (migratie 20261102220000, live) zet profiles.gender bij elke latere wijziging; vrienden zien de juiste avatar-art.
+- **Lint schoon** (0 fouten, 0 waarschuwingen); belgesprek-simulatie gebruikt de actuele `send` (geen verouderde closure).
+- Nog open: Apple Team ID voor universal links (Kevin).
+
 ## Open launch items (bijgewerkt 01-11-2026 06:00)
 
 - **Google Play**: verificatie account, gesloten test 12 testers × 14 dagen (persoonlijk account; plan in docs/google-play/CLOSED_TEST_NL.md), FCM V1-sleutel staat in EAS (gecontroleerd 01-11 12:00), nieuwe AAB-build op verzoek (bevat de fixes van 06:00), Play-app-ondertekenings-SHA-256 → assetlinks.json (uploadsleutel staat er al), RevenueCat Play-app + `goog_`-key (docs/revenuecat/GOOGLE_PLAY_NL.md), Android-screenshots.

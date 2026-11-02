@@ -3,7 +3,7 @@
  * assets/avatar-art/items/src/{segment,crop,fixups}.py). Items without an entry keep the old ItemPreviewArt render.
  * outer-strideon-black-jacket is cut from the boy's worn jacket art by assets/avatar-art/items/src/strideon_jacket.py.
  */
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 export const ITEM_ART: Record<string, number> = {
   'top-blueberry-white-tee': require('../../assets/avatar-art/items/top-blueberry-white-tee.png'),
   'top-nike-black-tee': require('../../assets/avatar-art/items/top-nike-black-tee.png'),
@@ -142,4 +142,4 @@ export const ITEM_ART: Record<string, number> = {
   'shoes-royaums-luisa-white': require('../../assets/avatar-art/items/shoes-royaums-luisa-white.png'),
   'glasses-trivo-sport': require('../../assets/avatar-art/items/glasses-trivo-sport.png'),
 };
-/* eslint-enable @typescript-eslint/no-require-imports */
+ 

@@ -75,6 +75,9 @@ Deno.serve(async (req) => {
       .map((r: any) => ({
         to: r.expo_token,
         sound: silent.has(r.user_id) ? null : 'default',
+        // Android: high priority wakes the device; channel 'messages' = Berichten en snaps (lib/backend/push.ts ANDROID_CHANNELS).
+        priority: 'high',
+        channelId: 'messages',
         title: 'SnapShot X',
         body: bodyFor(r.kind, r.view_once, r.sender_name || 'Iemand'),
         // No message text or media ever included here — only enough to deep-link.

@@ -29,7 +29,9 @@ export async function registerPushDevice(uid:string,{prompt}:{prompt:boolean}):P
  const projectId=Constants.expoConfig?.extra?.eas?.projectId??Constants.easConfig?.projectId;if(!projectId)throw new Error('EAS projectId ontbreekt.');
  const {data:token}=await Notifications.getExpoPushTokenAsync({projectId});
  if(!isValidExpoToken(token))throw new Error('Dit toestel gaf geen geldige meldingssleutel terug. Probeer het later opnieuw.');
- const {error}=await supabase.from('sx_push_tokens').upsert(pushTokenRow(uid,token),{onConflict:'user_id,token'});if(error)throw error;
+ // Shared phone: sx_claim_push_token also drops a previous account's row for this token (migration 20261102221000).
+ const claim=await supabase.rpc('sx_claim_push_token',{p_token:token});
+ if(claim.error){const {error}=await supabase.from('sx_push_tokens').upsert(pushTokenRow(uid,token),{onConflict:'user_id,token'});if(error)throw error;}
  await AsyncStorage.setItem(TOKEN_KEY,token).catch(()=>{});
  return 'Dit toestel is geregistreerd voor meldingen.';
 }

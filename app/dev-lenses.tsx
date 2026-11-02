@@ -9,7 +9,7 @@ import { ExpressionTracker, NEUTRAL_EXPRESSION, TRIGGER_HINTS, effectActive, eye
 import { coverTransform, mapFaceGeometry, placeholderFace } from '../lib/face-filters/geometry';
 import type { FaceGeometry, Pt } from '../lib/face-filters/types';
 import { lensTrigger, worldKind } from '../lib/lens-effects';
-import { PHOTO_FILTERS, isPhotoFilterId, photoFilter, type PhotoFilterId } from '../lib/photo-filters';
+import { isPhotoFilterId, photoFilter, type PhotoFilterId } from '../lib/photo-filters';
 
 type Expr = { mouth: number; eyes: number; smile: number };
 const NEUTRAL: Expr = { mouth: 0, eyes: 1, smile: 0.05 };

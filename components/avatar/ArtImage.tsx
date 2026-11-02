@@ -10,6 +10,7 @@ import type { Outfit } from '../../lib/avatar/outfit';
 import type { PoseId, StickerArtPose } from '../../lib/avatar/poses';
 import { DEFAULT_FEMALE_OUTFIT, DEFAULT_OUTFIT } from '../../lib/avatar/outfit';
 import { friendArtFor, type FriendArtKey } from '../../lib/avatar/friendArt';
+import { ITEMS_BY_ID } from '../../lib/avatar/wardrobeItems';
 
 // The default outfit (DEFAULT_OUTFIT) counts as the default character too, so new users get the art.
 const DATA = { hero: MODE_HERO_ITEMS, looks: TRY_LOOKS, alt: [DEFAULT_OUTFIT], female: DEFAULT_FEMALE_OUTFIT };
@@ -17,11 +18,10 @@ export const lookArtFor = (o: Outfit) => look0(o, DATA);
 export const poseArtFor = (o: Outfit, p: PoseId | 'think' | StickerArtPose) => pose0(o, p, DATA);
 export const bustArtFor = (o: Outfit) => bust0(o, DATA);
 export { lookCardArt };
-import { ITEMS_BY_ID } from '../../lib/avatar/wardrobeItems';
 /** Closest art image for any outfit (never the 3D/2D figure). */
 export const nearestLookArt = (o: Outfit) => near0(o, DATA, id => ITEMS_BY_ID.get(id)?.colors[0] ?? null);
 
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 export const ART: Record<ArtKey, { src: number; w: number; h: number }> = {
   'bust': { src: require('../../assets/avatar-art/bust.png'), w: 630, h: 711 },
   'look-black-bomber': { src: require('../../assets/avatar-art/look-black-bomber.png'), w: 250, h: 691 },
@@ -84,7 +84,7 @@ export const FRIEND_ART: Record<FriendArtKey, number> = {
   'friend-blonde': require('../../assets/avatar-art/friend-blonde.png'), 'friend-brown': require('../../assets/avatar-art/friend-brown.png'),
   'friend-cap': require('../../assets/avatar-art/friend-cap.png'), 'friend-black': require('../../assets/avatar-art/friend-black.png'),
 };
-/* eslint-enable @typescript-eslint/no-require-imports */
+ 
 
 /** Round demo-friend portrait (see lib/avatar/friendArt), or null when this user has none. */
 export function FriendArtCircle({ id, size, selected = false }: { id: string; size: number; selected?: boolean }) {
