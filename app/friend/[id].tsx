@@ -15,6 +15,7 @@ import {FriendAvatar} from '../../components/avatar/FriendAvatar';
 import {GalaxyScreen} from '../../components/GalaxyScreen';
 import {useConfirmDialog} from '../../components/ConfirmDialog';
 import {friendlyError} from '../../lib/db-errors';
+import {UNFRIEND_TEXT,unfriendErrorText} from '../../lib/unfriend';
 import {threadStreak} from '../../lib/chat-status';
 import type {StreakState} from '../../lib/chat-features';
 import {savedCount,savedPreviews,savedSectionTitle,type SaveableMessage,type SavedPreview} from '../../lib/chat-saves';
@@ -76,6 +77,7 @@ export default function FriendProfileScreen(){
  // Back to the chat if we came from it (no second copy of the chat on the stack), else open it.
  function openSavedChat(){if(shared.directId)router.dismissTo({pathname:'/chat/[id]',params:{id:shared.directId}})}
  function block(){if(!p)return;confirm.ask({title:`${p.display_name} blokkeren?`,message:'Jullie kunnen elkaar dan niet meer berichten of snaps sturen. In groepschats worden berichten van deze persoon verborgen.',confirmLabel:'Blokkeren',destructive:true},async()=>{const {error}=await supabase.from('sx_blocks').insert({blocker_id:me,blocked_id:id});if(error)return friendlyError(error);router.back();return null})}
+ function unfriend(){if(!p||!isFriend)return;confirm.ask({title:UNFRIEND_TEXT.title(p.display_name),message:UNFRIEND_TEXT.message,confirmLabel:UNFRIEND_TEXT.confirm,destructive:true},async()=>{const {error}=await supabase.rpc('sx_unfriend',{p_friend_id:id});if(error)return unfriendErrorText(error)??friendlyError(error,UNFRIEND_TEXT.action);setIsFriend(false);setNotice(UNFRIEND_TEXT.done);router.back();return null})}
  const emojiChoices=useFriendEmojis(st=>me?st.choices[me]:undefined),known=useFriendEmojis(st=>me?st.relations[me]?.[id]:undefined);
  // Vriend-emoji: the relationship last ranked in the chat list; a fresh friendship (< 7 days) is 👶 on its own.
  const relation=isFriend?known??(fresh?'new_friend':null):null;
@@ -107,7 +109,7 @@ export default function FriendProfileScreen(){
    {savedRows.total>0&&shared.directId&&<><Text style={s.section} testID="saved-section">Opgeslagen in chat</Text>
     <View style={s.card}>{savedRows.items.map((x,i)=><Pressable key={x.id} onPress={()=>openSavedChat()} style={[s.row,i>0&&s.rowLine]} accessibilityLabel={`Opgeslagen bericht van ${x.who}`} testID="saved-preview"><Ionicons name="bookmark" size={18} color="#C7C0CD"/><Text style={s.rowText} numberOfLines={1}><Text style={{fontWeight:'800'}}>{x.who}: </Text>{x.excerpt}</Text></Pressable>)}
      <Pressable onPress={()=>openSavedChat()} style={[s.row,s.rowLine]} accessibilityLabel="Bekijk opgeslagen berichten in de chat" testID="saved-open-chat"><Text style={[s.rowText,{color:'#C7C0CD'}]}>{savedSectionTitle(savedRows.total)} · bekijk in chat</Text><Ionicons name="chevron-forward" size={18} color="#C7C0CD"/></Pressable></View></>}
-   {isFriend&&<><Text style={s.section}>Vriendschap</Text><View style={s.card}><Pressable onPress={()=>{setNickDraft(nick??p.display_name);setNickError('');setNickOpen(true)}} style={s.row} accessibilityLabel={NICKNAME_TEXT.action} testID="friend-nickname"><Ionicons name="pencil" size={19} color="#E2D7EC"/><Text style={s.rowText}>{NICKNAME_TEXT.action}</Text><Text style={s.rowMeta} numberOfLines={1}>{nick??''}</Text><Ionicons name="chevron-forward" size={18} color="#C7C0CD"/></Pressable></View></>}
+   {isFriend&&<><Text style={s.section}>Vriendschap</Text><View style={s.card}><Pressable onPress={()=>{setNickDraft(nick??p.display_name);setNickError('');setNickOpen(true)}} style={s.row} accessibilityLabel={NICKNAME_TEXT.action} testID="friend-nickname"><Ionicons name="pencil" size={19} color="#E2D7EC"/><Text style={s.rowText}>{NICKNAME_TEXT.action}</Text><Text style={s.rowMeta} numberOfLines={1}>{nick??''}</Text><Ionicons name="chevron-forward" size={18} color="#C7C0CD"/></Pressable><Pressable onPress={unfriend} style={[s.row,s.rowLine]} accessibilityLabel={UNFRIEND_TEXT.action} testID="friend-unfriend"><Ionicons name="person-remove-outline" size={19} color="#FF6B6B"/><Text style={[s.rowText,{color:'#FF6B6B'}]}>{UNFRIEND_TEXT.action}</Text></Pressable></View></>}
    <Text style={s.section}>Privacy</Text>
    <View style={s.card}><Pressable onPress={()=>router.push({pathname:'/report',params:{user_id:id,name:p.display_name}})} style={s.row} accessibilityLabel={`${p.display_name} melden`} testID="friend-report"><Ionicons name="flag-outline" size={20} color="#FF6B6B"/><Text style={[s.rowText,{color:'#FF6B6B'}]}>Account melden</Text></Pressable><Pressable onPress={block} style={[s.row,s.rowLine]} accessibilityLabel={`${p.display_name} blokkeren`} testID="friend-block"><Ionicons name="ban" size={20} color="#FF6B6B"/><Text style={[s.rowText,{color:'#FF6B6B'}]}>Blokkeren</Text></Pressable></View>
   </ScrollView>}

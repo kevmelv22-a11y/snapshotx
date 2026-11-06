@@ -1,9 +1,10 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {kavBehavior} from '../../lib/keyboard';
-import {BackHandler,FlatList,KeyboardAvoidingView,PanResponder,Platform,Pressable,StyleSheet,Text,TextInput,View,useWindowDimensions} from 'react-native';
+import {Alert,BackHandler,FlatList,KeyboardAvoidingView,PanResponder,Platform,Pressable,StyleSheet,Text,TextInput,View,useWindowDimensions} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import * as L from '../../lib/stories';
+import {STORY_DELETE_TEXT} from '../../lib/story-delete';
 
 export type ViewerStory=L.StoryLike&{caption:string|null;media_path:string};
 export type Props={
@@ -11,6 +12,8 @@ export type Props={
  names:Record<string,string>; renderMedia:(s:ViewerStory)=>React.ReactNode;
  onViewed?:(s:ViewerStory)=>void; onClose:()=>void; onReply?:(s:ViewerStory,body:string)=>Promise<string|null>;
  loadViewers?:(s:ViewerStory)=>Promise<{viewers:L.Viewer[];total:number}>;
+ /** Owner deletes the current segment; return an error string or null on success. */
+ onDelete?:(s:ViewerStory)=>Promise<string|null>;
  /** Dev/screenshot hooks */ initialPaused?:boolean; initialViewersOpen?:boolean; initialReplyOpen?:boolean; initialProgress?:number;
 };
 /** Tap-through story viewer: segment bars, tap left/right, hold to pause, swipe sideways/down/up, viewers list for own story, reply. */
@@ -20,7 +23,7 @@ export function StoryViewer(p:Props){
  const [cursor,setCursor]=useState<L.Cursor>(()=>{const g=p.initialGroup??0;return {group:g,story:p.groups[g]?L.startIndex(p.groups[g].stories,p.seen):0}});
  const [clock,setClock]=useState<L.Clock>(()=>{const n=clockNow();const c={elapsed:(p.initialProgress??0)*L.PHOTO_DURATION_MS,runningSince:n};return p.initialPaused?L.pauseClock(c,n):c});
  const [,setTick]=useState(0),[replyOpen,setReplyOpen]=useState(!!p.initialReplyOpen),[reply,setReply]=useState(''),[notice,setNotice]=useState('');
- const [viewersOpen,setViewersOpen]=useState(!!p.initialViewersOpen),[viewers,setViewers]=useState<{viewers:L.Viewer[];total:number}|null>(null);
+ const [viewersOpen,setViewersOpen]=useState(!!p.initialViewersOpen),[viewers,setViewers]=useState<{viewers:L.Viewer[];total:number}|null>(null),[deleting,setDeleting]=useState(false);
  const group=p.groups[cursor.group],story=group?.stories[cursor.story];const mine=group?.ownerId===p.meId;
  const paused=clock.runningSince==null;
  const apply=(r:L.NavResult)=>{if('close' in r){p.onClose();return}setCursor(r.cursor);setClock(L.startClock(clockNow()));setNotice('')};
@@ -33,6 +36,29 @@ export function StoryViewer(p:Props){
  useEffect(()=>{if(viewersOpen&&story&&mine&&p.loadViewers)p.loadViewers(story).then(setViewers)},[viewersOpen,story?.id]);// eslint-disable-line react-hooks/exhaustive-deps
  const openPanel=(which:'reply'|'viewers')=>{hold(true);if(which==='reply')setReplyOpen(true);else setViewersOpen(true)};
  const closePanels=()=>{setReplyOpen(false);setViewersOpen(false);hold(false)};
+ async function runDelete(){
+  if(!story||!mine||!p.onDelete||deleting)return;
+  hold(true);setDeleting(true);setViewersOpen(false);
+  const err=await p.onDelete(story);
+  setDeleting(false);
+  if(err){setNotice(err);hold(false);return}
+  // Parent filters the story out of `groups` in onDelete; close if this was the last segment in the ring.
+  const left=Math.max(0,(group?.stories.length??1)-1);
+  if(left<=0){p.onClose();return}
+  const storyIdx=Math.min(cursor.story,left-1);
+  setCursor({group:cursor.group,story:storyIdx});
+  setClock(L.startClock(clockNow()));
+  setNotice(STORY_DELETE_TEXT.done);
+  hold(false);
+ }
+ function askDelete(){
+  if(!story||!mine||!p.onDelete||deleting)return;
+  hold(true);
+  Alert.alert(STORY_DELETE_TEXT.title,STORY_DELETE_TEXT.message,[
+    {text:'Annuleren',style:'cancel',onPress:()=>hold(false)},
+    {text:STORY_DELETE_TEXT.confirm,style:'destructive',onPress:()=>void runDelete()},
+  ]);
+ }
  // Android back button: close the reply field / viewers list first (story resumes) instead of leaving the viewer.
  const panelOpen=replyOpen||viewersOpen,closeRef=useRef(closePanels);useEffect(()=>{closeRef.current=closePanels});
  useEffect(()=>{if(Platform.OS!=='android'||!panelOpen)return;const sub=BackHandler.addEventListener('hardwareBackPress',()=>{closeRef.current();return true});return()=>sub.remove()},[panelOpen]);
@@ -53,7 +79,10 @@ export function StoryViewer(p:Props){
   {!replyOpen&&!viewersOpen&&<View style={[s.bottom,{paddingBottom:insets.bottom+14}]} pointerEvents="box-none">
    {!!story.caption&&<Text style={s.caption}>{story.caption}</Text>}
    {!!notice&&<Text style={s.notice}>{notice}</Text>}
-   {mine?<Pressable style={s.pill} onPress={()=>openPanel('viewers')}><Ionicons name="eye-outline" size={18} color="white"/><Text style={s.text}>{viewers?L.viewersLabel(viewers.total):'Kijkers'}</Text><Ionicons name="chevron-up" size={18} color="white"/></Pressable>
+   {mine?<View style={{flexDirection:'row',gap:10,alignItems:'center'}}>
+    <Pressable style={s.pill} onPress={()=>openPanel('viewers')} accessibilityLabel="Kijkers"><Ionicons name="eye-outline" size={18} color="white"/><Text style={s.text}>{viewers?L.viewersLabel(viewers.total):'Kijkers'}</Text><Ionicons name="chevron-up" size={18} color="white"/></Pressable>
+    {!!p.onDelete&&<Pressable style={[s.pill,s.deletePill]} onPress={()=>void askDelete()} disabled={deleting} accessibilityLabel="Verhaal verwijderen" testID="story-delete"><Ionicons name="trash-outline" size={18} color="#FFB4C2"/><Text style={[s.text,{color:'#FFB4C2'}]}>{deleting?'…':'Verwijderen'}</Text></Pressable>}
+   </View>
    :<Pressable style={s.pill} onPress={()=>openPanel('reply')}><Ionicons name="chatbubble-outline" size={18} color="white"/><Text style={s.text}>Antwoorden aan {name}</Text></Pressable>}
   </View>}
   {replyOpen&&!mine&&<KeyboardAvoidingView behavior={kavBehavior(Platform.OS)} style={[s.sheet,{paddingBottom:insets.bottom+12}]}><Text style={s.sheetTitle}>Antwoord op verhaal van {name}</Text><View style={s.row}><TextInput autoFocus value={reply} onChangeText={setReply} placeholder="Stuur een bericht…" placeholderTextColor="#aaa" style={s.input} onSubmitEditing={send}/><Pressable onPress={send} accessibilityLabel="Versturen" style={s.send}><Ionicons name="send" size={20} color="black"/></Pressable></View><Pressable onPress={closePanels}><Text style={s.meta}>Annuleren</Text></Pressable></KeyboardAvoidingView>}
@@ -64,4 +93,4 @@ export function StoryViewer(p:Props){
   </View>}
  </View>;
 }
-const s=StyleSheet.create({root:{flex:1,backgroundColor:'#000'},text:{color:'white',fontSize:15,fontWeight:'600'},top:{position:'absolute',top:0,left:0,right:0,paddingHorizontal:10},bars:{flexDirection:'row',gap:4},bar:{flex:1,height:3,borderRadius:2,backgroundColor:'#FFFFFF55',overflow:'hidden'},fill:{height:3,backgroundColor:'white'},head:{flexDirection:'row',alignItems:'center',gap:10,marginTop:10},avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#7D3BBF',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'white'},avatarSm:{width:34,height:34,borderRadius:17,backgroundColor:'#7D3BBF',alignItems:'center',justifyContent:'center'},avatarText:{color:'white',fontWeight:'800'},name:{color:'white',fontWeight:'800',fontSize:16},meta:{color:'#DDD',fontSize:13},bottom:{position:'absolute',bottom:0,left:16,right:16,gap:10,alignItems:'center'},caption:{color:'white',fontSize:20,fontWeight:'800',textAlign:'center',textShadowColor:'#000',textShadowRadius:6},notice:{color:'#FFE14D'},pill:{flexDirection:'row',alignItems:'center',gap:8,backgroundColor:'#000A',borderRadius:22,paddingHorizontal:18,paddingVertical:12,borderWidth:1,borderColor:'#FFFFFF44'},sheet:{position:'absolute',left:0,right:0,bottom:0,backgroundColor:'#16121C',borderTopLeftRadius:22,borderTopRightRadius:22,padding:16,gap:12},sheetTitle:{color:'white',fontSize:17,fontWeight:'800'},row:{flexDirection:'row',alignItems:'center',gap:10},input:{flex:1,backgroundColor:'#FFFFFF1A',color:'white',padding:12,borderRadius:20},send:{backgroundColor:'#FFE14D',width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center'},viewer:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:8}});
+const s=StyleSheet.create({root:{flex:1,backgroundColor:'#000'},text:{color:'white',fontSize:15,fontWeight:'600'},top:{position:'absolute',top:0,left:0,right:0,paddingHorizontal:10},bars:{flexDirection:'row',gap:4},bar:{flex:1,height:3,borderRadius:2,backgroundColor:'#FFFFFF55',overflow:'hidden'},fill:{height:3,backgroundColor:'white'},head:{flexDirection:'row',alignItems:'center',gap:10,marginTop:10},avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#7D3BBF',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'white'},avatarSm:{width:34,height:34,borderRadius:17,backgroundColor:'#7D3BBF',alignItems:'center',justifyContent:'center'},avatarText:{color:'white',fontWeight:'800'},name:{color:'white',fontWeight:'800',fontSize:16},meta:{color:'#DDD',fontSize:13},bottom:{position:'absolute',bottom:0,left:16,right:16,gap:10,alignItems:'center'},caption:{color:'white',fontSize:20,fontWeight:'800',textAlign:'center',textShadowColor:'#000',textShadowRadius:6},notice:{color:'#FFE14D'},deletePill:{backgroundColor:'#3A1F33',borderColor:'#FF6B6B55'},pill:{flexDirection:'row',alignItems:'center',gap:8,backgroundColor:'#000A',borderRadius:22,paddingHorizontal:18,paddingVertical:12,borderWidth:1,borderColor:'#FFFFFF44'},sheet:{position:'absolute',left:0,right:0,bottom:0,backgroundColor:'#16121C',borderTopLeftRadius:22,borderTopRightRadius:22,padding:16,gap:12},sheetTitle:{color:'white',fontSize:17,fontWeight:'800'},row:{flexDirection:'row',alignItems:'center',gap:10},input:{flex:1,backgroundColor:'#FFFFFF1A',color:'white',padding:12,borderRadius:20},send:{backgroundColor:'#FFE14D',width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center'},viewer:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:8}});

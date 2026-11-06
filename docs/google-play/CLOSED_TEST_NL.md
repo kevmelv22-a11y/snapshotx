@@ -1,17 +1,22 @@
-# Snapshot X — gesloten test op Google Play (concept)
+# Snapshot X — gesloten test op Google Play
 
-Status 1 nov 2026 (06:00-sessie). Niets hiervan is al in de Play Console gedaan; bouwen/indienen alleen op Kevins verzoek.
+Status **6 nov 2026** (21:14-sessie). Kevin’s Google Play-ontwikkelaarsaccount (Vonk Byte) is **geverifieerd** (bevestigd 2 nov 2026). Niets hiervan is al in de Play Console gedaan; bouwen/indienen alleen op Kevins verzoek.
+
+## Testers (Kevin, 2 nov 2026)
+- Gesloten test gebruikt **dezelfde 10 testers als Postwacht**.
+- Google eist voor een *nieuw persoonlijk* account minstens **12 testers × 14 dagen** vóór productietoegang. Kevin plant 10 (gelijk aan Postwacht); noteer dit verschil: óf 2 extra testers werven vóór de 14-dagen-teller, óf later een organisatie-account via KvK Vonk Byte (gepland jan 2027) gebruiken — dat heeft die 12-tester-eis niet.
+- Geen testaccounts of nepdata in de live database; testers maken hun eigen account.
 
 ## Waarom
-Een **nieuw persoonlijk** Play-ontwikkelaarsaccount krijgt pas productietoegang na een **gesloten test met minstens 12 testers die 14 dagen achter elkaar ingeschreven blijven**. (Een organisatie-account via de KvK-inschrijving van Vonk Byte, gepland jan 2027, heeft die eis niet.)
+Een geverifieerd account mag de app aanmaken en een gesloten test starten. Productietoegang op een persoonlijk account volgt de 12×14-regel hierboven.
 
 ## Stappen (Kevin, in de Play Console)
-1. Account geverifieerd → app aanmaken: naam **Snapshot X**, standaardtaal **Nederlands (nl-NL)**, app (geen game), gratis, pakket `com.snapshotx.app`.
-2. **Testen › Gesloten testen › Track maken** (bijv. "Vrienden-test"). Testers: een **Google-groep** (makkelijkst) of een e-maillijst van minstens 12 Google-accounts.
-3. AAB uploaden van de echte productiebuild (`eas build --platform android --profile production`, alleen op verzoek). Dezelfde build is de echte app: geen demo-modus, geen testfuncties, echte database.
+1. App aanmaken: naam **Snapshot X**, standaardtaal **Nederlands (nl-NL)**, app (geen game), gratis, pakket `com.snapshotx.app`.
+2. **Testen › Gesloten testen › Track maken** (bijv. "Vrienden-test"). Testers: Google-groep of e-maillijst — start met de **10 Postwacht-testers**; vul aan tot 12 als je de persoonlijke-account-route aanhoudt.
+3. AAB uploaden van de echte productiebuild. Laatste gevraagde Android-productiebuild: EAS `2f336b8f`, `versionCode` **3**, pakket `com.snapshotx.app` (geen demo-modus, echte database). Nieuwe build alleen op verzoek.
 4. App-content invullen (Data safety, contentclassificatie, doelgroep, App-toegang) met `DATA_SAFETY_NL.md`, `CONTENT_RATING_NL.md`, `LISTING_NL.md`.
-5. Uitnodigingslink (opt-in-URL) delen met de testers. **Teller van 14 dagen** loopt pas vanaf het moment dat ≥ 12 testers zijn ingeschreven; laat niemand tussentijds uitschrijven.
-6. Na 14 dagen: **Productietoegang aanvragen** (Google stelt vragen over de test: hoe testers geworven, welke feedback, wat verbeterd). Gebruik het logboek hieronder.
+5. Uitnodigingslink delen. De 14-dagen-teller start pas bij ≥ 12 ingeschreven testers (persoonlijk account).
+6. Na 14 dagen: **Productietoegang aanvragen**. Gebruik het logboek hieronder.
 
 ## Uitnodiging voor testers (concept, door Kevin zelf te versturen)
 > Hoi! Ik lanceer binnenkort mijn eigen app **Snapshot X** (snaps, chats, verhalen en een vriendenkaart). Wil je 14 dagen meetesten op Android?
@@ -23,12 +28,11 @@ Een **nieuw persoonlijk** Play-ontwikkelaarsaccount krijgt pas productietoegang 
 
 ## Wat testers proberen (checklist)
 - Account maken, inloggen, wachtwoord vergeten (e-mail komt aan, link opent de app/website).
-- Vriend toevoegen via QR-code, via de link `snapshot-x.nl/add/<gebruikersnaam>` (opent de app zodra App Links geverifieerd zijn) en via zoeken.
-- Snap maken met lens/filter, versturen, opslaan in de galerij (geen vraag om toegang tot al je foto's).
-- Chatten: tekst, spraakbericht, foto, reageren, bewerken, verwijderen; meldingen komen binnen (ook met de app dicht).
-- Verhaal plaatsen en bekijken; kaart met vrienden (alleen als je locatie deelt; Ghost mode werkt).
-- (Video)bellen met een andere tester; **Android-terugknop tijdens een gesprek vraagt eerst "Gesprek beëindigen?"**.
-- Terugknop overal: sluit eerst open vensters/tools, verlaat dan pas het scherm.
+- Vriend toevoegen via QR-code, via `snapshot-x.nl/add/<gebruikersnaam>` (App Links) en via zoeken; vriendschap beëindigen op het vriendschapsprofiel.
+- Snap maken met lens/filter, versturen, herbekijken (zender ziet "Herbekeken"), opslaan in de galerij.
+- Chatten: tekst, spraakbericht, foto, reageren, bewerken, verwijderen; groepsuitnodigingslink (`snapshot-x.nl/g/…`); meldingen (ook met de app dicht).
+- Verhaal plaatsen met publiekkiezer (Vrienden / Iedereen), bekijken en **eigen verhaal verwijderen**.
+- Kaart met vrienden (Ghost mode); (video)bellen — Android-terugknop vraagt eerst "Gesprek beëindigen?".
 - Melden en blokkeren; account verwijderen (Instellingen of snapshot-x.nl/account-verwijderen).
 
 ## Logboek (invullen tijdens de test — Google vraagt hiernaar)
@@ -36,7 +40,13 @@ Een **nieuw persoonlijk** Play-ontwikkelaarsaccount krijgt pas productietoegang 
 |---|---|---|---|
 | | | | |
 
+## Open (geen build deze sessie)
+- Eerste handmatige AAB-upload in de Play Console (Kevin).
+- Play-app-ondertekenings-SHA-256 → `SNAPSHOTX_ANDROID_SHA256` + web redeploy (uploadsleutel staat al in assetlinks).
+- RevenueCat: nog **geen** Google Play-app / `goog_`-key (`docs/revenuecat/GOOGLE_PLAY_NL.md`); Android-aankopen uit tot die er is en er opnieuw gebouwd wordt.
+- FCM V1-sleutel staat in EAS (project snapshot-x-2dcb7).
+
 ## Let op
 - Geen testaccounts of nepdata in de live database aanmaken; testers maken hun eigen account.
-- De gesloten test gebruikt dezelfde echte backend als snapshot-x.nl: echte gebruikers, echte meldingen.
-- Pre-launch report (automatische tests van Google) kan niet inloggen zonder App-toegang-account: dat is normaal; vul App-toegang pas in vlak voor productie.
+- De gesloten test gebruikt dezelfde echte backend als snapshot-x.nl.
+- Pre-launch report kan niet inloggen zonder App-toegang-account: normaal; vul App-toegang pas in vlak voor productie.

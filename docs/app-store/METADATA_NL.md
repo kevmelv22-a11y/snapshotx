@@ -68,7 +68,7 @@ Dit staat ook in de privacymanifest (`ios.privacyManifests.NSPrivacyCollectedDat
 - Demo-account: `appreview@snapshot-x.nl` — password: see secure file (niet in de repo).
 - Opmerking voor de reviewer (Engels):
   "Snapshot X is a photo/video messaging app. Users can report content and accounts (long-press a chat/story → Melden, or friend profile → Account melden) and block users; reports are reviewed by our staff in the in-app staff console. Account deletion: Instellingen › Account verwijderen. Data export: Instellingen › Mijn gegevens. Help & support (FAQ, crisis lines, contact): Instellingen › Help en support."
-- Contactpersoon: Vonk Byte — e-mail support@snapshot-x.nl — telefoon: TODO(Kevin) (verplicht voor Apple).
+- Contactpersoon: Vonk Byte — e-mail support@snapshot-x.nl — telefoon: **TODO(Kevin)** (verplicht voor Apple bij indienen; nog niet gegeven per 6 nov 2026).
 
 ## Schermafbeeldingen (6,9" iPhone, 1320 × 2868 — of 6,5", 1284 × 2778)
 1. Camera met lens — "Snap wat er nu gebeurt"
@@ -85,3 +85,10 @@ Dit staat ook in de privacymanifest (`ios.privacyManifests.NSPrivacyCollectedDat
 - [ ] Openstaande Supabase-migraties toepassen (zie supabase/migrations, o.a. 20261029030000 en 20261029120000).
 - [ ] In-app aankopen (Snapshot X+) aanmaken in App Store Connect als ze bij de lancering meegaan.
 - [x] Demo-account voor App Review.
+
+## Android-pariteit (Play, 6 nov 2026)
+- Zelfde support: support@snapshot-x.nl · copyright Vonk Byte · privacy/voorwaarden/help op snapshot-x.nl.
+- Play closed test: 10 testers = Postwacht; versionCode 3 / build `2f336b8f`.
+- App Review-telefoonnummer ontbreekt nog (TODO hierboven) — zelfde blokker voor App Store Connect.
+- Geen demo-modus in store-builds; review-account opnieuw seeden vlak voor indienen.
+

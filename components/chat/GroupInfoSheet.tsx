@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {PROFILE_NAME_COLUMNS,profileName} from '../../lib/profile-name';
-import {ActivityIndicator,Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
+import {ActivityIndicator,Modal,Pressable,ScrollView,Share,StyleSheet,Text,TextInput,View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {supabase} from '../../lib/supabase';
@@ -14,6 +14,7 @@ import {MemberRoleIcon,useMemberActions} from './MemberActionSheet';
 import {wallpaperLabel} from '../../lib/chat-wallpaper';
 import {checkName} from '../../lib/name-filter';
 import {GROUP_MAX_MEMBERS,GROUP_TITLE_MAX,addableFriends,canAddMembers,canRename,canSelectMore,groupErrorText,normalizeGroupTitle,sortMembers,validateAdd} from '../../lib/group-chat';
+import {GROUP_INVITE_TEXT,groupInviteErrorText,groupInviteUrl} from '../../lib/group-invite';
 
 export type GroupMember={id:string;name:string};
 type Props={/** Current Chat-achtergrond id (shows its label) + opens the wallpaper sheet. */wallpaperLabel?:string;onWallpaper?:()=>void;visible:boolean;threadId:string;me:string;title:string;creatorId:string|null;members:GroupMember[];/** Members with can_remove_members (migration 20261027200000). */removers?:string[];onClose:()=>void;/** Reload thread meta + messages after a change. */onChanged:()=>void;/** Called after leaving; the chat screen navigates back to the chat list. */onLeft:()=>void};
@@ -37,6 +38,7 @@ export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,remo
  function addPicked(){const why=validateAdd(count,picked);if(why){setNotice(why);return}void run(()=>supabase.rpc('sx_add_group_members',{p_thread_id:threadId,p_user_ids:picked}),()=>{setPicked([]);setMode('info')})}
  function togglePick(id:string){setNotice('');setPicked(v=>v.includes(id)?v.filter(x=>x!==id):canSelectMore(count,v.length)?[...v,id]:(setNotice(validateAdd(count,[...v,id])??''),v))}
  function askLeave(){confirm.ask({title:'Groep verlaten?',message:`Je verlaat "${title}". Je ziet deze groep en de berichten niet meer, tenzij iemand je opnieuw toevoegt.`,confirmLabel:'Verlaten',destructive:true},async()=>{const {error}=await supabase.rpc('sx_leave_group',{p_thread_id:threadId});if(error)return errText(error);onLeft();return null})}
+ async function shareInvite(){if(busy)return;setBusy(true);setNotice('');try{const {data,error}=await supabase.rpc('sx_create_group_invite',{p_thread_id:threadId});if(error){setNotice(groupInviteErrorText(error)??errText(error));return}const url=groupInviteUrl(String(data));const msg=`Doe mee met mijn Snapshot X-groep "${title}": ${url}`;try{const r=await Share.share({message:msg,url,title:GROUP_INVITE_TEXT.shareTitle});if(r.action===Share.sharedAction)setNotice(GROUP_INVITE_TEXT.copied);else setNotice(url)}catch{setNotice(url)}}catch(e){setNotice(errText(e))}finally{setBusy(false)}}
 
  const header=(label:string,back?:()=>void)=><View style={s.top}><Pressable onPress={back??onClose} accessibilityLabel={back?'Terug naar groepsinfo':'Groepsinfo sluiten'} style={s.topBtn}><Ionicons name={back?'chevron-back':'chevron-down'} size={26} color={C.text}/></Pressable><Text style={s.topTitle}>{label}</Text><View style={s.topBtn}/></View>;
  return <Modal visible={visible} animationType="slide" transparent onRequestClose={mode==='info'?onClose:()=>setMode('info')}>
@@ -49,6 +51,7 @@ export function GroupInfoSheet({visible,threadId,me,title,creatorId,members,remo
      {canRename(isMember)&&<Row icon="pencil" label="Groepsnaam wijzigen" onPress={()=>{setDraft(title);setNotice('');setMode('rename')}}/>}
      {isMember&&!!onWallpaper&&<Row icon="image" testID="group-info-wallpaper" label="Chat-achtergrond" hint={wp&&wp!=='none'?wallpaperLabel(wp):'Geen'} onPress={onWallpaper}/>}
      {isMember&&<Row icon="person-add" label="Leden toevoegen" hint={canAddMembers(isMember,count)?`Nog ${GROUP_MAX_MEMBERS-count} plekken`:'Groep is vol'} disabled={!canAddMembers(isMember,count)} onPress={()=>{setNotice('');setPicked([]);setMode('add')}}/>}
+     {isMember&&<Row icon="link" testID="group-invite" label={GROUP_INVITE_TEXT.action} hint="7 dagen geldig" onPress={()=>void shareInvite()}/>}
     </View>
     <Text style={s.section}>LEDEN ({count})</Text>
     <Text style={s.hint}>Houd een lid ingedrukt voor acties</Text>

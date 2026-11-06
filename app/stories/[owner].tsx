@@ -10,12 +10,13 @@ import {groupStories,viewersFor,type StoryGroup} from '../../lib/stories';
 import type {Story} from '../../lib/types';
 
 import {friendlyError} from '../../lib/db-errors';
+import {STORY_DELETE_TEXT,isStoryActive,storyDeletePatch} from '../../lib/story-delete';
 /** Story viewer for all active stories, starting at `owner`. Marks views, replies go to the 1:1 chat. */
 export default function StoriesViewerScreen(){
  const {owner}=useLocalSearchParams<{owner:string}>(),{session}=useSession(),me=session?.user.id;
  const [groups,setGroups]=useState<StoryGroup<Story>[]|null>(null),[seen,setSeen]=useState<Set<string>>(new Set()),[names,setNames]=useState<Record<string,string>>({}),[start,setStart]=useState(0),[err,setErr]=useState('');
  useEffect(()=>{if(!me)return;let on=true;(async()=>{const now=Date.now();const [st,vw]=await Promise.all([supabase.from('sx_stories').select('*').gt('expires_at',new Date(now).toISOString()).order('created_at').limit(300),supabase.from('sx_story_views').select('story_id').eq('viewer_id',me)]);if(!on)return;if(st.error){setErr(friendlyError(st.error));return}
-  const seenSet=new Set((vw.data||[]).map(v=>v.story_id as string));const g=groupStories(st.data||[],seenSet,now,me);setSeen(seenSet);setStart(Math.max(0,g.findIndex(x=>x.ownerId===owner)));setGroups(g);
+  const seenSet=new Set((vw.data||[]).map(v=>v.story_id as string));const active=(st.data||[]).filter(x=>isStoryActive(x,now));const g=groupStories(active,seenSet,now,me);setSeen(seenSet);setStart(Math.max(0,g.findIndex(x=>x.ownerId===owner)));setGroups(g);
   const ids=g.map(x=>x.ownerId);if(ids.length){const p=await supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',ids);if(on&&p.data)setNames(profileNames(p.data))}})();return()=>{on=false}},[me,owner]);
  const onViewed=useCallback((s:ViewerStory)=>{if(me&&s.owner_id!==me)void supabase.from('sx_story_views').upsert({story_id:s.id,viewer_id:me})},[me]);
  const loadViewers=useCallback(async(s:ViewerStory)=>{const [v,r]=await Promise.all([supabase.from('sx_story_views').select('story_id,viewer_id,viewed_at').eq('story_id',s.id).order('viewed_at',{ascending:false}).limit(500),supabase.from('sx_story_reactions').select('story_id,user_id,emoji').eq('story_id',s.id)]);const res=viewersFor(s.id,v.data||[],r.data||[],s.owner_id);const ids=res.viewers.map(x=>x.userId).filter(id=>!names[id]);if(ids.length){const p=await supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',ids);if(p.data)setNames(n=>({...n,...Object.fromEntries(p.data.map(x=>[x.id,x.display_name]))}))}return res},[names]);
@@ -23,6 +24,7 @@ export default function StoriesViewerScreen(){
  // before, the first shared thread was used, which could be a group chat.
  const onReply=useCallback(async(s:ViewerStory,body:string)=>{if(!me)return 'Niet ingelogd';const t=await supabase.rpc('sx_open_thread',{participants:[s.owner_id],group_title:null});if(t.error||!t.data)return t.error?friendlyError(t.error,'Antwoorden'):'Je hebt nog geen chat met deze vriend';
   const {error}=await supabase.from('sx_messages').insert({thread_id:t.data,sender_id:me,kind:'text',body});return error?friendlyError(error):null},[me]);
+ const onDelete=useCallback(async(s:ViewerStory)=>{if(!me||s.owner_id!==me)return 'Alleen je eigen verhaal';const patch=storyDeletePatch();const {error}=await supabase.from('sx_stories').update(patch).eq('id',s.id).eq('owner_id',me);if(error)return friendlyError(error,STORY_DELETE_TEXT.action);setGroups(gs=>{if(!gs)return gs;return gs.map(g=>({...g,stories:g.stories.filter(x=>x.id!==s.id)})).filter(g=>g.stories.length>0)});return null},[me]);
  return <View style={{flex:1,backgroundColor:'#000'}}><Stack.Screen options={{headerShown:false}}/>{err?<Text style={{color:'white',padding:30}}>{err}</Text>:!groups?<Text style={{color:'white',padding:30}}>Verhalen laden…</Text>:
-  <StoryViewer groups={groups} initialGroup={start} seen={seen} meId={me??''} names={names} onClose={()=>router.back()} onViewed={onViewed} onReply={onReply} loadViewers={loadViewers} renderMedia={s=><Media path={s.media_path} type={s.media_type} style={{flex:1}}/>}/>}</View>;
+  <StoryViewer groups={groups} initialGroup={start} seen={seen} meId={me??''} names={names} onClose={()=>router.back()} onViewed={onViewed} onReply={onReply} onDelete={onDelete} loadViewers={loadViewers} renderMedia={s=><Media path={s.media_path} type={s.media_type} style={{flex:1}}/>}/>}</View>;
 }

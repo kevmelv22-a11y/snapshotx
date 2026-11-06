@@ -75,9 +75,23 @@ The project now includes SDK 57 `expo-updates`, the EAS project URL, `appVersion
 - **Lint schoon** (0 fouten, 0 waarschuwingen); belgesprek-simulatie gebruikt de actuele `send` (geen verouderde closure).
 - Nog open: Apple Team ID voor universal links (Kevin).
 
+
+## Sessie 06-11-2026 21:14 (Snapchat-parity + Play-docs)
+
+- Migraties live: `unfriend` (`sx_unfriend`) en `group_invite` (`sx_group_invites` + create/revoke/join RPCs). Getest in PGlite.
+- **Vriendschap beëindigen** op vriendschapsprofiel (bevestiging + RPC verwijdert beide `sx_friends`-rijen + nickname).
+- **Eigen verhaal verwijderen** in de story-viewer (soft-delete: `removed_at` + `expires_at`; feeds filteren removed).
+- **Herbekeken** voor de zender: outgoing receipts lezen `replay_count`; snapregel toont "Snap verstuurd · Herbekeken".
+- **Groepsuitnodigingslink** in Groepsinfo (`snapshot-x.nl/g/<token>`, 7 dagen); join-route + pending-na-login; App Links `/g/*` in code (actief na volgende native build).
+- **Compose publiekkiezer**: Vrienden vs Iedereen per verhaal (één-keer, standaard uit privacyprefs).
+- **Play-docs**: CLOSED_TEST/CHECKLIST/LISTING bijgewerkt — geverifieerd account, 10 Postwacht-testers vs 12×14-regel, versionCode 3 / `2f336b8f`, RevenueCat-gap.
+- **Security-docs**: `sx_purchase_events` blijft bewust zonder client-policies (service-role webhook only — advisor INFO is intentional); leaked-password protection blijft dashboard-TODO voor Kevin.
+- **METADATA_NL**: App Review-telefoon nog TODO; Android-pariteitparagraaf.
+- Geen native builds deze sessie.
+
 ## Open launch items (bijgewerkt 01-11-2026 06:00)
 
-- **Google Play**: verificatie account, gesloten test 12 testers × 14 dagen (persoonlijk account; plan in docs/google-play/CLOSED_TEST_NL.md), FCM V1-sleutel staat in EAS (gecontroleerd 01-11 12:00), nieuwe AAB-build op verzoek (bevat de fixes van 06:00), Play-app-ondertekenings-SHA-256 → assetlinks.json (uploadsleutel staat er al), RevenueCat Play-app + `goog_`-key (docs/revenuecat/GOOGLE_PLAY_NL.md), Android-screenshots.
+- **Google Play**: account **geverifieerd** (2 nov 2026). Gesloten test: **10 testers = Postwacht** (Google 12×14 blijft gelden voor persoonlijk account — zie CLOSED_TEST_NL.md). FCM V1 in EAS; versionCode 3 / EAS `2f336b8f`; eerste handmatige AAB-upload + Play-signing-SHA → assetlinks; RevenueCat Play-app + `goog_`-key nog open; Android-screenshots.
 
 - **App Review-telefoonnummer**: nog niet door Kevin gegeven; Apple vereist het bij indienen (docs/app-store/METADATA_NL.md).
 - **Universal links**: code/config klaar (zie docs/web/WEB_NL.md). Nodig: Kevins eigen Apple Team ID in de web-env (`SNAPSHOTX_APPLE_TEAM_ID`) + web redeploy, Associated Domains-capability op App ID `com.snapshotx.app` (EAS synchroniseert die bij een production-build met eigen credentials). Ad-hoc-testbuilds blijven zonder associated domains.

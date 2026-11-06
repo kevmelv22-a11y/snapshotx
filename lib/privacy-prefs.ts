@@ -54,3 +54,9 @@ export function whoCanRows(prefs: PrivacyPrefs, findMe: boolean, location: strin
 export function storyAudienceHint(prefs: PrivacyPrefs): string {
   return `Verhaal · ${choiceLabel(STORY_AUDIENCE_CHOICES, storyVisibility(prefs))}`;
 }
+
+/** One-shot audience picker label on compose (does not change saved privacy prefs). */
+export function composeAudienceLabel(audience: StoryAudience): string {
+  return choiceLabel(STORY_AUDIENCE_CHOICES, audience);
+}
+

@@ -69,9 +69,13 @@ export function statusMeta(time: string, streak?: StreakState | null, glyphs?: {
   return [time, streak ? streakLabel(streak, glyphs?.fire, glyphs?.hourglass) : ''].filter(Boolean).join(' · ');
 }
 
-/** Label for a snap bubble inside a chat (Snapchat shows a status line instead of the media). */
-export function snapLine(status: ChatStatus, showing: boolean, canReplay = true): string {
-  if (status.mine) return status.unopened ? 'Snap verstuurd · Bezorgd' : 'Snap verstuurd · Geopend';
+/** Label for a snap bubble inside a chat (Snapchat shows a status line instead of the media).
+ *  `peerReplayed`: (my snap) the recipient used their one replay — sender sees "Herbekeken". */
+export function snapLine(status: ChatStatus, showing: boolean, canReplay = true, peerReplayed = false): string {
+  if (status.mine) {
+    if (status.unopened) return 'Snap verstuurd · Bezorgd';
+    return peerReplayed ? 'Snap verstuurd · Herbekeken' : 'Snap verstuurd · Geopend';
+  }
   if (showing) return 'Snap wordt bekeken…';
   if (status.unopened) return 'Tik om snap te bekijken';
   return canReplay ? 'Snap geopend · tik om opnieuw te bekijken' : 'Snap geopend';
