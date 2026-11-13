@@ -9,7 +9,7 @@ export const TAB_BACK_TITLES: Readonly<Record<string, string>> = {
   chats: 'Chat',
   map: 'Map',
   friends: 'Vrienden',
-  videos: 'Video’s',
+  videos: 'Spotlight',
   stories: 'Verhalen',
   profile: 'Mijn profiel',
 };

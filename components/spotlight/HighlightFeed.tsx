@@ -11,7 +11,7 @@ export type HighlightItem={id:string;owner_id:string;created_at:string;likes:num
 export type HighlightSocial={me:string;now:number;thread:(i:HighlightItem)=>CommentView[];count:(i:HighlightItem)=>number;subscribed:Set<string>;
  onSubscribe:(owner:string,on:boolean)=>void;onComment:(i:HighlightItem,text:string)=>void;onLikeComment:(c:CommentView)=>void;onDeleteComment:(c:CommentView)=>void;avatarOf:(userId:string,size:number)=>React.ReactNode};
 /** Vertical full-screen paging feed of public snaps ("Uitgelicht"). Swipe up/down; like (also double tap), comments, share, subscribe. */
-export function HighlightFeed({items,names,renderMedia,onLike,onShare,onReport,onClose,height:forced,social}:{items:HighlightItem[];names:Record<string,string>;renderMedia:(i:HighlightItem,active:boolean)=>React.ReactNode;onLike?:(i:HighlightItem,liked:boolean)=>void;onShare?:(i:HighlightItem)=>Promise<boolean>;onReport?:(i:HighlightItem)=>void;onClose?:()=>void;height?:number;social?:HighlightSocial}){
+export function HighlightFeed({items,names,renderMedia,onLike,onShare,onReport,onClose,height:forced,social,title='Uitgelicht'}:{title?:string;items:HighlightItem[];names:Record<string,string>;renderMedia:(i:HighlightItem,active:boolean)=>React.ReactNode;onLike?:(i:HighlightItem,liked:boolean)=>void;onShare?:(i:HighlightItem)=>Promise<boolean>;onReport?:(i:HighlightItem)=>void;onClose?:()=>void;height?:number;social?:HighlightSocial}){
  const win=useWindowDimensions(),h=forced??win.height,insets=useSafeAreaInsets();
  const [state,setState]=useState<Record<string,{liked:boolean;likes:number;shares:number}>>({}),[index,setIndex]=useState(0);
  const [sheetFor,setSheetFor]=useState<HighlightItem|null>(null),[burst,setBurst]=useState<string|null>(null);
@@ -45,7 +45,7 @@ export function HighlightFeed({items,names,renderMedia,onLike,onShare,onReport,o
      {!!item.caption&&<Text style={s.caption} numberOfLines={3}>{item.caption}</Text>}
     </View>
    </View>}}/>
-  <View style={[s.header,{top:insets.top+8}]} pointerEvents="box-none">{onClose&&<Pressable onPress={onClose} accessibilityLabel="Terug"><Ionicons name="chevron-back" size={28} color="white"/></Pressable>}<Text style={s.title}>Uitgelicht</Text><Text style={s.meta}>{index+1}/{items.length}</Text></View>
+  <View style={[s.header,{top:insets.top+8}]} pointerEvents="box-none">{onClose&&<Pressable onPress={onClose} accessibilityLabel="Terug"><Ionicons name="chevron-back" size={28} color="white"/></Pressable>}<Text style={s.title}>{title}</Text><Text style={s.meta}>{index+1}/{items.length}</Text></View>
   {social&&sheetFor&&<CommentsSheet item={sheetFor} social={social} names={names} height={h} bottomInset={insets.bottom} onClose={()=>setSheetFor(null)}/>}
  </View>;
 }

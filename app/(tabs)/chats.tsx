@@ -30,6 +30,7 @@ import {emojiFor,relationLabel} from '../../lib/friend-emojis';
 import {friendlyError} from '../../lib/db-errors';
 import {isUuid,uuidList} from '../../lib/chat-ids';
 import {checkName} from '../../lib/name-filter';
+import {useTabSwipe} from '../../hooks/useTabSwipe';
 import {SPLIT_LIST_WIDTH,isSplitLayout,pickOpenThread,splitChatParam} from '../../lib/web-layout';
 import Chat from '../chat/[id]';
 import {SHORTCUT_HINTS,shortcutOf,stepThread,type KeyLike} from '../../lib/web-shortcuts';
@@ -47,6 +48,8 @@ export default function Chats(){
  const [rows,setRows]=useState<ChatRow[]>([]),[error,setError]=useState(''),[loading,setLoading]=useState(false);
  const [filter,setFilter]=useState<Filter>('all'),[query,setQuery]=useState(''),[searching,setSearching]=useState(false),[preview,setPreview]=useState(false);
  const searchRef=useRef<TextInput>(null);
+ // Snapchat pager: swipe left → Camera, right → Kaart (phones; the desktop split view keeps its list).
+ const swipe=useTabSwipe('chats',{enabled:!split,minStartY:insets.top+130});
  const [nearbyIds,setNearbyIds]=useState<string[]>([]),[storyIds,setStoryIds]=useState<string[]>([]),[newOpen,setNewOpen]=useState(false),[moreOpen,setMoreOpen]=useState(false),[alertsOpen,setAlertsOpen]=useState(false);
  const [friends,setFriends]=useState<{id:string;display_name:string}[]>([]),[selected,setSelected]=useState<string[]>([]),[groupName,setGroupName]=useState(''),[groupNotice,setGroupNotice]=useState(''),[busy,setBusy]=useState(false);
  const [demo,setDemo]=useState<ChatRow|null>(null),[demoInput,setDemoInput]=useState(''),[demoMessages,setDemoMessages]=useState<DemoMessage[]>([]),[requestCount,setRequestCount]=useState(0);
@@ -103,7 +106,7 @@ export default function Chats(){
    const next=stepThread(visible,shownId,k==='next'?1:-1,isUuid);if(!next)return;e.preventDefault();setOpenId(next);router.setParams({chat:next})};
   // Capture phase: react-native-web TextInput stops keydown propagation, so a bubbling listener misses keys typed in the chat box.
   doc.addEventListener('keydown',onKey,true);return()=>doc.removeEventListener('keydown',onKey,true)},[split,searching,visible,shownId]);
- const list=<View style={s.root}><ChatGalaxy/><View style={[s.header,{paddingTop:insets.top+9}]}>
+ const list=<View style={s.root} {...swipe}><ChatGalaxy/><View style={[s.header,{paddingTop:insets.top+9}]}>
   <Pressable accessibilityLabel="Mijn profiel" onPress={()=>router.push('/(tabs)/profile')} style={s.profile}><OwnAvatar userId={uid} size={42} fallback={<Avatar name={session?.user.email||'X'} size={42}/>}/></Pressable>
   <Pressable accessibilityLabel="Chats zoeken" onPress={()=>{if(searching)setQuery('');setSearching(v=>!v)}} style={s.round}><Ionicons name="search" color={C.text} size={24}/></Pressable>
   <Text style={s.heading}>Chat</Text>

@@ -11,7 +11,7 @@ export type PrivacyPrefs = { story: StoryAudience };
 export type WhoCanChoice<T extends string> = { value: T; label: string; description: string };
 
 export const STORY_AUDIENCE_CHOICES: WhoCanChoice<StoryAudience>[] = [
-  { value: 'everyone', label: 'Iedereen', description: 'Iedereen kan je verhaal zien, ook in Ontdekken en Video’s' },
+  { value: 'everyone', label: 'Iedereen', description: 'Iedereen kan je verhaal zien, ook in Ontdekken en Spotlight' },
   { value: 'friends', label: 'Mijn vrienden', description: 'Alleen vrienden die jij hebt toegevoegd' },
 ];
 

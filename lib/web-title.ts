@@ -10,7 +10,7 @@ const ROUTE_TITLES: readonly (readonly [RegExp, string])[] = [
   [/^\/chats?(\/|$)/, 'Chat'],
   [/^\/map(\/|$)/, 'Map'],
   [/^\/friends?(\/|$)/, 'Vrienden'],
-  [/^\/videos(\/|$)/, 'Video’s'],
+  [/^\/videos(\/|$)/, 'Spotlight'],
   [/^\/stories(\/|$)/, 'Verhalen'],
   [/^\/story\//, 'Verhaal'],
   [/^\/profile(\/|$)/, 'Mijn profiel'],
