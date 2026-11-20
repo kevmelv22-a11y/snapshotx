@@ -37,7 +37,8 @@ Google Play eist voor apps met generatieve AI dat gebruikers aanstootgevende AI-
 - [x] Veiligheidsprompt voor tieners (13+), geen persoonsgegevens vragen, 113/112-verwijzing, geen medisch/juridisch advies als feit.
 - [x] Duidelijk label: "AI-chatbot · geen mens" + disclaimer bovenaan de chat.
 - [x] Misbruikgrens: 40 berichten per gebruiker per dag (server-side).
-- [ ] TODO(Kevin): bepalen wie `sx_ai_reports` bekijkt (nu via SQL; nog niet in het staffpaneel).
+- [x] AI-meldingen in het staffpaneel (21 nov 2026): Staffpaneel › **AI-meldingen** leest `sx_ai_reports` via de staff-only RPC `sx_staff_ai_reports` (migratie 20261121000000, live). TODO(Kevin): wie van het team ze wekelijks nakijkt.
+- [x] Expliciete toestemming vóór het eerste bericht naar de AI-dienst (Groq/OpenAI genoemd, Toestaan/Niet nu, intrekken via het schildje) — ook nodig voor Apple 5.1.2(i).
 
 ## Child Safety Standards (verplicht voor sociale apps)
 Play vraagt een gepubliceerde norm tegen kindermisbruik (CSAE) + contactpersoon:

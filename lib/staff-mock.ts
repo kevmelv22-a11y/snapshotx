@@ -59,6 +59,14 @@ export class StaffMock {
       const lim = Math.min(Math.max(Number(a.p_limit ?? 25), 1), 50), off = Math.max(Number(a.p_offset ?? 0), 0);
       return rows.slice(off, off + lim).map(p => ({ ...p, is_banned: this.isBanned(String(p.id)), total_count: rows.length }));
     },
+    // Demo only (MOCK backend, never live data): mirrors public.sx_staff_ai_reports (20261121000000).
+    sx_staff_ai_reports: () => {
+      this.requireStaff();
+      return [
+        { id: 'ai-r-2', reason: 'wrong', reply_text: 'De Eiffeltoren staat in Rome.', prompt_text: 'Waar staat de Eiffeltoren?', detail: 'Klopt niet', created_at: '2026-11-20T18:30:00.000Z', reporter_id: 'mock-user', reporter_username: 'demo_lisa' },
+        { id: 'ai-r-1', reason: 'offensive', reply_text: '(voorbeeld van een gemeld antwoord)', prompt_text: null, detail: null, created_at: '2026-11-19T09:00:00.000Z', reporter_id: 'mock-user', reporter_username: null },
+      ];
+    },
     sx_staff_list_members: () => {
       this.requireStaff(['ADMIN', 'OWNER']);
       const ids = [...new Set(this.table('user_roles').map(r => String(r.user_id)))];
