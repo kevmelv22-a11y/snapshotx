@@ -1,7 +1,8 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
-import MapView, {Marker, Polyline, type Region} from 'react-native-maps';
+import MapView, {Circle, Marker, Polyline, type Region} from 'react-native-maps';
+import {CATEGORY_INFO, heatCircle, type HeatPoint, type MapPlace} from '../lib/map-places';
 import {FriendAvatarFigure} from './avatar/FriendAvatar';
 import {OwnAvatarFigure} from './avatar/OwnAvatar';
 import {useOwnOutfit} from '../hooks/useWardrobeSync';
@@ -11,7 +12,7 @@ import type {OverlayInsets} from '../lib/map-layout';
 
 export type Pin = {id: string; name: string; username?: string; homeConfirmed?: boolean; latitude: number; longitude: number; /** ISO time of the friend's last location update (for 'laatst gezien'). */ updatedAt?: string};
 export type Point = {latitude: number; longitude: number};
-export type FriendMapProps = {pins: Pin[]; own: Pin | null; ownAppearance?: AvatarAppearance; /** Friends' saved wardrobe outfits ('pending' = neutral placeholder, missing = classic art). */ friendOutfits?: ReadonlyMap<string, FriendOutfitValue>; trail: Point[]; selectedId: string | null; focusOwn: number; focusNetherlands: number; onSelect: (id: string | null) => void; onLocate: () => void; /** Heights of the screen's floating header/footer (used by the web list fallback only). */ overlayInsets?: OverlayInsets};
+export type FriendMapProps = {pins: Pin[]; own: Pin | null; ownAppearance?: AvatarAppearance; /** Friends' saved wardrobe outfits ('pending' = neutral placeholder, missing = classic art). */ friendOutfits?: ReadonlyMap<string, FriendOutfitValue>; trail: Point[]; selectedId: string | null; focusOwn: number; focusNetherlands: number; onSelect: (id: string | null) => void; onLocate: () => void; /** Heights of the screen's floating header/footer (used by the web list fallback only). */ overlayInsets?: OverlayInsets; /** Snap Map Plekken + hotspot layer (lib/map-places.ts). */ places?: readonly MapPlace[]; heat?: readonly HeatPoint[]; selectedPlaceId?: string | null; onPlace?: (id: string) => void};
 
 /*
  * Custom avatar markers (react-native-svg inside react-native-maps <Marker>):
@@ -98,7 +99,7 @@ const DARK_MAP = [
   {featureType: 'poi', stylers: [{visibility: 'off'}]},
 ];
 
-export default function FriendMap({pins, own, ownAppearance, friendOutfits, trail, selectedId, focusOwn, focusNetherlands, onSelect, onLocate}: FriendMapProps) {
+export default function FriendMap({pins, own, ownAppearance, friendOutfits, trail, selectedId, focusOwn, focusNetherlands, onSelect, onLocate, places, heat, selectedPlaceId, onPlace}: FriendMapProps) {
   const map = useRef<MapView>(null);
   const region = useRef<Region>(NETHERLANDS);
   const [ready, setReady] = useState(false);
@@ -176,6 +177,9 @@ export default function FriendMap({pins, own, ownAppearance, friendOutfits, trai
       maxZoomLevel={20}
       accessibilityLabel="Interactieve kaart van Nederland"
     >
+      {/* Hotspots: soft circles (react-native-maps' Heatmap needs the Google provider on iOS; Circle works on both). */}
+      {(heat ?? []).map((h, i) => { const c = heatCircle(h.weight); return <Circle key={`heat-${i}`} center={h} radius={c.radius} fillColor={`rgba(255,${Math.round(140 - h.weight * 14)},40,${c.opacity})`} strokeWidth={0}/>; })}
+      {(places ?? []).map(p => <Marker key={`place-${p.id}`} coordinate={p} anchor={{x: 0.5, y: 0.5}} onPress={() => { lastMarkerTap.current = Date.now(); onPlace?.(p.id); }} tracksViewChanges={false} accessibilityLabel={p.name}><View collapsable={false} style={[styles.place, selectedPlaceId === p.id && styles.placeOn]}><Text style={styles.placeEmoji}>{CATEGORY_INFO[p.category].emoji}</Text></View></Marker>)}
       {trail.length > 1 && <Polyline coordinates={trail} strokeColor="#FFE436" strokeWidth={4} lineDashPattern={[4, 5]}/>}
       {pins.map(pin => <FriendMarker key={pin.id} pin={pin} outfit={friendOutfits?.get(pin.id)} selected={selectedId === pin.id} onSelect={selectFromMarker}/>)}
       {own && <OwnMarker own={own} appearance={ownAppearance}/>}
@@ -200,4 +204,7 @@ const styles = StyleSheet.create({
   controls: {position: 'absolute', right: 15, bottom: 210, gap: 9},
   control: {height: 45, width: 45, borderRadius: 23, backgroundColor: '#211B30E8', justifyContent: 'center', alignItems: 'center', elevation: 4},
   locate: {backgroundColor: '#FFE436'},
+  place: {width: 34, height: 34, borderRadius: 17, backgroundColor: '#1D1730E6', borderWidth: 2, borderColor: '#FFFFFF55', alignItems: 'center', justifyContent: 'center'},
+  placeOn: {borderColor: '#FFE436', backgroundColor: '#5B2DB8'},
+  placeEmoji: {fontSize: 17},
 });

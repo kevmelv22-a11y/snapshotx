@@ -6,6 +6,7 @@ import type {FriendMapProps} from './FriendMap.native';
 import {FriendAvatarFigure} from './avatar/FriendAvatar';
 import {OwnAvatarFigure} from './avatar/OwnAvatar';
 import {darkGreenStyle, WEB_MAP_STYLE_URL} from '../lib/map-web-style';
+import {CATEGORY_INFO} from '../lib/map-places';
 
 /*
  * Web map: MapLibre GL JS (open source) with the key-less OpenFreeMap vector tiles, recoloured to the dark
@@ -34,7 +35,7 @@ function ensureCss() {
   document.head.appendChild(style);
 }
 
-export default function FriendMap({pins, own, ownAppearance, friendOutfits, trail, selectedId, focusOwn, focusNetherlands, onSelect, onLocate}: FriendMapProps) {
+export default function FriendMap({pins, own, ownAppearance, friendOutfits, trail, selectedId, focusOwn, focusNetherlands, onSelect, onLocate, places, heat, selectedPlaceId, onPlace}: FriendMapProps) {
   const container = useRef<View>(null);
   const map = useRef<MapInstance | null>(null);
   const lib = useRef<MapLibre | null>(null);
@@ -124,6 +125,62 @@ export default function FriendMap({pins, own, ownAppearance, friendOutfits, trai
       instance.addLayer({id: 'sx-trail', type: 'line', source: 'sx-trail', paint: {'line-color': '#FFE436', 'line-width': 4, 'line-dasharray': [1, 1.3]}});
     }
   }, [ready, trail]);
+
+  // Hotspots: MapLibre heatmap layer (fades out when zoomed in close, where the places/avatars take over).
+  const heatKey = (heat ?? []).map(h => `${h.longitude},${h.latitude},${h.weight}`).join('|');
+  useEffect(() => {
+    const instance = map.current;
+    if (!ready || !instance) return;
+    const data = {type: 'FeatureCollection' as const, features: (heat ?? []).map(h => ({type: 'Feature' as const, properties: {w: h.weight}, geometry: {type: 'Point' as const, coordinates: [h.longitude, h.latitude]}}))};
+    const source = instance.getSource('sx-heat') as import('maplibre-gl').GeoJSONSource | undefined;
+    if (source) source.setData(data);
+    else {
+      instance.addSource('sx-heat', {type: 'geojson', data});
+      instance.addLayer({id: 'sx-heat', type: 'heatmap', source: 'sx-heat', maxzoom: 16, paint: {
+        'heatmap-weight': ['interpolate', ['linear'], ['get', 'w'], 0, 0, 7, 1],
+        'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 6, 0.9, 14, 2.2],
+        'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 6, 18, 10, 34, 14, 60],
+        'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0.85, 16, 0],
+        'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(0,0,0,0)', 0.2, 'rgba(70,40,200,0.45)', 0.45, 'rgba(0,200,255,0.6)', 0.7, 'rgba(255,230,54,0.75)', 1, 'rgba(255,60,90,0.85)'],
+      }});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, heatKey]);
+
+  // Plekken: small emoji markers (plain DOM, no React portal needed).
+  const placeMarkers = useRef(new Map<string, import('maplibre-gl').Marker>());
+  const onPlaceRef = useRef(onPlace);
+  useEffect(() => { onPlaceRef.current = onPlace; }, [onPlace]);
+  const placesKey = (places ?? []).map(p => p.id).join('|');
+  useEffect(() => {
+    const ml = lib.current, instance = map.current;
+    if (!ready || !ml || !instance) return;
+    const keep = new Set((places ?? []).map(p => p.id));
+    for (const [id, marker] of placeMarkers.current) if (!keep.has(id)) { marker.remove(); placeMarkers.current.delete(id); }
+    for (const p of places ?? []) {
+      if (placeMarkers.current.has(p.id)) continue;
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.title = p.name;
+      el.setAttribute('aria-label', `${p.name}, ${p.city}`);
+      el.dataset.place = p.id;
+      el.textContent = CATEGORY_INFO[p.category].emoji;
+      el.style.cssText = 'width:34px;height:34px;border-radius:17px;border:2px solid #ffffff55;background:#1D1730E6;font-size:17px;line-height:28px;padding:0;cursor:pointer;box-shadow:0 2px 10px #0008';
+      el.addEventListener('click', e => { e.stopPropagation(); onPlaceRef.current?.(p.id); });
+      placeMarkers.current.set(p.id, new ml.Marker({element: el, anchor: 'center'}).setLngLat([p.longitude, p.latitude]).addTo(instance));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, placesKey]);
+  useEffect(() => {
+    for (const [id, marker] of placeMarkers.current) {
+      const el = marker.getElement() as HTMLElement, on = id === selectedPlaceId;
+      el.style.borderColor = on ? '#FFE436' : '#ffffff55';
+      el.style.background = on ? '#5B2DB8' : '#1D1730E6';
+    }
+    const p = (places ?? []).find(x => x.id === selectedPlaceId);
+    if (ready && p) map.current?.easeTo({center: [p.longitude, p.latitude], zoom: Math.max(map.current.getZoom(), 13), duration: 500});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlaceId, ready, placesKey]);
 
   function zoom(delta: number) {
     const instance = map.current;

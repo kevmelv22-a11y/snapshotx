@@ -17,6 +17,7 @@ import {MapPrivacySheet, type PrivacyFriend} from '../map/MapPrivacySheet';
 import {DEFAULT_PRIVACY, ghostStatusText, isGhost, isSharing, lastSeenText, privacyFromRow, privacyToRow, type MapPrivacy} from '../../lib/map-privacy';
 
 import {friendlyError} from '../../lib/db-errors';
+import {CATEGORY_INFO, PLACES, distanceKm, distanceLabel, friendsNear, heatPoints, nearbyPlaces} from '../../lib/map-places';
 type LocationRow = {user_id: string; latitude: number; longitude: number; sharing: boolean; home_confirmed?: boolean; updated_at: string; share_audience?: string; ghost_until?: string | null; ghost_forever?: boolean};
 
 /** Web demo (EXPO_PUBLIC_DEMO_MODE=1): no geolocation prompt, you stand in Arnhem like the iOS demo shots. */
@@ -53,6 +54,9 @@ export default function MapScreen() {
   const [privacyFriends, setPrivacyFriends] = useState<PrivacyFriend[]>([]);
   const [hasOwnRow, setHasOwnRow] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
+  const [showHeat, setShowHeat] = useState(true);
+  const [showPlaces, setShowPlaces] = useState(true);
+  const [placeId, setPlaceId] = useState<string | null>(null);
   const sharingRef = useRef(false);
   const pendingWrite = useRef<Promise<void>>(Promise.resolve());
   const lastPublished = useRef(0);
@@ -278,8 +282,13 @@ export default function MapScreen() {
   const friendOutfits = useFriendOutfits(pins.map(pin => pin.id), {live: true});
   const filtered = pins.filter(pin => pin.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const selected = pins.find(pin => pin.id === selectedId);
+  const heat = React.useMemo(() => showHeat ? heatPoints(PLACES, pins, new Date(clock).getHours()) : [], [showHeat, pins, clock]);
+  const place = showPlaces ? PLACES.find(p => p.id === placeId) ?? null : null;
+  const placeFriends = place ? friendsNear(place, pins) : [];
+  const nearest = showPlaces && ownPin ? nearbyPlaces(ownPin)[0] : null;
+  const pickPlace = (id: string | null) => { setPlaceId(id); if (id) setSelectedId(null); };
   return <View style={styles.root}>
-    <FriendMap pins={filtered} own={ownPin} ownAppearance={ownAppearance} friendOutfits={friendOutfits} trail={footsteps ? trail : []} selectedId={selectedId} focusOwn={focusOwn} focusNetherlands={focusNetherlands} onSelect={setSelectedId} onLocate={() => void locate()} overlayInsets={{top: insets.top + 8 + headerHeight, bottom: footerHeight}}/>
+    <FriendMap pins={filtered} own={ownPin} ownAppearance={ownAppearance} friendOutfits={friendOutfits} trail={footsteps ? trail : []} selectedId={selectedId} focusOwn={focusOwn} focusNetherlands={focusNetherlands} onSelect={id => { setSelectedId(id); if (id) setPlaceId(null); }} onLocate={() => void locate()} overlayInsets={{top: insets.top + 8 + headerHeight, bottom: footerHeight}} places={showPlaces ? PLACES : []} heat={heat} selectedPlaceId={place?.id ?? null} onPlace={pickPlace}/>
     <View style={[styles.header, {top: insets.top + 8}]} pointerEvents="box-none" onLayout={e => setHeaderHeight(e.nativeEvent.layout.height)}>
       <View style={styles.titleRow}>
         <View style={styles.headerGroup}>
@@ -294,6 +303,8 @@ export default function MapScreen() {
         <Pressable style={[styles.chip, sharing && styles.active]} disabled={busy} onPress={() => void openPrivacy()} accessibilityLabel="Locatie-instellingen en spookmodus"><Ionicons name={sharing ? 'location' : 'eye-off'} size={16} color="#fff"/><Text style={styles.chipText}>{privacyAvailable ? (isGhost(privacy, clock) ? ghostStatusText(privacy, clock) : sharing ? 'Locatie delen aan' : 'Locatie verborgen') : sharing ? 'Locatie delen aan' : 'Spookmodus aan'}</Text></Pressable>
         {sharing && homeAvailable && <Pressable style={[styles.chip, homeConfirmed && styles.homeActive]} disabled={busy} onPress={() => void toggleHome()} accessibilityLabel={homeConfirmed ? 'Thuisstatus uitzetten' : 'Zelf melden dat ik thuis ben'}><Ionicons name="home-outline" size={16} color="#fff"/><Text style={styles.chipText}>{homeConfirmed ? 'Ik ben thuis' : 'Thuisstatus'}</Text></Pressable>}
         <Pressable style={styles.chip} onPress={() => router.push('/(tabs)/friends')}><Ionicons name="people" size={16} color="#fff"/><Text style={styles.chipText}>Vrienden · {pins.length}</Text></Pressable>
+        <Pressable style={[styles.chip, showHeat && styles.active]} onPress={() => setShowHeat(v => !v)} accessibilityLabel="Hotspots tonen of verbergen" accessibilityState={{selected: showHeat}} testID="map-heat"><Ionicons name="flame" size={16} color="#fff"/><Text style={styles.chipText}>Hotspots</Text></Pressable>
+        <Pressable style={[styles.chip, showPlaces && styles.active]} onPress={() => { setShowPlaces(v => !v); setPlaceId(null); }} accessibilityLabel="Plekken tonen of verbergen" accessibilityState={{selected: showPlaces}} testID="map-places"><Ionicons name="location-outline" size={16} color="#fff"/><Text style={styles.chipText}>Plekken</Text></Pressable>
       </ScrollView>
       {!!notice && <Pressable style={styles.notice} onPress={() => setNotice('')} accessibilityLabel="Melding sluiten"><Text style={styles.noticeText}>{notice}  ×</Text></Pressable>}
     </View>
@@ -303,7 +314,9 @@ export default function MapScreen() {
         <Pressable style={styles.action} onPress={() => router.push('/discover')} accessibilityLabel="Trending verhalen bekijken"><Ionicons name="flame-outline" size={17} color="#fff"/><Text style={styles.actionText}>Trending</Text></Pressable>
         <Pressable style={[styles.action, footsteps && styles.active]} onPress={() => setFootsteps(value => !value)} accessibilityLabel="Voetstappen tijdens deze sessie tonen"><Ionicons name="footsteps-outline" size={17} color="#fff"/><Text style={styles.actionText}>Voetstappen</Text></Pressable>
       </View>
-      {selected ? <Pressable style={[styles.friendBanner, !selected.homeConfirmed && styles.friendNeutral]} onPress={() => setSelectedId(null)} accessibilityLabel={`Locatie van ${selected.name} sluiten`}><FriendAvatar id={selected.id} outfit={friendOutfits.get(selected.id)} size={35} name={selected.name}/><Text style={[styles.friendText, !selected.homeConfirmed && styles.friendNeutralText]}>{selected.homeConfirmed ? `🏠 ${selected.username || selected.name} 💙 is thuis` : `${selected.name} · ${selected.updatedAt ? `laatst gezien ${lastSeenText(selected.updatedAt, clock).toLocaleLowerCase()}` : 'deelt locatie met jou'}`}</Text><Ionicons name="close" size={18} color={selected.homeConfirmed ? '#251C21' : '#fff'}/></Pressable> :
+      {place ? <View style={styles.placeCard} testID="place-card"><Text style={styles.placeCardEmoji}>{CATEGORY_INFO[place.category].emoji}</Text><View style={{flex: 1}}><Text style={styles.placeCardTitle} numberOfLines={1}>{place.name}</Text><Text style={styles.placeCardSub} numberOfLines={2}>{[CATEGORY_INFO[place.category].label, place.city, ownPin ? distanceLabel(distanceKm(ownPin, place)) : '', placeFriends.length ? `${placeFriends.length} vriend${placeFriends.length === 1 ? '' : 'en'} in de buurt` : ''].filter(Boolean).join(' · ')}</Text></View><Pressable onPress={() => setPlaceId(null)} hitSlop={10} accessibilityLabel="Plek sluiten"><Ionicons name="close" size={22} color="#fff"/></Pressable></View> :
+      showHeat && !selected ? <View style={styles.hint}><Ionicons name="flame" size={17} color="#FF8A3D"/><Text style={styles.hintText} numberOfLines={2}>{nearest ? `Dichtbij: ${CATEGORY_INFO[nearest.category].emoji} ${nearest.name} · ${distanceLabel(distanceKm(ownPin!, nearest))}. ` : ''}Hotspots = populaire plekken + waar je vrienden zijn</Text></View> :
+      selected ? <Pressable style={[styles.friendBanner, !selected.homeConfirmed && styles.friendNeutral]} onPress={() => setSelectedId(null)} accessibilityLabel={`Locatie van ${selected.name} sluiten`}><FriendAvatar id={selected.id} outfit={friendOutfits.get(selected.id)} size={35} name={selected.name}/><Text style={[styles.friendText, !selected.homeConfirmed && styles.friendNeutralText]}>{selected.homeConfirmed ? `🏠 ${selected.username || selected.name} 💙 is thuis` : `${selected.name} · ${selected.updatedAt ? `laatst gezien ${lastSeenText(selected.updatedAt, clock).toLocaleLowerCase()}` : 'deelt locatie met jou'}`}</Text><Ionicons name="close" size={18} color={selected.homeConfirmed ? '#251C21' : '#fff'}/></Pressable> :
         <View style={styles.hint}><Ionicons name="sparkles" size={17} color="#FFE436"/><Text style={styles.hintText}>{pins.length ? `${pins.length} vriend${pins.length === 1 ? '' : 'en'} op de kaart` : 'Nog geen vrienden die locatie delen'}</Text></View>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.people}>
         <Pressable style={styles.dockControl} onPress={() => setSearchOpen(true)} accessibilityLabel="Vrienden op kaart zoeken"><Ionicons name="search" size={27} color="#fff"/></Pressable>
@@ -338,6 +351,10 @@ const styles = StyleSheet.create({
   notice: {backgroundColor: '#282037F0', borderRadius: 12, padding: 11},
   noticeText: {color: '#fff', fontSize: 13, lineHeight: 19},
   footer: {position: 'absolute', left: 0, right: 0, bottom: 0, paddingBottom: 8, gap: 9},
+  placeCard: {flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: '#241E32F2', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 11, marginHorizontal: 14, borderWidth: 1, borderColor: '#FFE43666'},
+  placeCardEmoji: {fontSize: 28},
+  placeCardTitle: {color: '#fff', fontWeight: '900', fontSize: 16},
+  placeCardSub: {color: '#D3CCE0', fontSize: 13, marginTop: 2},
   friendBanner: {minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#FFE436', borderRadius: 17, paddingHorizontal: 12, marginHorizontal: 14, alignSelf: 'flex-start', maxWidth: '92%'},
   friendText: {color: '#251C21', fontWeight: '900', fontSize: 14, flexShrink: 1},
   friendNeutral: {backgroundColor: '#241E32F0'},
