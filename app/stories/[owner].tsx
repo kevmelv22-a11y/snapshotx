@@ -13,6 +13,8 @@ import {groupStories,shouldPostReaction,storyReactionBody,viewersFor,type StoryG
 import type {Story} from '../../lib/types';
 
 import {friendlyError} from '../../lib/db-errors';
+import {parseSound,playbackRateFor,soundLabel} from '../../lib/snap-sound';
+import {SnapMusic,SoundPill} from '../../components/SnapSound';
 import {STORY_DELETE_TEXT,isStoryActive,storyDeletePatch} from '../../lib/story-delete';
 /** Story viewer for all active stories, starting at `owner`. Marks views, replies go to the 1:1 chat. */
 export default function StoriesViewerScreen(){
@@ -37,5 +39,5 @@ export default function StoriesViewerScreen(){
   const m=await supabase.from('sx_messages').insert({thread_id:t.data,sender_id:me,kind:'text',body});if(!m.error)posted.current={...posted.current,[s.id]:emoji};return null},[me]);
  const onDelete=useCallback(async(s:ViewerStory)=>{if(!me||s.owner_id!==me)return 'Alleen je eigen verhaal';const patch=storyDeletePatch();const {error}=await supabase.from('sx_stories').update(patch).eq('id',s.id).eq('owner_id',me);if(error)return friendlyError(error,STORY_DELETE_TEXT.action);setGroups(gs=>{if(!gs)return gs;return gs.map(g=>({...g,stories:g.stories.filter(x=>x.id!==s.id)})).filter(g=>g.stories.length>0)});return null},[me]);
  return <View style={{flex:1,backgroundColor:'#000'}}><Stack.Screen options={{headerShown:false}}/>{err?<Text style={{color:'white',padding:30}}>{err}</Text>:!groups?<Text style={{color:'white',padding:30}}>Verhalen laden…</Text>:
-  <StoryViewer groups={groups} initialGroup={start} seen={seen} meId={me??''} names={names} onClose={()=>router.back()} onViewed={onViewed} onReply={onReply} onDelete={onDelete} onReact={onReact} renderAvatar={(id,size)=>id===me?<OwnAvatar userId={me} size={size}/>:<FriendAvatar id={id} outfit={outfits.get(id)??null} size={size} name={names[id]||'Vriend'}/>} loadViewers={loadViewers} renderMedia={s=><Media path={s.media_path} type={s.media_type} style={{flex:1}}/>}/>}</View>;
+  <StoryViewer groups={groups} initialGroup={start} seen={seen} meId={me??''} names={names} onClose={()=>router.back()} onViewed={onViewed} onReply={onReply} onDelete={onDelete} onReact={onReact} renderAvatar={(id,size)=>id===me?<OwnAvatar userId={me} size={size}/>:<FriendAvatar id={id} outfit={outfits.get(id)??null} size={size} name={names[id]||'Vriend'}/>} loadViewers={loadViewers} renderMedia={s=>{const snd=parseSound((s as Story).sound);return <View key={s.id} style={{flex:1}}><Media path={s.media_path} type={s.media_type} style={{flex:1}} rate={playbackRateFor(snd)}/>{snd.music&&<SnapMusic track={snd.music}/>}{!!soundLabel(snd)&&<View style={{position:'absolute',top:90,left:0,right:0}} pointerEvents="none"><SoundPill label={soundLabel(snd)}/></View>}</View>}}/>}</View>;
 }
