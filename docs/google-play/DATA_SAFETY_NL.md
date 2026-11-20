@@ -20,11 +20,13 @@ Gebaseerd op wat de app echt doet (lib/legal.ts privacybeleid, app.json privacym
 | Persoonlijke info | Telefoonnummer | **ja** | App-functionaliteit |
 | Persoonlijke info | Andere info: geboortedatum | nee | App-functionaliteit (leeftijdsgrens 13+, tienerinstellingen) |
 | Locatie | Precieze locatie | **ja** (alleen bij delen op de kaart) | App-functionaliteit |
-| Berichten | Andere in-app-berichten (chats, snaps) | nee | App-functionaliteit |
+| Berichten | Andere in-app-berichten (chats, snaps, spelletjes-zetten in de chat) | nee | App-functionaliteit |
+| Berichten | Andere in-app-berichten: **Mijn AI**-chat (bericht + laatste ≤12 beurten) | **ja** (alleen als je Mijn AI gebruikt) | App-functionaliteit — **tijdelijk verwerkt** ("Data is processed ephemerally"): niet op onze server opgeslagen, alleen op het toestel |
 | Foto's en video's | Foto's, Video's | ja (alleen wat je verstuurt/bewaart) | App-functionaliteit |
 | Audiobestanden | Spraak- of geluidsopnamen (spraakberichten) | ja | App-functionaliteit |
 | Financiële info | Aankoopgeschiedenis (Snapshot X+, via Google Play/RevenueCat; geen betaalgegevens) | ja | App-functionaliteit |
-| App-activiteit | App-interacties (bekeken/gelezen, reacties), Andere door gebruikers gemaakte inhoud (verhalen, polls, personage) | nee | App-functionaliteit |
+| App-activiteit | App-interacties (bekeken/gelezen, reacties), Andere door gebruikers gemaakte inhoud (verhalen, **gedeelde verhalen + leden**, polls, personage, gekozen muziek/stemfilter bij een snap) | nee | App-functionaliteit |
+| App-activiteit | Andere acties: aantal Mijn AI-berichten per dag (teller, na 7 dagen verwijderd) + gemelde AI-antwoorden | ja | App-functionaliteit, Fraudepreventie en beveiliging |
 | App-info en prestaties | — niet verzameld (geen crashrapportage-SDK) | | |
 | Apparaat- of andere ID's | Apparaat-ID (installatie-ID, pushtoken) + IP-adres bij inloggen | nee | App-functionaliteit, Fraudepreventie en beveiliging |
 
@@ -40,6 +42,15 @@ Verwerking is **niet tijdelijk** (gegevens worden opgeslagen), behalve live gesp
 ## Toelichting permissies (1 nov 2026, 12:00)
 - **Screenshotmelding in chats** (Android 14+): gebruikt `DETECT_SCREEN_CAPTURE` (installatiepermissie, geen pop-up). De app ziet alleen *dát* er een screenshot is gemaakt, nooit de afbeelding; er wordt niets extra verzameld. Op Android 13 en lager werkt de melding niet (we vragen bewust geen toegang tot foto's).
 - **Geen foreground services**: geen media-afspelen, camera, microfoon of schermdelen op de achtergrond (`FOREGROUND_SERVICE_*` geblokkeerd; de schermdeel-service van react-native-webrtc wordt uit het manifest gehaald door `plugins/withAndroidNoScreenShareService.js`). In de Play Console hoeft dus **geen** verklaring voor foreground services ingevuld te worden.
+
+## Nieuwe functies 20 nov 2026 (toelichting bij de antwoorden)
+- **Gedeeld verhaal** (`sx_shared_stories`, `sx_shared_story_members`, `sx_stories.shared_story_id`): titel + leden + snaps; alleen leden zien het (RLS ook op de mediabestanden). Valt onder "Andere door gebruikers gemaakte inhoud" en "Foto's en video's" — geen nieuwe categorie.
+- **Geluiden / stemfilters** (`sx_stories.sound`, `sx_messages.sound`): alleen een korte code (bv. `m:zomer;v:helium`), geen opname van de gebruiker; de muziek is eigen, rechtenvrij en zit in de app. Geen nieuwe categorie.
+- **Snap Map Hotspots + Plekken**: vaste lijst openbare plekken in de app + de vriendenposities die je al ziet. **Er wordt geen extra locatie verzameld**; de antwoorden bij "Locatie" blijven gelijk.
+- **Vriend-emoji's 😁 😬 😏** (`sx_friend_ranks`): berekend uit bestaande chats op de server; geeft alleen jouw eigen positie in de beste-vriendenlijst van een vriend terug. Geen nieuwe gegevens.
+- **Spelletje in de chat**: zetten zijn gewone chatberichten (dezelfde bewaarregels). Geen nieuwe categorie.
+- **Mijn AI** (edge function `my-ai`): bericht + korte geschiedenis gaan naar de AI-dienst (Groq; reserve OpenAI) als **verwerker in onze opdracht** → in Play telt dit **niet als "delen"** (dienstverlener). Geen naam/e-mail mee; `user` is een eenrichtings-hash. Niets van het gesprek wordt op onze server opgeslagen → "tijdelijk verwerkt". Wel opgeslagen: dagteller `sx_ai_usage` (7 dagen) en vrijwillige meldingen `sx_ai_reports` (gemeld antwoord + vraag ervoor).
+- Versleuteling onderweg: ja (HTTPS naar Supabase en naar de AI-dienst). Verwijderen: account verwijderen wist ook `sx_ai_usage`, `sx_ai_reports`, gedeelde-verhaal-lidmaatschappen (cascade).
 
 ## Controle bij elke release
 - Nieuwe SDK of permissie? Werk dit document, `app.json` (`ios.privacyManifests` + `android.permissions/blockedPermissions`) en `lib/legal.ts` samen bij. `lib/android-config.test.mjs` bewaakt de Android-permissies.

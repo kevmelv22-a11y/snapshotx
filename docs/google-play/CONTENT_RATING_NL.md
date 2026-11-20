@@ -13,6 +13,8 @@ Concept-antwoorden voor Play Console › App-content › Contentclassificatie en
 | Kan de app onbeperkt toegang geven tot het internet (browser)? | Nee | |
 | Is er moderatie van door gebruikers gemaakte inhoud? | **Ja** | Melden + blokkeren in de app, staffpaneel, woordfilter op namen |
 | Deelt de app persoonsgegevens met derden? | Nee (alleen verwerkers in opdracht) | Zie DATA_SAFETY_NL.md |
+| Bevat de app door AI gegenereerde inhoud? (vraag in App-content / AI-verklaring) | **Ja** | Mijn AI: tekst-chatbot (geen afbeeldingen). Systeemprompt verbiedt seksuele/gewelddadige/illegale inhoud, verwijst bij zelfbeschadiging naar 113/112, zegt eerlijk dat het een AI is (`supabase/functions/my-ai/logic.ts`) |
+| Bevat de app spellen met prijzen of gokken? | Nee | Spelletje in de chat (boter, kaas en eieren) is gratis, zonder inzet of prijzen |
 
 Verwachte uitkomst: PEGI 12 / USK 12 / ESRB Teen ("Users Interact", "Shares Location", "In-App Purchases"). Snapchat heeft PEGI 12 / Teen.
 
@@ -28,6 +30,14 @@ Verwachte uitkomst: PEGI 12 / USK 12 / ESRB Teen ("Users Interact", "Shares Loca
 - [x] Gebruikers blokkeren.
 - [x] Moderatie door staff (staffpaneel met audit-log, bans).
 - [x] Contact: support@snapshot-x.nl.
+
+## Beleid voor generatieve AI (Mijn AI) — checklist (20 nov 2026)
+Google Play eist voor apps met generatieve AI dat gebruikers aanstootgevende AI-inhoud **in de app** kunnen melden en dat de AI geen verboden inhoud maakt.
+- [x] Melden in de app: vlaggetje naast elk AI-antwoord (of lang indrukken) → reden kiezen → opgeslagen in `sx_ai_reports` (alleen eigen melding invoegen; lezen alleen staff/service_role).
+- [x] Veiligheidsprompt voor tieners (13+), geen persoonsgegevens vragen, 113/112-verwijzing, geen medisch/juridisch advies als feit.
+- [x] Duidelijk label: "AI-chatbot · geen mens" + disclaimer bovenaan de chat.
+- [x] Misbruikgrens: 40 berichten per gebruiker per dag (server-side).
+- [ ] TODO(Kevin): bepalen wie `sx_ai_reports` bekijkt (nu via SQL; nog niet in het staffpaneel).
 
 ## Child Safety Standards (verplicht voor sociale apps)
 Play vraagt een gepubliceerde norm tegen kindermisbruik (CSAE) + contactpersoon:

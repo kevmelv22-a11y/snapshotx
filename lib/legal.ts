@@ -10,7 +10,7 @@ export const SUPPORT_EMAIL = 'support@snapshot-x.nl';
 export const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}`;
 export const SUPPORT_LINK = { label: 'Contact en support', description: SUPPORT_EMAIL, url: SUPPORT_MAILTO } as const;
 
-export const LEGAL_UPDATED = '1 november 2026';
+export const LEGAL_UPDATED = '20 november 2026';
 export const LEGAL_LINKS = {
   privacy: { label: 'Privacybeleid', description: 'Welke gegevens we gebruiken en waarom', route: '/privacy' },
   terms: { label: 'Gebruiksvoorwaarden', description: 'De afspraken voor het gebruik van Snapshot X', route: '/voorwaarden' },
@@ -23,10 +23,15 @@ export const PRIVACY: LegalDoc = {
   sections: [
     { heading: 'Welke gegevens we verwerken', body: [
       'Account: gebruikersnaam, weergavenaam, e-mailadres, wachtwoord (versleuteld opgeslagen), geboortedatum en, als je dat invult, je mobiele nummer.',
-      'Inhoud die je deelt: snaps, chatberichten, spraakberichten, verhalen, herinneringen, chat-achtergronden en je personage (avatar).',
+      'Inhoud die je deelt: snaps, chatberichten, spraakberichten, verhalen (ook gedeelde verhalen met vrienden), spelletjes in de chat, herinneringen, chat-achtergronden en je personage (avatar).',
       'Vrienden en gebruik: je vrienden, verzoeken, blokkeringen, reacties en of een snap of chat is bekeken.',
       'Locatie: alleen als je die zelf op de kaart deelt. Met Ghost mode deel je niets.',
       'Toestel en beveiliging: een pushmeldingstoken, de naam van je toestel en het IP-adres bij het inloggen, zodat jij je inloggeschiedenis kunt zien en wij misbruik kunnen opsporen.',
+    ] },
+    { heading: 'Mijn AI', body: [
+      'Mijn AI is een AI-chatbot, geen mens. Als je Mijn AI een bericht stuurt, gaan dat bericht en de laatste berichten van dat gesprek naar een AI-dienst (Groq of OpenAI) om een antwoord te maken. We sturen geen naam, e-mailadres of gebruikersnaam mee.',
+      'We bewaren je gesprekken met Mijn AI niet op onze server; ze staan alleen op je eigen toestel en je kunt ze daar wissen. We tellen alleen hoeveel berichten je per dag stuurt (maximaal 40), en die telling verwijderen we na een week.',
+      'Meld je een antwoord van Mijn AI, dan bewaren we dat antwoord en je vraag ervoor om de melding te beoordelen. Deel geen persoonlijke gegevens met Mijn AI; het kan fouten maken.',
     ] },
     { heading: 'Camera, microfoon en foto’s', body: [
       'De app vraagt pas toegang tot je camera, microfoon of fotobibliotheek als je een functie gebruikt die dat nodig heeft (snap maken, bellen, spraakbericht, foto versturen of als chat-achtergrond kiezen). Je kunt dit altijd uitzetten in de instellingen van je telefoon.',
@@ -45,7 +50,7 @@ export const PRIVACY: LegalDoc = {
     { heading: 'Wie je gegevens kan zien', body: [
       'Alleen de mensen met wie je iets deelt. Wie je blokkeert, kan je niet meer berichten en ziet je verhalen niet meer.',
       'Onze moderatoren zien alleen wat nodig is om een melding te beoordelen.',
-      'We gebruiken dienstverleners voor opslag, inloggen, abonnementen en pushmeldingen (zoals Supabase, Expo, RevenueCat, Apple en Google). Zij verwerken gegevens alleen in onze opdracht.',
+      'We gebruiken dienstverleners voor opslag, inloggen, abonnementen en pushmeldingen en Mijn AI (zoals Supabase, Expo, RevenueCat, Apple, Google, Groq en OpenAI). Zij verwerken gegevens alleen in onze opdracht.',
     ] },
     { heading: 'Jouw rechten en keuzes', body: [
       'Je kunt je naam, privacy-instellingen, locatie delen en vindbaarheid in vriendensuggesties zelf aanpassen in Instellingen.',

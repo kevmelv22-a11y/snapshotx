@@ -28,12 +28,16 @@ Snapshot X is de snelste manier om met je vrienden te delen wat er nu gebeurt.
 
 • Snaps — maak een foto of video, voeg tekst, stickers en lenzen toe en stuur hem naar je vrienden. Snaps verdwijnen nadat ze bekeken zijn.
 • Chats — chat één-op-één of in groepen, met spraakberichten, reacties, polls, @vermeldingen en je eigen chat-achtergrond. Kies zelf of chats na het bekijken, na 24 uur of nooit verdwijnen.
-• Verhalen — deel je dag 24 uur lang met je vrienden.
-• Vriendenkaart — zie waar je vrienden zijn als zij dat willen delen. Met Ghost mode ben je onzichtbaar.
+• Verhalen — deel je dag 24 uur lang met je vrienden. Met een Gedeeld verhaal maak je samen met vrienden één verhaal dat alleen jullie zien.
+• Geluiden — zet muziek of een grappig stemfilter onder je snap.
+• Vriendenkaart — zie waar je vrienden zijn als zij dat willen delen, ontdek hotspots en populaire plekken. Met Ghost mode ben je onzichtbaar.
 • Vrienden toevoegen — scan iemands QR-code of open een snapshot-x.nl/add-link.
 • Personage — maak je eigen 3D-personage en kleed het aan in de Kast.
 • Herinneringen — bewaar je mooiste snaps privé in de app.
 • Gesprekken — bel met spraak of video.
+• Spelletjes — speel boter, kaas en eieren met een vriend, gewoon in de chat.
+• Vriend-emoji's — zie in één oogopslag wie je beste vrienden zijn (💛 😁 🔥 💯).
+• Mijn AI — je AI-chatbuddy voor onderschriften, ideeën en vragen (een AI, geen mens).
 • Ook op je computer — chat en bel via snapshot-x.nl.
 • Snapshot X+ — extra functies zoals eigen app-icoontjes, vriend-emoji's en meer opslag.
 
@@ -54,6 +58,12 @@ Eerste versie van Snapshot X op Android: snaps, chats, verhalen, vriendenkaart, 
 Voor AAB versionCode 3 (EAS production build `2f336b8f`, 6 nov 2026; alleen bouwen/opnieuw uploaden op Kevins verzoek). Eerdere: 06b14bd2 / versionCode 2.
 <nl-NL>
 Meldingen werken nu echt op Android: tik op een melding en de juiste chat opent meteen, ook als de app dicht was. In een open chat krijg je geen dubbele melding. Uitloggen stopt de meldingen op dit toestel. Snapshot X+-abonnementen tonen het juiste niveau (zoals Platinum). Geen testfuncties of demo meer in de app. De terugknop sluit eerst open vensters. Het toetsenbord bedekt het typveld niet meer. Links naar snapshot-x.nl/add openen de app.
+</nl-NL>
+
+## Release-opmerkingen volgende versie (concept, 20 nov 2026, ≤500)
+Pas gebruiken bij de volgende build op Kevins verzoek (versionCode 4).
+<nl-NL>
+Nieuw: maak een Gedeeld verhaal met je vrienden, zet muziek of een stemfilter onder je snap, reageer met emoji op verhalen, stuur duo-stickers, speel boter, kaas en eieren in de chat, ontdek hotspots en plekken op de kaart, nieuwe vriend-emoji's (😁 😬 😏 💯) en chat met Mijn AI.
 </nl-NL>
 
 ## Afbeeldingen

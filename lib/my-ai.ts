@@ -41,3 +41,17 @@ export function demoReply(text: string): string {
 let n = 0;
 export const aiMessageId = (now = Date.now()) => `ai${now.toString(36)}${(++n).toString(36)}`;
 export const aiMessage = (role: AiMessage['role'], content: string, now = Date.now()): AiMessage => ({ id: aiMessageId(now), role, content, at: now });
+/** In-app melding of an AI reply (Google Play generative-AI policy). Stored in public.sx_ai_reports (insert own only). */
+export type AiReportReason = 'offensive' | 'harmful' | 'sexual' | 'wrong' | 'other';
+export const AI_REPORT_REASONS: readonly { id: AiReportReason; label: string }[] = [
+  { id: 'offensive', label: 'Beledigend of haatdragend' }, { id: 'harmful', label: 'Gevaarlijk of schadelijk advies' },
+  { id: 'sexual', label: 'Seksueel of ongepast' }, { id: 'wrong', label: 'Klopt niet / misleidend' }, { id: 'other', label: 'Iets anders' },
+];
+/** Row for sx_ai_reports: the reported reply + the question right before it (both trimmed to the column limits). */
+export function aiReportRow(reporterId: string, reason: AiReportReason, history: readonly AiMessage[], replyId: string, detail?: string | null) {
+  const i = history.findIndex(m => m.id === replyId), reply = history[i];
+  if (!reply || reply.role !== 'assistant') return null;
+  const prompt = [...history.slice(0, i)].reverse().find(m => m.role === 'user');
+  const d = (detail ?? '').trim();
+  return { reporter_id: reporterId, reason, reply_text: reply.content.slice(0, 2000), prompt_text: prompt ? prompt.content.slice(0, 1000) : null, detail: d ? d.slice(0, 800) : null };
+}
