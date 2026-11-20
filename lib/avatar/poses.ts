@@ -5,6 +5,7 @@
  * (left arm positive = raised outward, right arm negative = raised outward).
  */
 import { parsePoll, pollPreview } from '../chat-polls';
+import { gamePreview, parseGame } from '../chat-games';
 
 export type AvatarExpression = 'neutral' | 'smile' | 'laugh' | 'wink' | 'surprised';
 export type AvatarHand = 'rest' | 'peace' | 'thumb';
@@ -131,6 +132,8 @@ export function duoPartner(senderId: string, memberIds: readonly string[]): stri
 export function chatPreviewText(body: string | null | undefined): string {
   const poll = parsePoll(body);
   if (poll) return pollPreview(poll);
+  const game = parseGame(body);
+  if (game) return gamePreview(game);
   const s = stickerFromChatBody(body);
   if (s) return `Avatarsticker: ${s.caption}`;
   const d = duoFromChatBody(body);

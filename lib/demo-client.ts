@@ -17,6 +17,7 @@ import { GROUP_ERRORS, GROUP_MAX_MEMBERS, canRemoveMember, groupAddText, groupLe
 import { WALLPAPER_ERRORS, WALLPAPER_IDS, canDeleteOwnMedia, isPhotoWallpaperPath, wallpaperChangeText, wallpaperUploader } from './chat-wallpaper';
 import { DEMO_EMAIL } from './demo-constants';
 import { SHARED_MAX_MEMBERS, cleanSharedTitle } from './shared-stories';
+import { gameBody, newGameBody, type Cell } from './chat-games';
 
 type Err = { message: string; code?: string; details?: string };
 type Res = { data: unknown; error: Err | null; count?: number | null };
@@ -110,6 +111,9 @@ function seedDemo(m: StaffMock) {
   Object.assign(m.t.sx_messages.find(x => x.thread_id === T.crew && x.body === 'Ik kom iets later, rond 15:00') ?? {}, { body: 'Ik kom iets later, rond 15:30', edited_at: iso(-2.78 * H) });
   m.t.sx_messages.push({ ...msg(T.crew, I.eva, unsentText('Eva Smit'), 3.05 * H, 'system'), unsent_at: iso(-2.9 * H) });
   // Peilingen (Snapchat group polls): Cleo asks what to do after the beach; Cleo, Noor and Eva voted, Kevin not yet.
+  // Spelletje (lib/chat-games.ts): Eva started Boter, kaas en eieren, two moves each side so far — Kevin's turn.
+  { const gid = 'gdemo-bke1', b = (x: string) => gameBody({ id: gid, x: I.eva, board: x.split('') as Cell[] });
+    m.t.sx_messages.push(msg(T.eva, I.eva, newGameBody(gid, I.eva), 0.9 * H), msg(T.eva, I.eva, b('----x----'), 0.85 * H), msg(T.eva, ME, b('o---x----'), 0.8 * H), msg(T.eva, I.eva, b('o---x---x'), 0.6 * H)); }
   const poll = pollBody('Wat doen we zaterdag na het strand? 🌅', ['Pizza eten 🍕', 'Bioscoop 🎬', 'Bowlen 🎳']);
   if (poll.ok) { const p = msg(T.crew, I.cleo, poll.body, 2.6 * H); m.t.sx_messages.push(p);
     m.t.sx_poll_votes = [[I.cleo, 0], [EXTRA.noor, 0], [I.eva, 2]].map(([user_id, option_index]) => ({ message_id: p.id, user_id, option_index, created_at: iso(-2.5 * H) })); }

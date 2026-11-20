@@ -12,6 +12,7 @@
 import { parseReply } from './chat-replies';
 import { unopenedChatDeadline } from './chat-features';
 import { isPollText } from './chat-polls';
+import { parseGame } from './chat-games';
 
 export const FORWARD_MAX_TARGETS = 10;
 export const FORWARD_LABEL = {
@@ -33,7 +34,7 @@ export type ForwardableMessage = { kind: string; body: string | null; view_once?
 export function canForward(m: ForwardableMessage, now = Date.now()): boolean {
   if (m.unsent_at || m.view_once) return false;
   if (m.expires_at && Date.parse(m.expires_at) <= now) return false;
-  if (m.kind === 'text') { const t = forwardBody(m); return !!t && !isPollText(t); }
+  if (m.kind === 'text') { const t = forwardBody(m); return !!t && !isPollText(t) && !parseGame(t); }
   if (m.kind === 'photo' || m.kind === 'video' || m.kind === 'voice') return !!m.media_path;
   return false;
 }
