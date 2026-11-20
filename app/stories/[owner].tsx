@@ -1,4 +1,4 @@
-import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useFriendOutfits} from '../../hooks/useFriendOutfits';
 import {PROFILE_NAME_COLUMNS,profileNames} from '../../lib/profile-name';
 import {Text,View} from 'react-native';
@@ -9,7 +9,7 @@ import {Media} from '../../components/Media';
 import {OwnAvatar} from '../../components/avatar/OwnAvatar';
 import {FriendAvatar} from '../../components/avatar/FriendAvatar';
 import {StoryViewer,type ViewerStory} from '../../components/stories/StoryViewer';
-import {groupStories,viewersFor,type StoryGroup} from '../../lib/stories';
+import {groupStories,shouldPostReaction,storyReactionBody,viewersFor,type StoryGroup} from '../../lib/stories';
 import type {Story} from '../../lib/types';
 
 import {friendlyError} from '../../lib/db-errors';
@@ -29,7 +29,12 @@ export default function StoriesViewerScreen(){
  const onReply=useCallback(async(s:ViewerStory,body:string)=>{if(!me)return 'Niet ingelogd';const t=await supabase.rpc('sx_open_thread',{participants:[s.owner_id],group_title:null});if(t.error||!t.data)return t.error?friendlyError(t.error,'Antwoorden'):'Je hebt nog geen chat met deze vriend';
   const {error}=await supabase.from('sx_messages').insert({thread_id:t.data,sender_id:me,kind:'text',body});return error?friendlyError(error):null},[me]);
  // Snapchat quick reactions: one emoji per viewer per story (upsert on story_id,user_id; RLS: own user_id only).
- const onReact=useCallback(async(s:ViewerStory,emoji:string)=>{if(!me)return 'Niet ingelogd';if(s.owner_id===me)return null;const {error}=await supabase.from('sx_story_reactions').upsert({story_id:s.id,user_id:me,emoji},{onConflict:'story_id,user_id'});return error?friendlyError(error,'Reageren'):null},[me]);
+ // The reaction is also posted as a line in the 1:1 chat (Snapchat: "😂 Reageerde op je verhaal"), once per new emoji.
+ const posted=useRef<Record<string,string>>({});
+ const onReact=useCallback(async(s:ViewerStory,emoji:string)=>{if(!me)return 'Niet ingelogd';if(s.owner_id===me)return null;const {error}=await supabase.from('sx_story_reactions').upsert({story_id:s.id,user_id:me,emoji},{onConflict:'story_id,user_id'});if(error)return friendlyError(error,'Reageren');
+  const body=storyReactionBody(emoji,s.caption);if(!body||!shouldPostReaction(posted.current,s.id,emoji))return null;
+  const t=await supabase.rpc('sx_open_thread',{participants:[s.owner_id],group_title:null});if(t.error||!t.data)return null;// reaction itself is saved; chat line is best effort
+  const m=await supabase.from('sx_messages').insert({thread_id:t.data,sender_id:me,kind:'text',body});if(!m.error)posted.current={...posted.current,[s.id]:emoji};return null},[me]);
  const onDelete=useCallback(async(s:ViewerStory)=>{if(!me||s.owner_id!==me)return 'Alleen je eigen verhaal';const patch=storyDeletePatch();const {error}=await supabase.from('sx_stories').update(patch).eq('id',s.id).eq('owner_id',me);if(error)return friendlyError(error,STORY_DELETE_TEXT.action);setGroups(gs=>{if(!gs)return gs;return gs.map(g=>({...g,stories:g.stories.filter(x=>x.id!==s.id)})).filter(g=>g.stories.length>0)});return null},[me]);
  return <View style={{flex:1,backgroundColor:'#000'}}><Stack.Screen options={{headerShown:false}}/>{err?<Text style={{color:'white',padding:30}}>{err}</Text>:!groups?<Text style={{color:'white',padding:30}}>Verhalen laden…</Text>:
   <StoryViewer groups={groups} initialGroup={start} seen={seen} meId={me??''} names={names} onClose={()=>router.back()} onViewed={onViewed} onReply={onReply} onDelete={onDelete} onReact={onReact} renderAvatar={(id,size)=>id===me?<OwnAvatar userId={me} size={size}/>:<FriendAvatar id={id} outfit={outfits.get(id)??null} size={size} name={names[id]||'Vriend'}/>} loadViewers={loadViewers} renderMedia={s=><Media path={s.media_path} type={s.media_type} style={{flex:1}}/>}/>}</View>;

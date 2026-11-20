@@ -114,3 +114,20 @@ export function storyReplyBody(text: string, caption: string | null): string | n
   const ref = caption?.trim() ? ` „${caption.trim().slice(0, 40)}”` : '';
   return `Antwoord op je verhaal${ref}: ${t}`.slice(0, 500);
 }
+
+/** Chat line for a quick story reaction (Snapchat posts story reactions into the 1:1 chat too). Max 500 chars, null if no emoji. */
+export function storyReactionBody(emoji: string, caption: string | null): string | null {
+  const e = emoji.trim();
+  if (!e || e.length > 12) return null;
+  const ref = caption?.trim() ? ` „${caption.trim().slice(0, 40)}”` : '';
+  return `${e} Reageerde op je verhaal${ref}`.slice(0, 500);
+}
+/** Post the reaction to the chat only when it is new or changed for that story (tapping the same emoji twice posts once). */
+export function shouldPostReaction(posted: Readonly<Record<string, string>>, storyId: string, emoji: string): boolean {
+  return posted[storyId] !== emoji;
+}
+/** Reads a story-reaction chat line back (for the big-emoji bubble). */
+export function parseStoryReaction(body: string | null | undefined): { emoji: string; caption: string | null } | null {
+  const m = /^(\S{1,12}) Reageerde op je verhaal(?: „(.*)”)?$/u.exec(body ?? '');
+  return m ? { emoji: m[1], caption: m[2] ?? null } : null;
+}
