@@ -8,6 +8,7 @@ export const GROUP_INVITE_TEXT = {
   action: 'Uitnodigingslink',
   shareTitle: 'Uitnodiging voor Snapshot X-groep',
   copied: 'Link gekopieerd',
+  shared: 'Uitnodiging gedeeld',
   revoke: 'Link intrekken',
   join: 'Lid worden',
   already: 'Je zit al in deze groep',
@@ -42,4 +43,11 @@ export function groupInviteErrorText(err: unknown): string | null {
   if (/blocked|interaction blocked/i.test(msg)) return GROUP_INVITE_TEXT.blocked;
   if (/sign in required|42501/i.test(msg)) return GROUP_INVITE_TEXT.signedOut;
   return null;
+}
+
+/** Share-sheet payload per platform. iOS shares `message` AND `url` (putting the link in both showed it twice in
+ *  WhatsApp/iMessage); Android ignores `url`, so there the link must be inside `message`. */
+export function inviteSharePayload(groupTitle: string, url: string, os: string): { message: string; url?: string; title: string } {
+  const text = `Doe mee met mijn Snapshot X-groep "${groupTitle.trim() || 'Groep'}"`;
+  return os === 'ios' ? { message: text, url, title: GROUP_INVITE_TEXT.shareTitle } : { message: `${text}: ${url}`, title: GROUP_INVITE_TEXT.shareTitle };
 }
