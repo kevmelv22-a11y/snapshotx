@@ -1,10 +1,11 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {kavBehavior} from '../../lib/keyboard';
-import {Alert,BackHandler,FlatList,KeyboardAvoidingView,PanResponder,Platform,Pressable,StyleSheet,Text,TextInput,View,useWindowDimensions} from 'react-native';
+import {BackHandler,FlatList,KeyboardAvoidingView,PanResponder,Platform,Pressable,StyleSheet,Text,TextInput,View,useWindowDimensions} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import * as L from '../../lib/stories';
 import {STORY_DELETE_TEXT} from '../../lib/story-delete';
+import {useConfirmDialog} from '../ConfirmDialog';
 
 export type ViewerStory=L.StoryLike&{caption:string|null;media_path:string};
 export type Props={
@@ -23,7 +24,7 @@ export type Props={
 /** Tap-through story viewer: segment bars, tap left/right, hold to pause, swipe sideways/down/up, viewers list for own story, reply. */
 export const QUICK_REACTIONS=['😂','😍','🔥','😮','😢','👏'] as const;
 export function StoryViewer(p:Props){
- const clockNow=p.now??Date.now,{width}=useWindowDimensions(),insets=useSafeAreaInsets();
+ const clockNow=p.now??Date.now,{width}=useWindowDimensions(),insets=useSafeAreaInsets(),confirm=useConfirmDialog();
  const sizes=useMemo(()=>p.groups.map(g=>g.stories.length),[p.groups]);
  const [cursor,setCursor]=useState<L.Cursor>(()=>{const g=p.initialGroup??0;return {group:g,story:p.groups[g]?L.startIndex(p.groups[g].stories,p.seen):0}});
  const [clock,setClock]=useState<L.Clock>(()=>{const n=clockNow();const c={elapsed:(p.initialProgress??0)*L.PHOTO_DURATION_MS,runningSince:n};return p.initialPaused?L.pauseClock(c,n):c});
@@ -60,10 +61,9 @@ export function StoryViewer(p:Props){
  function askDelete(){
   if(!story||!mine||!p.onDelete||deleting)return;
   hold(true);
-  Alert.alert(STORY_DELETE_TEXT.title,STORY_DELETE_TEXT.message,[
-    {text:'Annuleren',style:'cancel',onPress:()=>hold(false)},
-    {text:STORY_DELETE_TEXT.confirm,style:'destructive',onPress:()=>void runDelete()},
-  ]);
+  // Cross-platform dialog: the RN Alert API does nothing on web, and on Android a back/outside dismissal ran no button,
+  // which left the story paused for good. onCancel always resumes it.
+  confirm.ask({title:STORY_DELETE_TEXT.title,message:STORY_DELETE_TEXT.message,confirmLabel:STORY_DELETE_TEXT.confirm,destructive:true},()=>{void runDelete();return null},()=>hold(false));
  }
  // Android back button: close the reply field / viewers list first (story resumes) instead of leaving the viewer.
  const panelOpen=replyOpen||viewersOpen,closeRef=useRef(closePanels);useEffect(()=>{closeRef.current=closePanels});
@@ -98,6 +98,7 @@ export function StoryViewer(p:Props){
    <FlatList data={viewers?.viewers??[]} keyExtractor={v=>v.userId} renderItem={({item})=><View style={s.viewer}><View style={s.avatarSm}><Text style={s.avatarText}>{(p.names[item.userId]||'?').slice(0,1)}</Text></View><Text style={[s.text,{flex:1}]}>{p.names[item.userId]||'Vriend'}</Text>{!!item.emoji&&<Text style={{fontSize:20}}>{item.emoji}</Text>}<Text style={s.meta}>{L.ageLabel(item.viewedAt,clockNow())}</Text></View>}/>
    {viewers&&viewers.total>viewers.viewers.length&&<Text style={s.meta}>+{viewers.total-viewers.viewers.length} anderen</Text>}
   </View>}
+  {confirm.dialog}
  </View>;
 }
 const s=StyleSheet.create({avatarWrap:{width:38,height:38,borderRadius:19,overflow:'hidden',borderWidth:2,borderColor:'white',alignItems:'center',justifyContent:'center'},reactRow:{flexDirection:'row',justifyContent:'space-between'},reactBtn:{width:46,height:46,borderRadius:23,backgroundColor:'#00000066',alignItems:'center',justifyContent:'center'},reactOn:{backgroundColor:'#FFFFFF44',borderWidth:2,borderColor:'white'},root:{flex:1,backgroundColor:'#000'},text:{color:'white',fontSize:15,fontWeight:'600'},top:{position:'absolute',top:0,left:0,right:0,paddingHorizontal:10},bars:{flexDirection:'row',gap:4},bar:{flex:1,height:3,borderRadius:2,backgroundColor:'#FFFFFF55',overflow:'hidden'},fill:{height:3,backgroundColor:'white'},head:{flexDirection:'row',alignItems:'center',gap:10,marginTop:10},avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#7D3BBF',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'white'},avatarSm:{width:34,height:34,borderRadius:17,backgroundColor:'#7D3BBF',alignItems:'center',justifyContent:'center'},avatarText:{color:'white',fontWeight:'800'},name:{color:'white',fontWeight:'800',fontSize:16},meta:{color:'#DDD',fontSize:13},bottom:{position:'absolute',bottom:0,left:16,right:16,gap:10,alignItems:'center'},caption:{color:'white',fontSize:20,fontWeight:'800',textAlign:'center',textShadowColor:'#000',textShadowRadius:6},notice:{color:'#FFE14D'},deletePill:{backgroundColor:'#3A1F33',borderColor:'#FF6B6B55'},pill:{flexDirection:'row',alignItems:'center',gap:8,backgroundColor:'#000A',borderRadius:22,paddingHorizontal:18,paddingVertical:12,borderWidth:1,borderColor:'#FFFFFF44'},sheet:{position:'absolute',left:0,right:0,bottom:0,backgroundColor:'#16121C',borderTopLeftRadius:22,borderTopRightRadius:22,padding:16,gap:12},sheetTitle:{color:'white',fontSize:17,fontWeight:'800'},row:{flexDirection:'row',alignItems:'center',gap:10},input:{flex:1,backgroundColor:'#FFFFFF1A',color:'white',padding:12,borderRadius:20},send:{backgroundColor:'#FFE14D',width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center'},viewer:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:8}});

@@ -20,9 +20,12 @@ type ConfirmAction = () => Promise<string | null | void> | string | null | void;
 export function useConfirmDialog() {
   const [state, dispatch] = useReducer(confirmReducer, CONFIRM_IDLE);
   const action = useRef<ConfirmAction | null>(null);
+  const onCancelRef = useRef<(() => void) | null>(null);
 
-  const ask = useCallback((request: ConfirmRequest, onConfirm: ConfirmAction) => {
+  /** onCancel runs on Annuleren, the Android back button and outside dismissal (never after a successful confirm). */
+  const ask = useCallback((request: ConfirmRequest, onConfirm: ConfirmAction, onCancel?: () => void) => {
     action.current = onConfirm;
+    onCancelRef.current = onCancel ?? null;
     dispatch({ type: 'request', request });
   }, []);
 
@@ -31,13 +34,13 @@ export function useConfirmDialog() {
     try {
       const error = await action.current?.();
       if (typeof error === 'string' && error) dispatch({ type: 'failed', error });
-      else { dispatch({ type: 'succeeded' }); action.current = null; }
+      else { dispatch({ type: 'succeeded' }); action.current = null; onCancelRef.current = null; }
     } catch (e) {
       dispatch({ type: 'failed', error: e instanceof Error ? e.message : String(e) });
     }
   }, []);
 
-  const cancel = useCallback(() => dispatch({ type: 'cancel' }), []);
+  const cancel = useCallback(() => { dispatch({ type: 'cancel' }); const c = onCancelRef.current; onCancelRef.current = null; c?.(); }, []);
   const busy = isConfirmBusy(state);
   const request = state.phase === 'idle' ? null : state.request;
   const error = state.phase === 'idle' ? null : state.error;
