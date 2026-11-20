@@ -35,6 +35,9 @@ const RELATION: Record<RelationKind, { emoji: string; title: string; description
   bffs: { emoji: '❤️', title: "BFF's", description: 'Jullie zijn al 2 weken op rij elkaars #1 beste vriend.', colors: ['#FF4D5E', '#9C1730'] },
   bff: { emoji: '💛', title: 'Beste vrienden #1', description: 'Met niemand snap en chat je meer dan met deze vriend.', colors: ['#FFD43B', '#C77C00'] },
   best_friend: { emoji: '😊', title: 'Beste vrienden', description: 'Een van je beste vrienden: jullie snappen en chatten veel met elkaar.', colors: ['#FFB547', '#B4501C'] },
+  mutual_best: { emoji: '😁', title: 'Wederzijdse beste vrienden', description: 'Jij staat in hun beste vrienden en zij in de jouwe.', colors: ['#FFC94D', '#D0611C'] },
+  same_bff: { emoji: '😬', title: 'Zelfde BFF', description: 'Jullie hebben dezelfde #1 beste vriend.', colors: ['#B8F28A', '#3E9B3A'] },
+  their_best: { emoji: '😏', title: 'Jij bent hun beste vriend', description: 'Jij bent een van hun beste vrienden, maar zij nog niet een van de jouwe.', colors: ['#D59BFF', '#7A3FC8'] },
   new_friend: { emoji: '👶', title: 'Nieuwe vrienden', description: 'Jullie zijn minder dan een week vrienden. Welkom!', colors: ['#7AD3FF', '#2A6FDB'] },
 };
 

@@ -628,6 +628,8 @@ export class DemoClient {
     sx_friend_avatar_outfits: () => [],
     // Mirrors public.sx_friend_birthdays (20261031060000, NOT applied): friends only, month-day only (never year/age).
     // Demo: Aria is jarig today (🎂), Cleo too but with Verjaardagsfeest off (no 🎂), Eva/Noor on other days.
+    // Mirrors public.sx_friend_ranks (20261120070000): my rank in their best friends + same #1 (😁/😏/😬).
+    sx_friend_ranks: () => [{ friend_id: MOCK_IDS.eva, their_rank: 2, same_number_one: false }, { friend_id: MOCK_IDS.bram, their_rank: null, same_number_one: true }, { friend_id: EXTRA.noor, their_rank: 4, same_number_one: false }],
     sx_friend_birthdays: a => {
       const ids = new Set((a.p_ids as string[]) ?? []), I = MOCK_IDS, n = new Date(), p = (x: number) => String(x).padStart(2, '0');
       const today = `${p(n.getMonth() + 1)}-${p(n.getDate())}`, other = today === '03-21' ? '07-09' : '03-21';

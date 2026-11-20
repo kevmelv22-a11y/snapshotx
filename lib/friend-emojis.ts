@@ -3,25 +3,29 @@
  *  Computed on the device from 1-on-1 interactions you can already see (snaps count double, both sides must have
  *  sent something). Emoji choices are customisable per account (stores/friendEmojis.ts). Pure + unit-tested. */
 
-export type RelationKind = 'super_bff' | 'bffs' | 'bff' | 'best_friend' | 'new_friend';
-export type FriendEmojiKind = RelationKind | 'streak' | 'hourglass';
+export type RelationKind = 'super_bff' | 'bffs' | 'bff' | 'mutual_best' | 'best_friend' | 'same_bff' | 'their_best' | 'new_friend';
+export type FriendEmojiKind = RelationKind | 'streak' | 'hourglass' | 'streak_100';
 export type FriendEmojiChoices = Partial<Record<FriendEmojiKind, string>>;
 
 export const DEFAULT_FRIEND_EMOJIS: Record<FriendEmojiKind, string> = {
-  super_bff: '💕', bffs: '❤️', bff: '💛', best_friend: '😊', new_friend: '👶', streak: '🔥', hourglass: '⌛',
+  super_bff: '💕', bffs: '❤️', bff: '💛', mutual_best: '😁', best_friend: '😊', same_bff: '😬', their_best: '😏', new_friend: '👶', streak: '🔥', hourglass: '⌛', streak_100: '💯',
 };
 /** Settings order + Dutch copy (Snapchat: Instellingen → Vriend-emoji's). */
 export const FRIEND_EMOJI_INFO: readonly { kind: FriendEmojiKind; title: string; description: string }[] = [
   { kind: 'super_bff', title: 'Super BFF', description: 'Al 2 maanden op rij je #1 beste vriend.' },
   { kind: 'bffs', title: "BFF's", description: 'Al 2 weken op rij je #1 beste vriend.' },
   { kind: 'bff', title: 'BFF', description: 'Je #1 beste vriend: met niemand snap of chat je meer.' },
+  { kind: 'mutual_best', title: 'Wederzijdse beste vrienden', description: 'Jij bent een van hun beste vrienden en zij een van de jouwe.' },
   { kind: 'best_friend', title: 'Beste vrienden', description: 'Een van je beste vrienden: je snapt en chat veel met elkaar.' },
+  { kind: 'same_bff', title: 'Zelfde BFF', description: 'Jouw #1 beste vriend is ook hun #1 beste vriend.' },
+  { kind: 'their_best', title: 'Jij bent hun beste vriend', description: 'Jij bent een van hun beste vrienden, maar zij (nog) niet een van de jouwe.' },
   { kind: 'new_friend', title: 'Nieuwe vriend', description: 'Jullie zijn net vrienden geworden (minder dan een week).' },
   { kind: 'streak', title: 'Snapstreak', description: 'Jullie sturen elkaar al dagen op rij een snap.' },
   { kind: 'hourglass', title: 'Snapstreak bijna voorbij', description: 'Stuur snel een snap, anders verlies je je Snapstreak.' },
+  { kind: 'streak_100', title: '100 dagen Snapstreak', description: 'Jullie Snapstreak staat vandaag op precies 100 dagen!' },
 ];
 /** Emoji grid in the picker (Snapchat offers a fixed set). */
-export const EMOJI_CHOICES = ['💕', '❤️', '💛', '😊', '👶', '🔥', '⌛', '😎', '🥰', '😍', '🤩', '😂', '😜', '🤪', '🤗', '💖', '💜', '💙', '💚', '🧡', '🖤', '🤍', '⭐', '🌟', '✨', '💯', '👑', '💎', '🦄', '🐣', '🌸', '🍀', '⚡', '🚀', '🎉', '😇'] as const;
+export const EMOJI_CHOICES = ['💕', '❤️', '💛', '😁', '😊', '😬', '😏', '👶', '🔥', '⌛', '😎', '🥰', '😍', '🤩', '😂', '😜', '🤪', '🤗', '💖', '💜', '💙', '💚', '🧡', '🖤', '🤍', '⭐', '🌟', '✨', '💯', '👑', '💎', '🦄', '🐣', '🌸', '🍀', '⚡', '🚀', '🎉', '😇'] as const;
 
 export const BEST_FRIENDS_MAX = 8;
 export const MIN_SCORE = 4;
@@ -81,3 +85,21 @@ export function setChoice(choices: FriendEmojiChoices | null | undefined, kind: 
 export function infoFor(kind: FriendEmojiKind) { return FRIEND_EMOJI_INFO.find(x => x.kind === kind)!; }
 /** Accessibility / profile chip: "❤️ BFF's". */
 export function relationLabel(kind: RelationKind, choices?: FriendEmojiChoices | null): string { return `${emojiFor(kind, choices)} ${infoFor(kind).title}`; }
+
+/** Server facts per friend (public.sx_friend_ranks, 20261120070000): my rank in THEIR best friends (1..8 or null)
+ *  and whether their #1 is the same person as my #1. */
+export type FriendRank = { friend_id: string; their_rank: number | null; same_number_one: boolean };
+/** Adds the two-sided emoji to the on-device kinds. 💕/❤️/💛 stay as they are; 😊 becomes 😁 when they rank you too;
+ *  friends without an emoji get 😬 (same #1) or 😏 (you're one of their best friends) before 👶. */
+export function withMutual(kinds: ReadonlyMap<string, RelationKind>, ranks: readonly FriendRank[] | null | undefined): Map<string, RelationKind> {
+  const out = new Map(kinds);
+  for (const r of ranks ?? []) {
+    if (!r || typeof r.friend_id !== 'string') continue;
+    const cur = out.get(r.friend_id), ranked = typeof r.their_rank === 'number' && r.their_rank >= 1 && r.their_rank <= BEST_FRIENDS_MAX;
+    if (cur === 'best_friend' && ranked) out.set(r.friend_id, 'mutual_best');
+    else if (!cur || cur === 'new_friend') { if (r.same_number_one) out.set(r.friend_id, 'same_bff'); else if (ranked) out.set(r.friend_id, 'their_best'); }
+  }
+  return out;
+}
+/** Snapchat shows 💯 on the day the streak hits exactly 100. */
+export const isStreak100 = (count: number | null | undefined) => count === 100;

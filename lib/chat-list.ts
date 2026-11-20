@@ -6,7 +6,7 @@ import {hasUnreadMention} from './chat-mentions';
 import {threadStatus,threadStreak,type ChatStatus} from './chat-status';
 import {parseRetention,type StreakState} from './chat-features';
 import {listVisibleRows,nameResolver,type ReceiptRow,type RetentionRow} from './chat-retention';
-import {relationKinds,type Interaction,type RelationKind} from './friend-emojis';
+import {relationKinds,withMutual,type FriendRank,type Interaction,type RelationKind} from './friend-emojis';
 
 export type ChatRow = {
   id:string;
@@ -92,7 +92,10 @@ export async function loadChatRows(uid:string,myName?:string|null):Promise<ChatR
   const interactions:Interaction[]=allRows.filter(x=>directPeer.has(x.thread_id)).map(x=>({peerId:directPeer.get(x.thread_id)!,senderId:x.sender_id,kind:x.kind,at:Date.parse(x.created_at)}));
   const since=await supabase.from('sx_friends').select('friend_id,created_at').eq('user_id',uid);
   if(since.error)console.warn('[chat-list] friends',since.error.code,since.error.message);
-  const relations=relationKinds(interactions,uid,now,new Map((since.data||[]).map(x=>[x.friend_id as string,Date.parse(x.created_at)])));
+  // 😁/😏/😬 need the other side's ranking: optional server facts (errors only hide those three).
+  const ranks=await supabase.rpc('sx_friend_ranks');
+  if(ranks.error)console.warn('[chat-list] friend ranks',ranks.error.code,ranks.error.message);
+  const relations=withMutual(relationKinds(interactions,uid,now,new Map((since.data||[]).map(x=>[x.friend_id as string,Date.parse(x.created_at)]))),ranks.error?[]:(ranks.data as FriendRank[]|null));
   return (threads.data||[]).map(thread=>{
     const people=peers.filter(x=>x.thread_id===thread.id).map(x=>x.user_id);
     const last=latest.get(thread.id);

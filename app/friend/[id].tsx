@@ -81,7 +81,7 @@ export default function FriendProfileScreen(){
  const emojiChoices=useFriendEmojis(st=>me?st.choices[me]:undefined),known=useFriendEmojis(st=>me?st.relations[me]?.[id]:undefined);
  // Vriend-emoji: the relationship last ranked in the chat list; a fresh friendship (< 7 days) is 👶 on its own.
  const relation=isFriend?known??(fresh?'new_friend':null):null;
- const chips=[relation?relationLabel(relation,emojiChoices):null,streakChip(streak,emojiFor('streak',emojiChoices),emojiFor('hourglass',emojiChoices)),since].filter((x):x is string=>!!x);
+ const chips=[relation?relationLabel(relation,emojiChoices):null,streakChip(streak,emojiFor('streak',emojiChoices),emojiFor('hourglass',emojiChoices),emojiFor('streak_100',emojiChoices)),since].filter((x):x is string=>!!x);
  const groupsTitle=sharedGroupsTitle(shared.groups.length);
  const charms=useMemo(()=>isFriend&&me?friendCharms({me,friend:id,now:loadedAt,offsetMin:-new Date(loadedAt).getTimezoneOffset(),friendsSince:sinceIso,relation,streak:streak?.count??0,messages:recentMsgs,sharedGroups:shared.groups.length,savedCount:savedRows.total}):[],[isFriend,me,id,loadedAt,sinceIso,relation,streak,recentMsgs,shared.groups.length,savedRows.total]);
  const charmsHead=charmsTitle(charms.length);

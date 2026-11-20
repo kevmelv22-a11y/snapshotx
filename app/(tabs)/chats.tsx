@@ -60,7 +60,7 @@ export default function Chats(){
  // Re-check timed mutes once a minute so 'Stil voor 1 uur' ends on time.
  useEffect(()=>{const t=setInterval(()=>setClock(Date.now()),60000);return()=>clearInterval(t)},[]);
  const emojiChoices=useFriendEmojis(st=>uid?st.choices[uid]:undefined),setRelations=useFriendEmojis(st=>st.setRelations);
- const glyphs=useMemo(()=>({fire:emojiFor('streak',emojiChoices),hourglass:emojiFor('hourglass',emojiChoices)}),[emojiChoices]);
+ const glyphs=useMemo(()=>({fire:emojiFor('streak',emojiChoices),hourglass:emojiFor('hourglass',emojiChoices),hundred:emojiFor('streak_100',emojiChoices)}),[emojiChoices]);
  const myName=(session?.user.user_metadata?.display_name as string|undefined)??null;
  const load=useCallback(async()=>{if(!uid)return;setLoading(true);try{setRows(await loadChatRows(uid,myName));setError('');const r=await supabase.from('sx_friend_requests').select('id',{count:'exact',head:true}).eq('recipient_id',uid).eq('status','pending');setRequestCount(r.count||0)}catch(e){setError(friendlyError(e,'Chats'))}finally{setLoading(false)}},[uid,myName]);
  useFocusEffect(useCallback(()=>{void load()},[load]));

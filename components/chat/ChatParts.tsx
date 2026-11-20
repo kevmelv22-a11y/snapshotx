@@ -12,7 +12,7 @@ import {REACTION_EMOJIS,RETENTION_LABEL,RETENTION_MODES,formatDuration,streakHin
 export function StreakBadge({streak}:{streak:StreakState}){
   const {session}=useSession(),uid=session?.user.id,choices=useFriendEmojis(st=>uid?st.choices[uid]:undefined);
   if(streak.count<1)return null;
-  return <View testID="streak" style={[s.streak,streak.atRisk&&s.streakRisk]}><Text style={s.streakText}>{streakLabel(streak,emojiFor('streak',choices),emojiFor('hourglass',choices))}</Text></View>;
+  return <View testID="streak" style={[s.streak,streak.atRisk&&s.streakRisk]}><Text style={s.streakText}>{streakLabel(streak,emojiFor('streak',choices),emojiFor('hourglass',choices),emojiFor('streak_100',choices))}</Text></View>;
 }
 export function StreakWarning({streak}:{streak:StreakState}){
   const hint=streakHint(streak);
