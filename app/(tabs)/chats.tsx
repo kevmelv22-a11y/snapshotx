@@ -66,7 +66,7 @@ export default function Chats(){
  useFocusEffect(useCallback(()=>{void load()},[load]));
  useEffect(()=>{if(!uid)return;const ch=supabase.channel(`sx-chat-list-${uid}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'sx_messages'},()=>void load()).subscribe();return()=>{void supabase.removeChannel(ch)}},[uid,load]);
  useEffect(()=>{if(!uid||filter!=='nearby')return;let active=true;void supabase.from('sx_locations').select('user_id').eq('sharing',true).then(({data,error:e})=>{if(active){if(e)setError(friendlyError(e,'Vrienden in de buurt'));else setNearbyIds((data||[]).map(x=>x.user_id))}});return()=>{active=false}},[uid,filter]);
- useEffect(()=>{if(!uid||filter!=='stories')return;let active=true;void supabase.from('sx_stories').select('owner_id').gt('expires_at',new Date().toISOString()).then(({data,error:e})=>{if(active){if(e)setError(friendlyError(e,'Stories'));else setStoryIds((data||[]).map(x=>x.owner_id))}});return()=>{active=false}},[uid,filter]);
+ useEffect(()=>{if(!uid||filter!=='stories')return;let active=true;void supabase.from('sx_stories').select('owner_id').is('shared_story_id',null).gt('expires_at',new Date().toISOString()).then(({data,error:e})=>{if(active){if(e)setError(friendlyError(e,'Stories'));else setStoryIds((data||[]).map(x=>x.owner_id))}});return()=>{active=false}},[uid,filter]);
  useEffect(()=>{if(!clearedRow)return;const t=setTimeout(()=>setClearedRow(null),6000);return()=>clearTimeout(t)},[clearedRow]);
  // Snapchat chat feed: pinned chats on top (max 3), "Wissen uit chatfeed" hides a chat until a new message arrives.
  const nicknames=useFriendNicknames(uid);

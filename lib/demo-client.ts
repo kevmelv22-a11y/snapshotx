@@ -16,6 +16,7 @@ import { MEDIA_ERRORS, canReadMedia } from './media-access';
 import { GROUP_ERRORS, GROUP_MAX_MEMBERS, canRemoveMember, groupAddText, groupLeaveText, groupRemoveText, groupRenameText, groupRightsText, isGroupThread, normalizeGroupTitle } from './group-chat';
 import { WALLPAPER_ERRORS, WALLPAPER_IDS, canDeleteOwnMedia, isPhotoWallpaperPath, wallpaperChangeText, wallpaperUploader } from './chat-wallpaper';
 import { DEMO_EMAIL } from './demo-constants';
+import { SHARED_MAX_MEMBERS, cleanSharedTitle } from './shared-stories';
 
 type Err = { message: string; code?: string; details?: string };
 type Res = { data: unknown; error: Err | null; count?: number | null };
@@ -118,6 +119,11 @@ function seedDemo(m: StaffMock) {
   m.t.sx_stories.push(st(I.aria, 'demo/strand.svg', 'Zon, zee en zand ☀️', 2 * H, 'everyone'), st(I.aria, 'demo/koffie.svg', null, 1 * H),
     st(I.eva, 'demo/hond.svg', 'Max is jarig! 🎂', 3 * H, 'everyone'), st(I.cleo, 'demo/fiets.svg', 'Rondje Vondelpark', 5 * H),
     st(EXTRA.noor, 'demo/zonsondergang.svg', 'Wat een avond', 7 * H, 'everyone'));
+  // Gedeeld verhaal (20261120060000): one shared story with Aria + Eva, two snaps in it (not in the personal feeds).
+  const gs = 'c0000000-0000-4000-8000-0000000000e1';
+  m.t.sx_shared_stories = [{ id: gs, title: 'Weekend Texel 🏝️', created_by: I.aria, created_at: iso(-20 * H) }];
+  m.t.sx_shared_story_members = [I.aria, I.eva, ME].map(user_id => ({ shared_story_id: gs, user_id, added_by: I.aria, added_at: iso(-20 * H) }));
+  m.t.sx_stories.push({ ...st(I.aria, 'demo/strand.svg', 'Aangekomen! 🚲', 4 * H), shared_story_id: gs }, { ...st(I.eva, 'demo/zonsondergang.svg', 'Zonsondergang op de dijk', 1.5 * H), shared_story_id: gs });
   m.t.sx_story_views = []; m.t.sx_story_reactions = []; m.t.sx_reactions = []; m.t.sx_receipts = []; m.t.sx_blocks = [];
   // Snapchat chat status + streaks: snap history (expired media) both ways, read marks and an opened snap of Kevin.
   m.t.sx_threads.push({ id: T.noor, title: null, created_at: iso(-6 * D), member_count: 2, retention_mode: 'keep' });
@@ -384,7 +390,32 @@ export class DemoClient {
     }, 1800);
   }
   from(table: string) { return new DemoQuery(this, table); }
+  private sharedAdd(id: string, members: string[]): number {
+    const mem = this.m.table('sx_shared_story_members');
+    if (!mem.some(x => x.shared_story_id === id && x.user_id === ME)) throw new Error('Not a member of this shared story');
+    const fresh = [...new Set(members)].filter(x => x && x !== ME && !mem.some(m => m.shared_story_id === id && m.user_id === x));
+    if (mem.filter(x => x.shared_story_id === id).length + fresh.length > SHARED_MAX_MEMBERS) throw new Error('Shared story is full (max 30)');
+    for (const x of fresh) if (!this.m.table('sx_friends').some(f => f.user_id === ME && f.friend_id === x) || this.blockedWith(x)) throw new Error('Only friends can be added');
+    for (const x of fresh) mem.push({ shared_story_id: id, user_id: x, added_by: ME, added_at: this.m.iso() });
+    return fresh.length;
+  }
   private appRpcs: Record<string, (a: Row) => unknown> = {
+    // Mirrors 20261120060000_shared_stories (members only, only own friends, max 30, leave soft-deletes own snaps).
+    sx_create_shared_story: a => {
+      const title = cleanSharedTitle(String(a.p_title ?? '')); if (!title) throw new Error('Invalid shared story name');
+      const ps = (a.p_members as string[] | null) ?? []; if (!ps.length) throw new Error('Choose at least one friend');
+      const id = newId(); this.m.table('sx_shared_stories').push({ id, title, created_by: ME, created_at: this.m.iso() });
+      this.m.table('sx_shared_story_members').push({ shared_story_id: id, user_id: ME, added_by: ME, added_at: this.m.iso() });
+      this.sharedAdd(id, ps); return id;
+    },
+    sx_add_shared_story_members: a => this.sharedAdd(String(a.p_id), (a.p_members as string[] | null) ?? []),
+    sx_leave_shared_story: a => {
+      const mem = this.m.table('sx_shared_story_members'), i = mem.findIndex(x => x.shared_story_id === a.p_id && x.user_id === ME);
+      if (i < 0) throw new Error('Not a member of this shared story'); mem.splice(i, 1);
+      for (const s of this.m.table('sx_stories')) if (s.shared_story_id === a.p_id && s.owner_id === ME) { s.removed_at = this.m.iso(); s.expires_at = this.m.iso(); }
+      if (!mem.some(x => x.shared_story_id === a.p_id)) { const g = this.m.table('sx_shared_stories'); g.splice(g.findIndex(x => x.id === a.p_id), 1); }
+      return null;
+    },
     sx_open_thread: a => {
       const ps = (a.participants as string[]) ?? [];
       if (ps.length === 1) { const mine = this.m.table('sx_members').filter(x => x.user_id === ME).map(x => x.thread_id);

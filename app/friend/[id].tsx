@@ -45,7 +45,7 @@ export default function FriendProfileScreen(){
    supabase.from('profiles').select('id,display_name,username,activity_score,gender').eq('id',id).maybeSingle(),
    supabase.from('sx_friends').select('created_at').eq('user_id',me).eq('friend_id',id).maybeSingle(),
    supabase.from('sx_members').select('thread_id').eq('user_id',me),
-   supabase.from('sx_stories').select('id').eq('owner_id',id).gt('expires_at',new Date().toISOString()),
+   supabase.from('sx_stories').select('id').eq('owner_id',id).is('shared_story_id',null).gt('expires_at',new Date().toISOString()),
   ]);
   if(!alive())return;
   if(pr.error||!pr.data){setNotice(pr.error?friendlyError(pr.error):'Dit profiel bestaat niet (meer).');setLoading(false);return}

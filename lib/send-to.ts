@@ -19,6 +19,7 @@ export function sendSummary(selected: string[], friends: SendFriend[], max = 3):
   return `${names.slice(0, max).join(', ')} +${names.length - max}`;
 }
 
-export function splitTargets(selected: string[]): { story: boolean; friendIds: string[] } {
-  return { story: selected.includes(STORY_TARGET), friendIds: selected.filter(x => x !== STORY_TARGET) };
+/** Gedeeld verhaal targets are `shared:<id>` (lib/shared-stories.ts). */
+export function splitTargets(selected: string[]): { story: boolean; friendIds: string[]; sharedIds: string[] } {
+  return { story: selected.includes(STORY_TARGET), friendIds: selected.filter(x => x !== STORY_TARGET && !x.startsWith('shared:')), sharedIds: selected.filter(x => x.startsWith('shared:')).map(x => x.slice(7)) };
 }

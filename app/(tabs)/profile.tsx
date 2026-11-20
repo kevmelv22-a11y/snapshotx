@@ -37,12 +37,12 @@ export default function Profile(){
   const now=new Date().toISOString();
   // Own profile comes from useOwnProfile (maybeSingle + create/fallback). The rest loads independently so one
   // unavailable table (no GRANT on live) only hides its own part instead of breaking the screen.
-  const [f,s,l]=await Promise.all([supabase.from('sx_friends').select('friend_id').eq('user_id',uid).limit(4),supabase.from('sx_stories').select('id',{count:'exact',head:true}).eq('owner_id',uid).gt('expires_at',now),supabase.from('sx_locations').select('sharing').eq('user_id',uid).maybeSingle()]);
+  const [f,s,l]=await Promise.all([supabase.from('sx_friends').select('friend_id').eq('user_id',uid).limit(4),supabase.from('sx_stories').select('id',{count:'exact',head:true}).eq('owner_id',uid).is('shared_story_id',null).gt('expires_at',now),supabase.from('sx_locations').select('sharing').eq('user_id',uid).maybeSingle()]);
   if(!active)return;setStories(s.count||0);setSharing(!!l.data?.sharing);
   const problems=[f.error&&friendlyError(f.error,'Vrienden'),s.error&&friendlyError(s.error,'Stories'),l.error&&friendlyError(l.error,'Locatie')].filter(Boolean) as string[];
   setNotice([...new Set(problems)].join('\n'));
   const ids=(f.data||[]).map(x=>x.friend_id as string);if(!ids.length){setFriends([]);return}
-  const [n,st]=await Promise.all([supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',ids),supabase.from('sx_stories').select('id,owner_id,expires_at').in('owner_id',ids).gt('expires_at',now)]);
+  const [n,st]=await Promise.all([supabase.from('profiles').select(PROFILE_NAME_COLUMNS).in('id',ids),supabase.from('sx_stories').select('id,owner_id,expires_at').in('owner_id',ids).is('shared_story_id',null).gt('expires_at',now)]);
   const storyIds=(st.data||[]).map(x=>x.id as string);const v=storyIds.length?await supabase.from('sx_story_views').select('story_id').eq('viewer_id',uid).in('story_id',storyIds):{data:[]};
   if(!active)return;const names=new Map((n.data||[]).map(x=>[x.id,profileName(x)])),seen=(v.data||[]).map(x=>x.story_id as string),t=Date.now();
   setFriends(ids.map(id=>({id,name:names.get(id)||'Vriend',ring:storyRingState((st.data||[]).filter(x=>x.owner_id===id).map(x=>({id:x.id,expiresAt:Date.parse(x.expires_at)})),seen,t)})));
