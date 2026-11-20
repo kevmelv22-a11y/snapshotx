@@ -51,7 +51,12 @@ Eerste versie van Snapshot X.
 - Door gebruikers gegenereerde inhoud / onbeperkt chatten met andere gebruikers: **ja** (met melden + blokkeren + moderatie, richtlijn 1.2).
 - Geweld, seksuele inhoud, grof taalgebruik, drugs, gokken (door de ontwikkelaar aangeboden): **geen**.
 - Locatie delen met andere gebruikers: **ja, optioneel** (Ghost mode standaard beschikbaar).
+- Berichten en chat: **ja**. AI-chatbot (**Mijn AI**, tekst): **ja** — vermelden bij de mogelijkheden; systeemprompt is tienerveilig (geen seksuele/gewelddadige inhoud, verwijst naar 113/112), antwoorden zijn in de app te melden.
 - Uitkomst verwacht: 13+ (Apple-schaal na 2025: 13+).
+
+## Gegevens delen met AI van derden (richtlijn 5.1.2(i), nov 2025)
+- Mijn AI stuurt pas iets naar **Groq (VS)** — reserve **OpenAI (VS)** — nadat de gebruiker in de app op **Toestaan** tikt. De kaart noemt de dienst en wat er wordt verstuurd (het bericht + de laatste berichten van dat gesprek; geen naam, e-mail, gebruikersnaam, locatie of foto's). Intrekken: schildje rechtsboven in Mijn AI. Zonder toestemming werkt de rest van de app gewoon.
+- Privacybeleid (lib/legal.ts, 21 november 2026) zegt hetzelfde. In App Privacy: "Gebruikersinhoud › Overige gebruikersinhoud" (AI-berichten) — app-functionaliteit, niet voor tracking.
 
 ## App Privacy ("voedingslabel") — voorstel
 Gekoppeld aan de gebruiker, niet voor tracking (geen tracking, geen advertenties):
@@ -67,7 +72,7 @@ Dit staat ook in de privacymanifest (`ios.privacyManifests.NSPrivacyCollectedDat
 ## Gegevens voor de beoordeling (App Review)
 - Demo-account: `appreview@snapshot-x.nl` — password: see secure file (niet in de repo).
 - Opmerking voor de reviewer (Engels):
-  "Snapshot X is a photo/video messaging app. Users can report content and accounts (long-press a chat/story → Melden, or friend profile → Account melden) and block users; reports are reviewed by our staff in the in-app staff console. Account deletion: Instellingen › Account verwijderen. Data export: Instellingen › Mijn gegevens. Help & support (FAQ, crisis lines, contact): Instellingen › Help en support."
+  "Snapshot X is a photo/video messaging app. Users can report content and accounts (long-press a chat/story → Melden, or friend profile → Account melden) and block users; reports are reviewed by our staff in the in-app staff console. Account deletion: Instellingen › Account verwijderen. Mijn AI (Chats › Mijn AI) is a text AI chatbot: it asks for explicit permission before any message is sent to the third-party AI provider (Groq, fallback OpenAI), replies can be reported with the flag icon, and permission can be withdrawn with the shield icon. Data export: Instellingen › Mijn gegevens. Help & support (FAQ, crisis lines, contact): Instellingen › Help en support."
 - Contactpersoon: Vonk Byte — e-mail support@snapshot-x.nl — telefoon: **TODO(Kevin)** (verplicht voor Apple bij indienen; nog niet gegeven per 6 nov 2026).
 
 ## Schermafbeeldingen (6,9" iPhone, 1320 × 2868 — of 6,5", 1284 × 2778)
@@ -82,7 +87,8 @@ Dit staat ook in de privacymanifest (`ios.privacyManifests.NSPrivacyCollectedDat
 ## Nog nodig vóór indienen
 - [ ] Eigen Apple Developer-account + bundle ID (geen ondertekening via een ander team).
 - [x] Support-e-mail: support@snapshot-x.nl (lib/legal.ts). Support-URL: https://snapshot-x.nl/help (openbare helppagina, app/help.tsx).
-- [ ] Openstaande Supabase-migraties toepassen (zie supabase/migrations, o.a. 20261029030000 en 20261029120000).
+- [x] Supabase-migraties: alle migraties die de app nodig heeft staan live (gecontroleerd 21 nov 2026, zie docs/engineering/MIGRATIONS_LIVE.md; 20261029030000 en 20261029120000 zijn live als `report_reasons_accounts` en `notification_prefs`).
+- [x] Mijn AI: expliciete toestemming vóór gegevens naar AI van derden gaan (5.1.2(i)).
 - [ ] In-app aankopen (Snapshot X+) aanmaken in App Store Connect als ze bij de lancering meegaan.
 - [x] Demo-account voor App Review.
 

@@ -89,6 +89,16 @@ The project now includes SDK 57 `expo-updates`, the EAS project URL, `appVersion
 - **METADATA_NL**: App Review-telefoon nog TODO; Android-pariteitparagraaf.
 - Geen native builds deze sessie.
 
+## Sessie 21-11-2026 00:10 (App Store/Play-readiness + Snapchat-parity)
+
+- Migratie live: `20261121000000_staff_ai_reports` (staff-only lees-RPC voor AI-meldingen; PGlite-test /workspace/pgtest/s1121-ai-reports.mjs; live gecontroleerd: anon geen execute, niet-staff krijgt 42501).
+- **Mijn AI vraagt expliciete toestemming** vóór het eerste bericht naar Groq/OpenAI (Apple 5.1.2(i)); intrekken via het schildje. Privacybeleid 21 november 2026.
+- **Zonnestelsel** (X+) op het vriendschapsprofiel; **Nog een potje** na boter-kaas-en-eieren; **Bekijk verhaal ›** bij verhaalreacties in de chat; verhaalviewer toont "niet meer beschikbaar" i.p.v. andermans verhaal.
+- **Android/web-fix**: verhaal verwijderen + "Stuur naar <chat>" via ConfirmDialog (RN Alert deed niets op web; Android-terug liet het verhaal gepauzeerd). Groepsuitnodiging delen: link 1× op iOS, in de tekst op Android, kopiëren op web.
+- **Staffpaneel › AI-meldingen**. Play: release-opmerkingen versionCode 4 + Data safety-aanvulling + checklist. RevenueCat Play: geen lifetime bij lancering; nog steeds geen Play-app in RevenueCat.
+- **Migratie-inventaris**: docs/engineering/MIGRATIONS_LIVE.md (repo ↔ live op naam); METADATA "openstaande migraties" was verouderd en is afgevinkt.
+- Geen native builds deze sessie (alles JS → OTA-geschikt).
+
 ## Open launch items (bijgewerkt 01-11-2026 06:00)
 
 - **Google Play**: account **geverifieerd** (2 nov 2026). Gesloten test: **10 testers = Postwacht** (Google 12×14 blijft gelden voor persoonlijk account — zie CLOSED_TEST_NL.md). FCM V1 in EAS; versionCode 3 / EAS `2f336b8f`; eerste handmatige AAB-upload + Play-signing-SHA → assetlinks; RevenueCat Play-app + `goog_`-key nog open; Android-screenshots.
