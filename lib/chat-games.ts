@@ -5,7 +5,7 @@
  *    move that is legal (right player by the server-set sender_id, exactly one new mark, game not finished), so a
  *    tampered message is simply ignored. No new table or migration. No I/O here. */
 export const GAME_PREFIX = '[game]';
-export const GAME_LABEL = { title: 'Boter, kaas en eieren', start: 'Spelletje starten', preview: '🎮 Boter, kaas en eieren', button: 'Spelletje' } as const;
+export const GAME_LABEL = { title: 'Boter, kaas en eieren', start: 'Spelletje starten', preview: '🎮 Boter, kaas en eieren', button: 'Spelletje', rematch: 'Nog een potje' } as const;
 export type Cell = 'x' | 'o' | '-';
 export type GameMsg = { game: 'bke'; id: string; x: string; board: Cell[] };
 export type GameState = GameMsg & { messageId: string; turn: 'x' | 'o' | null; winner: 'x' | 'o' | 'draw' | null; line: number[] | null; moves: number };
@@ -37,8 +37,9 @@ function stateOf(m: GameMsg, messageId: string): GameState {
 }
 type Row = { id: string; sender_id: string; body: string | null; created_at: string; kind?: string; unsent_at?: string | null };
 /** Replays all game messages of a chat (any order in) → current state per game id + the ids of accepted messages. */
-export function replayGames(rows: readonly Row[]): { games: Map<string, GameState>; accepted: Set<string> } {
+export function replayGames(rows: readonly Row[]): { games: Map<string, GameState>; accepted: Set<string>; latest: string | null } {
   const games = new Map<string, GameState>(), accepted = new Set<string>();
+  let latest: string | null = null;
   const list = rows.filter(r => (r.kind ?? 'text') === 'text' && !r.unsent_at).map(r => ({ r, g: parseGame(r.body) })).filter((x): x is { r: Row; g: GameMsg } => !!x.g)
     .sort((a, b) => Date.parse(a.r.created_at) - Date.parse(b.r.created_at) || a.r.id.localeCompare(b.r.id));
   for (const { r, g } of list) {
@@ -54,9 +55,9 @@ export function replayGames(rows: readonly Row[]): { games: Map<string, GameStat
       const diff = g.board.map((c, i) => (c !== prev.board[i] ? i : -1)).filter(i => i >= 0);
       if (diff.length !== 1 || prev.board[diff[0]] !== '-' || g.board[diff[0]] !== mark) continue;
     }
-    games.set(g.id, stateOf(g, r.id)); accepted.add(r.id);
+    games.set(g.id, stateOf(g, r.id)); accepted.add(r.id); latest = g.id;
   }
-  return { games, accepted };
+  return { games, accepted, latest };
 }
 /** Board after my tap, or an error (Dutch). */
 export function playMove(s: GameState, me: string, cell: number): { ok: true; body: string } | { ok: false; error: string } {
@@ -82,4 +83,9 @@ export function gamePreview(g: GameMsg): string {
 }
 export function newGameId(rand: () => number = Math.random, now = Date.now()): string {
   return `g${now.toString(36)}-${Math.floor(rand() * 36 ** 6).toString(36).padStart(6, '0')}`;
+}
+/** "Nog een potje" under a finished board: only on the newest game of the chat (once a new game exists, older finished
+ *  boards stop offering it). Whoever taps starts the new game and plays ❌. */
+export function canRematch(s: GameState | undefined, latest: string | null): boolean {
+  return !!s && !!s.winner && s.id === latest;
 }
