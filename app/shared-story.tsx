@@ -1,5 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
-import {Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
+import {KeyboardAvoidingView,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
+import {kavBehavior} from '../lib/keyboard';
 import {Ionicons} from '@expo/vector-icons';
 import {Stack,router,useLocalSearchParams} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -35,6 +36,7 @@ export default function SharedStoryScreen(){
  function leave(){if(!sid)return;confirm.ask({title:'Gedeeld verhaal verlaten?',message:'Je snaps in dit verhaal worden verwijderd en je ziet het verhaal niet meer.',confirmLabel:'Verlaten',destructive:true},async()=>{const {error}=await supabase.rpc('sx_leave_shared_story',{p_id:sid});if(error)return sharedErrorText(error.message);router.replace('/(tabs)/stories');return null})}
  return <GalaxyScreen readable><Stack.Screen options={{headerShown:false}}/>
   <View style={[s.header,{paddingTop:Math.max(insets.top,14)}]}><Pressable onPress={()=>router.canGoBack()?router.back():router.replace('/(tabs)/stories')} accessibilityLabel="Terug" hitSlop={10}><Ionicons name="chevron-back" size={27} color="white"/></Pressable><Text style={s.title} numberOfLines={1}>{sid?title||'Gedeeld verhaal':'Nieuw gedeeld verhaal'}</Text><View style={{width:27}}/></View>
+  <KeyboardAvoidingView style={{flex:1}} behavior={kavBehavior(Platform.OS)}>
   <ScrollView contentContainerStyle={[s.content,{paddingBottom:insets.bottom+110}]} testID="shared-story-screen" keyboardShouldPersistTaps="handled">
    {!sid&&<><Text style={s.intro}>Een verhaal dat jullie samen maken. Alleen de leden zien het en kunnen er snaps aan toevoegen. Het is nooit openbaar.</Text>
     <Text style={s.label}>Naam</Text><TextInput value={title} onChangeText={t=>setTitle(t.slice(0,SHARED_TITLE_MAX))} placeholder={suggestTitle(friends.filter(f=>picked.includes(f.id)).map(f=>f.display_name))} placeholderTextColor="#8E879A" style={s.input} maxLength={SHARED_TITLE_MAX} testID="shared-title"/></>}
@@ -49,6 +51,7 @@ export default function SharedStoryScreen(){
    {!!sid&&<Pressable style={s.leave} onPress={leave} testID="shared-leave"><Text style={s.leaveText}>Verhaal verlaten</Text></Pressable>}
   </ScrollView>
   {!!picked.length&&<View style={[s.bar,{paddingBottom:Math.max(14,insets.bottom+6)}]}><Text style={s.barText}>{picked.length} gekozen</Text><Pressable onPress={()=>void save()} disabled={busy} style={[s.barBtn,busy&&{opacity:.6}]} testID="shared-save"><Text style={s.barBtnText}>{sid?'Toevoegen':'Maken'}</Text></Pressable></View>}
+  </KeyboardAvoidingView>
   {confirm.dialog}
  </GalaxyScreen>;
 }

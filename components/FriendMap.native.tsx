@@ -52,6 +52,15 @@ function useTracksViewChanges(key: string): boolean {
   return tracking;
 }
 
+/** Plek-marker. Android (Google Maps) snapshots the view: tracksViewChanges must be on briefly after mount and when the
+ *  selection changes (off from the start = blank/clipped bubble on Android), then off so it doesn't redraw every frame. */
+const PlaceMarker = React.memo(function PlaceMarker({place, selected, onPress}: {place: MapPlace; selected: boolean; onPress: (id: string) => void}) {
+  const tracks = useTracksViewChanges(selected ? 'on' : 'off');
+  return <Marker coordinate={{latitude: place.latitude, longitude: place.longitude}} anchor={{x: 0.5, y: 0.5}} centerOffset={{x: 0, y: 0}} onPress={() => onPress(place.id)} stopPropagation tracksViewChanges={tracks} accessibilityLabel={`${place.name}, ${place.city}`}>
+    <View collapsable={false} style={[styles.place, selected && styles.placeOn]}><Text style={styles.placeEmoji}>{CATEGORY_INFO[place.category].emoji}</Text></View>
+  </Marker>;
+});
+
 const FriendMarker = React.memo(function FriendMarker({pin, outfit, selected, onSelect}: {pin: Pin; outfit: FriendOutfitValue | undefined; selected: boolean; onSelect: (id: string | null) => void}) {
   const tracks = useTracksViewChanges(`${selected ? 1 : 0}|${outfit ? JSON.stringify(outfit) : '-'}`);
   return <Marker
@@ -179,7 +188,7 @@ export default function FriendMap({pins, own, ownAppearance, friendOutfits, trai
     >
       {/* Hotspots: soft circles (react-native-maps' Heatmap needs the Google provider on iOS; Circle works on both). */}
       {(heat ?? []).map((h, i) => { const c = heatCircle(h.weight); return <Circle key={`heat-${i}`} center={h} radius={c.radius} fillColor={`rgba(255,${Math.round(140 - h.weight * 14)},40,${c.opacity})`} strokeWidth={0}/>; })}
-      {(places ?? []).map(p => <Marker key={`place-${p.id}`} coordinate={p} anchor={{x: 0.5, y: 0.5}} onPress={() => { lastMarkerTap.current = Date.now(); onPlace?.(p.id); }} tracksViewChanges={false} accessibilityLabel={p.name}><View collapsable={false} style={[styles.place, selectedPlaceId === p.id && styles.placeOn]}><Text style={styles.placeEmoji}>{CATEGORY_INFO[p.category].emoji}</Text></View></Marker>)}
+      {(places ?? []).map(p => <PlaceMarker key={`place-${p.id}`} place={p} selected={selectedPlaceId === p.id} onPress={id => { lastMarkerTap.current = Date.now(); onPlace?.(id); }}/>)}
       {trail.length > 1 && <Polyline coordinates={trail} strokeColor="#FFE436" strokeWidth={4} lineDashPattern={[4, 5]}/>}
       {pins.map(pin => <FriendMarker key={pin.id} pin={pin} outfit={friendOutfits?.get(pin.id)} selected={selectedId === pin.id} onSelect={selectFromMarker}/>)}
       {own && <OwnMarker own={own} appearance={ownAppearance}/>}

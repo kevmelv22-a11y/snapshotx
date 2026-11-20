@@ -29,6 +29,9 @@ Status 6 nov 2026 (21:14-sessie). Bouwen en indienen gebeurt **alleen op Kevins 
 - [x] **Toetsenbord op Android**: alle invoervelden (chat, reacties, verhaal-antwoord, peilingen, inloggen, wachtwoord, verjaardag) gebruiken `padding` op Android (`lib/keyboard.ts`); met edge-to-edge (Android 15+) bleef het typveld anders onder het toetsenbord.
 - [x] **Geen schermdeel-service**: `plugins/withAndroidNoScreenShareService.js` haalt de `mediaProjection`-service van react-native-webrtc uit het manifest; `FOREGROUND_SERVICE_CAMERA/MICROPHONE/MEDIA_PROJECTION` geblokkeerd; `DETECT_SCREEN_CAPTURE` expliciet (screenshotmelding Android 14+). Zie DATA_SAFETY_NL.md.
 
+- [x] **20 nov 2026 (21:10-sessie)**: nieuwe functies (Gedeeld verhaal, Geluiden, Hotspots/Plekken, Vriend-emoji's 😁 😬 😏 💯, Spelletje, Mijn AI) vragen **geen nieuwe Android-permissies** (bewaakt door `lib/android-parity-20261120.test.mjs`). Plek-markers volgen het Google Maps-patroon (tracksViewChanges kort aan), nieuwe invoerschermen gebruiken `kavBehavior` (edge-to-edge), alle Modals sluiten met de terugknop.
+- [x] **Generatieve AI-beleid**: AI-antwoorden melden in de app (`sx_ai_reports`), veiligheidsprompt, label "AI-chatbot · geen mens", 40/dag. Data safety + contentclassificatie + privacybeleid (Mijn AI-sectie, 20 nov 2026) bijgewerkt. Concept-release-opmerkingen voor versionCode 4 in `LISTING_NL.md`.
+
 ## Nog te doen (Kevin / volgende sessies)
 1. **Play-account geverifieerd** ✅ (Vonk Byte, 2 nov 2026). App in Console aanmaken + eerste AAB **handmatig** uploaden.
 2. **Gesloten test**: dezelfde **10 testers als Postwacht**. Google’s 12×14-regel geldt nog voor een persoonlijk account — zie `CLOSED_TEST_NL.md` (2 extra testers of later KvK-organisatie-account jan 2027).
