@@ -32,6 +32,8 @@ Status 6 nov 2026 (21:14-sessie). Bouwen en indienen gebeurt **alleen op Kevins 
 - [x] **20 nov 2026 (21:10-sessie)**: nieuwe functies (Gedeeld verhaal, Geluiden, Hotspots/Plekken, Vriend-emoji's 😁 😬 😏 💯, Spelletje, Mijn AI) vragen **geen nieuwe Android-permissies** (bewaakt door `lib/android-parity-20261120.test.mjs`). Plek-markers volgen het Google Maps-patroon (tracksViewChanges kort aan), nieuwe invoerschermen gebruiken `kavBehavior` (edge-to-edge), alle Modals sluiten met de terugknop.
 - [x] **Generatieve AI-beleid**: AI-antwoorden melden in de app (`sx_ai_reports`), veiligheidsprompt, label "AI-chatbot · geen mens", 40/dag. Data safety + contentclassificatie + privacybeleid (Mijn AI-sectie, 20 nov 2026) bijgewerkt. Concept-release-opmerkingen voor versionCode 4 in `LISTING_NL.md`.
 
+- [x] **21 nov 2026 (00:10-sessie, Android)**: verhaal verwijderen en "Stuur naar <chat>" gebruiken de eigen ConfirmDialog (Modal met `onRequestClose`): een Android-terugknop of tik buiten de dialoog liet het verhaal eerder voorgoed gepauzeerd. Groepsuitnodiging delen zet de link in de tekst (Android negeert het `url`-veld van de share-sheet). Geen nieuwe permissies; Zonnestelsel/Nog een potje/AI-toestemming zijn pure JS (OTA-geschikt).
+
 ## Nog te doen (Kevin / volgende sessies)
 1. **Play-account geverifieerd** ✅ (Vonk Byte, 2 nov 2026). App in Console aanmaken + eerste AAB **handmatig** uploaden.
 2. **Gesloten test**: dezelfde **10 testers als Postwacht**. Google’s 12×14-regel geldt nog voor een persoonlijk account — zie `CLOSED_TEST_NL.md` (2 extra testers of later KvK-organisatie-account jan 2027).

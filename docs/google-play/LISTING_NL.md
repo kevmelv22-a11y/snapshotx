@@ -60,10 +60,10 @@ Voor AAB versionCode 3 (EAS production build `2f336b8f`, 6 nov 2026; alleen bouw
 Meldingen werken nu echt op Android: tik op een melding en de juiste chat opent meteen, ook als de app dicht was. In een open chat krijg je geen dubbele melding. Uitloggen stopt de meldingen op dit toestel. Snapshot X+-abonnementen tonen het juiste niveau (zoals Platinum). Geen testfuncties of demo meer in de app. De terugknop sluit eerst open vensters. Het toetsenbord bedekt het typveld niet meer. Links naar snapshot-x.nl/add openen de app.
 </nl-NL>
 
-## Release-opmerkingen volgende versie (concept, 20 nov 2026, ≤500)
+## Release-opmerkingen volgende versie (concept, bijgewerkt 21 nov 2026, ≤500)
 Pas gebruiken bij de volgende build op Kevins verzoek (versionCode 4).
 <nl-NL>
-Nieuw: maak een Gedeeld verhaal met je vrienden, zet muziek of een stemfilter onder je snap, reageer met emoji op verhalen, stuur duo-stickers, speel boter, kaas en eieren in de chat, ontdek hotspots en plekken op de kaart, nieuwe vriend-emoji's (😁 😬 😏 💯) en chat met Mijn AI.
+Nieuw: maak een Gedeeld verhaal met je vrienden, zet muziek of een stemfilter onder je snap, reageer met emoji op verhalen, stuur duo-stickers, speel boter, kaas en eieren in de chat (met Nog een potje), ontdek hotspots en plekken op de kaart, nieuwe vriend-emoji's (😁 😬 😏 💯), het Zonnestelsel voor X+ en chat met Mijn AI (pas na jouw toestemming). Verbeterd: verhaal verwijderen en de terugknop in dialogen werken beter, groepsuitnodigingen delen met de juiste link.
 </nl-NL>
 
 ## Afbeeldingen

@@ -54,3 +54,9 @@ Verwerking is **niet tijdelijk** (gegevens worden opgeslagen), behalve live gesp
 
 ## Controle bij elke release
 - Nieuwe SDK of permissie? Werk dit document, `app.json` (`ios.privacyManifests` + `android.permissions/blockedPermissions`) en `lib/legal.ts` samen bij. `lib/android-config.test.mjs` bewaakt de Android-permissies.
+
+## Aanvulling 21 nov 2026
+- **Mijn AI stuurt pas iets door na expliciete toestemming** in de app (kaart met Groq/OpenAI en wat er wordt verstuurd; Toestaan/Niet nu; intrekken via het schildje). De toestemming staat alleen op het toestel. De antwoorden in het formulier blijven gelijk (verwerker in onze opdracht, tijdelijk verwerkt).
+- **Zonnestelsel (X+)** gebruikt alleen de bestaande RPC `sx_friend_ranks` (je eigen plek in de beste vrienden van een vriend, berekend uit berichten die al in de tabel "Berichten/App-activiteit" staan). Geen nieuw gegevenstype, niets gedeeld.
+- **Nog een potje** (spelletje) = een gewoon chatbericht; valt onder "Andere in-app-berichten". **Staffpaneel › AI-meldingen** leest bestaande meldingen (alleen staff); geen nieuwe verzameling.
+- Conclusie: Data safety-formulier hoeft voor deze wijzigingen **niet** aangepast te worden.
