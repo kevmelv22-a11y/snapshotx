@@ -21,8 +21,8 @@ De app kiest de SDK-key per platform (`rcApiKeyFor` in `lib/revenuecat-logic.ts`
    | `snapshot_x_storage` | `monthly`, `yearly` | `snapshot_x_storage:monthly`, `…:yearly` |
    Google Play kent geen "monthly" als los product-ID per abonnement zoals Apple; RevenueCat koppelt `abonnement:basisabonnement`.
    **Houd deze namen exact aan**: de app leest het niveau uit het product-ID (`rcProductPlan` in `lib/revenuecat-logic.ts`): `platinum`/`family`/`lens`/`storage` in het ID → dat niveau, anders X+; `monthly`/`yearly` → periode. Een Play-aankoop krijgt bron `play` (een App Store-aankoop `app_store`). Getest in `lib/revenuecat.test.mjs` voor alle ID's in deze tabel.
-5. **Monetiseren › In-app-producten**: `lifetime` (eenmalig, niet-verbruikbaar).
-6. Prijzen in EUR gelijk aan iOS (`lib/plus.ts`): X+ € 3,49/mnd of € 29,99/jaar (7 dagen gratis proberen), Family € 5,99/mnd, Lens € 6,99/mnd, Platinum € 11,99/mnd of € 109,99/jaar, Herinneringen-opslag € 1,79/mnd of € 17,99/jaar; `lifetime`: TODO(Kevin) prijs kiezen. Proefperiode: als **aanbieding** (gratis proefperiode, 7 dagen, nieuwe klanten) op de basisabonnementen van `snapshot_x_plus`, niet als apart product.
+5. **Monetiseren › In-app-producten**: géén voor de lancering. De app verkoopt geen levenslang abonnement (`PLANS` in `lib/plus.ts` heeft alleen maand/jaar); `lifetime` staat alleen in de RevenueCat Test Store. Pas aanmaken als Kevin later een levenslang aanbod wil (dan ook `lib/plus.ts` + paywall).
+6. Prijzen in EUR gelijk aan iOS (`lib/plus.ts`): X+ € 3,49/mnd of € 29,99/jaar (7 dagen gratis proberen), Family € 5,99/mnd, Lens € 6,99/mnd, Platinum € 11,99/mnd of € 109,99/jaar, Herinneringen-opslag € 1,79/mnd of € 17,99/jaar. Proefperiode: als **aanbieding** (gratis proefperiode, 7 dagen, nieuwe klanten) op de basisabonnementen van `snapshot_x_plus`, niet als apart product.
 
 ## 2. Service-account voor RevenueCat
 1. Google Cloud Console: maak een project → schakel **Google Play Android Developer API** en **Google Play Developer Reporting API** in.
@@ -36,7 +36,7 @@ De app kiest de SDK-key per platform (`rcApiKeyFor` in `lib/revenuecat-logic.ts`
 3. **Products › Import** de Play-producten van stap 1.4/1.5.
 4. **Entitlement `snapshot_x`**: koppel alle Play-producten (zoals bij iOS).
 5. **Offerings**: voeg in dezelfde offering(s) per package het Play-product toe naast het App Store-product:
-   - `$rc_monthly` → `snapshot_x_plus:monthly`, `$rc_annual` → `snapshot_x_plus:yearly`, `$rc_lifetime` → `lifetime`.
+   - `$rc_monthly` → `snapshot_x_plus:monthly`, `$rc_annual` → `snapshot_x_plus:yearly` (geen `$rc_lifetime` op Android).
 6. **Real-time developer notifications (RTDN)**: Apps › Google Play-app › kopieer het Pub/Sub-topic en zet dat in Play Console › Monetiseren › Monetisatie-instellingen. Zonder RTDN komen opzeggingen/verlengingen pas vertraagd binnen.
 7. **Customer Center**: werkt ook op Android (opzeggen opent Google Play).
 
@@ -48,3 +48,8 @@ De app kiest de SDK-key per platform (`rcApiKeyFor` in `lib/revenuecat-logic.ts`
 ## Nog open
 - TODO(Kevin): Google Play-verificatie afwachten; Play-app + producten aanmaken; service-account; `goog_`-key in EAS.
 - iOS-app in RevenueCat staat op de ad-hoc-bundle; voor de App Store een app voor `com.snapshotx.app` toevoegen (zie SETUP_NL.md).
+
+## Controle 21 nov 2026 (alleen gelezen, niets gewijzigd)
+- RevenueCat-project `proj34c5e052`: nog steeds alleen **Snapshot X (iOS)** (ad-hoc-bundle) + **Test Store**; geen Google Play-app → Android-aankopen blijven uit tot stap 2–3 hierboven klaar zijn en er een nieuwe build met `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` is gemaakt.
+- Elke plan-ID in `lib/plus.ts` (`sx_plus_monthly` … `sx_storage_yearly`) heeft precies één Play-ID uit de tabel in stap 1.4, en `rcProductPlan` zet die Play-ID terug naar hetzelfde plan (niveau + periode). Gecontroleerd door `lib/play-products.test.mjs`, zodat tabel en code niet uit elkaar lopen.
+- Nieuwe X+-functie **Zonnestelsel** (vriendschapsprofiel) valt onder het bestaande entitlement `snapshot_x`; geen nieuw Play-product nodig.

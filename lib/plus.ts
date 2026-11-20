@@ -95,13 +95,14 @@ export function trialEligible(plan: Plan, history: readonly Entitlement[]): bool
   return plan.trialDays > 0 && !history.some(e => e.source !== 'promo');
 }
 
-export type PlusFeature = 'badge' | 'app_icon' | 'story_rewatch' | 'priority_replies' | 'bff_pin' | 'ai_lenses' | 'no_ads' | 'memories_5tb';
+export type PlusFeature = 'badge' | 'app_icon' | 'story_rewatch' | 'priority_replies' | 'bff_pin' | 'solar_system' | 'ai_lenses' | 'no_ads' | 'memories_5tb';
 export const FEATURES: readonly { id: PlusFeature; title: string; description: string; icon: string; minTier: Tier }[] = [
   { id: 'badge', title: 'Snapshot X+-badge', description: 'Een badge naast je naam op je profiel', icon: 'sparkles', minTier: 'plus' },
   { id: 'app_icon', title: 'Eigen app-icoon', description: 'Kies een ander icoon voor je beginscherm', icon: 'apps', minTier: 'plus' },
   { id: 'story_rewatch', title: 'Herbekeken-indicator', description: 'Zie hoeveel vrienden je verhaal opnieuw bekeken', icon: 'eye', minTier: 'plus' },
   { id: 'priority_replies', title: 'Voorrang bij reacties', description: 'Jouw reacties op verhalen staan bovenaan', icon: 'arrow-up-circle', minTier: 'plus' },
   { id: 'bff_pin', title: 'Vaste #1 beste vriend', description: 'Pin één vriend bovenaan je lijst', icon: 'pin', minTier: 'plus' },
+  { id: 'solar_system', title: 'Zonnestelsel', description: 'Zie welke planeet jij bent bij je vrienden', icon: 'planet', minTier: 'plus' },
   { id: 'ai_lenses', title: 'Exclusieve AI-lenzen', description: 'Honderden extra lenzen, waaronder de Imagine-lens', icon: 'color-wand', minTier: 'lens' },
   { id: 'no_ads', title: 'Geen advertenties', description: 'Geen gesponsorde snaps, verhaal- of lensadvertenties', icon: 'ban', minTier: 'platinum' },
   { id: 'memories_5tb', title: '5 TB Herinneringen', description: 'Bewaar praktisch al je snaps', icon: 'cloud', minTier: 'platinum' },
