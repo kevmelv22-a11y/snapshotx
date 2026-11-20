@@ -5,7 +5,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import type { Outfit } from '../../lib/avatar/outfit';
-import { getPose, type AvatarSticker, type PoseId, type StickerArtPose } from '../../lib/avatar/poses';
+import { getPose, type AvatarSticker, type DuoSticker, type PoseId, type StickerArtPose } from '../../lib/avatar/poses';
 import { ArtImage, poseArtFor } from './ArtImage';
 import { AvatarBust } from './AvatarBust';
 import { OutfitArt } from './OutfitArt';
@@ -44,6 +44,20 @@ export const AvatarStickerArt = React.memo(function AvatarStickerArt({ outfit, s
   return <View style={{ width: size, height: size, alignItems: 'center' }} accessibilityLabel={`Avatarsticker ${sticker.caption}`} testID={`avatar-sticker:${sticker.id}`}>
     <View style={{ marginTop: sticker.captionTop ? size * 0.08 : 0 }}><PosedAvatar outfit={outfit} pose={sticker.art ?? sticker.pose} width={size} height={size * 0.92} upper viewBox={sticker.captionTop ? '18 20 164 214' : undefined}/></View>
     <View style={{ position: 'absolute', ...(sticker.captionTop ? { top: 0 } : { bottom: 0 }), backgroundColor: sticker.color, paddingHorizontal: fs * 0.6, paddingVertical: fs * 0.12, borderRadius: fs, borderWidth: Math.max(1.5, size * 0.02), borderColor: '#FFF', transform: [{ rotate: '-6deg' }] }}>
+      <Text style={{ color: '#111', fontWeight: '900', fontSize: fs }}>{sticker.caption}</Text>
+    </View>
+  </View>;
+});
+
+/** Duo sticker (Snapchat Friendmoji): sender left, friend right (mirrored so both face inward), one caption badge. */
+export const DuoStickerArt = React.memo(function DuoStickerArt({ me, friend, sticker, size }: { me: Outfit; friend: Outfit; sticker: DuoSticker; size: number }) {
+  const fs = Math.max(10, size * 0.14), w = size * 0.62;
+  return <View style={{ width: size * 1.1, height: size, alignItems: 'center' }} accessibilityLabel={`Duosticker ${sticker.caption}`} testID={`duo-sticker:${sticker.id}`}>
+    <View style={{ flexDirection: 'row', marginTop: size * 0.04 }}>
+      <View style={{ marginRight: -w * 0.18 }}><PosedAvatar outfit={me} pose={sticker.me} width={w} height={size * 0.9} upper/></View>
+      <View style={{ marginLeft: -w * 0.18, transform: [{ scaleX: -1 }] }}><PosedAvatar outfit={friend} pose={sticker.friend} width={w} height={size * 0.9} upper/></View>
+    </View>
+    <View style={{ position: 'absolute', bottom: 0, backgroundColor: sticker.color, paddingHorizontal: fs * 0.6, paddingVertical: fs * 0.12, borderRadius: fs, borderWidth: Math.max(1.5, size * 0.02), borderColor: '#FFF', transform: [{ rotate: '-5deg' }] }}>
       <Text style={{ color: '#111', fontWeight: '900', fontSize: fs }}>{sticker.caption}</Text>
     </View>
   </View>;

@@ -99,12 +99,42 @@ export function stickerFromChatBody(body: string | null | undefined): AvatarStic
   const m = typeof body === 'string' ? CHAT_RE.exec(body.trim()) : null;
   return m ? STICKERS_BY_ID.get(m[1]) ?? null : null;
 }
+// ------------------------------------------------------------------ duo stickers (Snapchat "Friendmoji")
+
+/** Duo sticker: your avatar and your friend's avatar together (1-on-1 chats). `me`/`friend` are the two poses. */
+export type DuoStickerId = 'samen-hoi' | 'high-five' | 'bffs' | 'feest' | 'topteam' | 'hahaha' | 'mis-je' | 'sorry';
+export type DuoSticker = { id: DuoStickerId; me: PoseId | StickerArtPose; friend: PoseId | StickerArtPose; caption: string; color: string };
+export const DUO_STICKERS: readonly DuoSticker[] = [
+  { id: 'samen-hoi', me: 'wave', friend: 'wave', caption: 'Hoi hoi!', color: '#FFE436' },
+  { id: 'high-five', me: 'cheer', friend: 'cheer', caption: 'High five!', color: '#FF9500' },
+  { id: 'bffs', me: 'heart', friend: 'heart', caption: "BFF's", color: '#FF2D55' },
+  { id: 'feest', me: 'cheer', friend: 'laugh', caption: 'Feestje!', color: '#BF5AF2' },
+  { id: 'topteam', me: 'thumbs', friend: 'thumbs', caption: 'Topteam', color: '#34C759' },
+  { id: 'hahaha', me: 'laugh', friend: 'laugh', caption: 'Hahaha', color: '#FF9F0A' },
+  { id: 'mis-je', me: 'heart', friend: 'stand', caption: 'Mis je!', color: '#FF6482' },
+  { id: 'sorry', me: 'facepalm', friend: 'shrug', caption: 'Sorry!', color: '#64D2FF' },
+];
+export const DUO_BY_ID: ReadonlyMap<string, DuoSticker> = new Map(DUO_STICKERS.map(s => [s.id, s]));
+const DUO_RE = /^\[duo-sticker:([a-z-]{1,24})\]$/;
+export const duoChatBody = (id: DuoStickerId) => `[duo-sticker:${id}]`;
+export function duoFromChatBody(body: string | null | undefined): DuoSticker | null {
+  const m = typeof body === 'string' ? DUO_RE.exec(body.trim()) : null;
+  return m ? DUO_BY_ID.get(m[1]) ?? null : null;
+}
+/** Who stands next to the sender on a duo sticker: the other person of the 1-on-1 chat (null in groups / unknown). */
+export function duoPartner(senderId: string, memberIds: readonly string[]): string | null {
+  const others = [...new Set(memberIds)].filter(id => id && id !== senderId);
+  return others.length === 1 ? others[0] : null;
+}
+
 /** Chat list / notification preview text for a message body. */
 export function chatPreviewText(body: string | null | undefined): string {
   const poll = parsePoll(body);
   if (poll) return pollPreview(poll);
   const s = stickerFromChatBody(body);
-  return s ? `Avatarsticker: ${s.caption}` : body ?? '';
+  if (s) return `Avatarsticker: ${s.caption}`;
+  const d = duoFromChatBody(body);
+  return d ? `Duosticker: ${d.caption}` : body ?? '';
 }
 
 // ------------------------------------------------------------------ story rings
