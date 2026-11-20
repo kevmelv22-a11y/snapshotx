@@ -138,10 +138,10 @@ export default function FriendMap({pins, own, ownAppearance, friendOutfits, trai
       instance.addSource('sx-heat', {type: 'geojson', data});
       instance.addLayer({id: 'sx-heat', type: 'heatmap', source: 'sx-heat', maxzoom: 16, paint: {
         'heatmap-weight': ['interpolate', ['linear'], ['get', 'w'], 0, 0, 7, 1],
-        'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 6, 0.9, 14, 2.2],
-        'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 6, 18, 10, 34, 14, 60],
+        'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 6, 1.6, 14, 3],
+        'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 6, 22, 10, 40, 14, 70],
         'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0.85, 16, 0],
-        'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(0,0,0,0)', 0.2, 'rgba(70,40,200,0.45)', 0.45, 'rgba(0,200,255,0.6)', 0.7, 'rgba(255,230,54,0.75)', 1, 'rgba(255,60,90,0.85)'],
+        'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(0,0,0,0)', 0.12, 'rgba(110,50,230,0.5)', 0.35, 'rgba(0,200,255,0.65)', 0.6, 'rgba(255,230,54,0.8)', 0.85, 'rgba(255,120,40,0.88)', 1, 'rgba(255,50,80,0.92)'],
       }});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

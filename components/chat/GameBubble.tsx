@@ -7,7 +7,8 @@ import {CELL_EMOJI,GAME_LABEL,gameStatus,markOf,type GameMsg,type GameState} fro
 export function GameBubble({msg,messageId,current,accepted,me,friendName,onPlay,busy}:{msg:GameMsg;messageId:string;current:GameState|undefined;accepted:boolean;me:string;friendName:string;onPlay:(s:GameState,cell:number)=>void;busy?:boolean}){
   if(!accepted)return <Text style={s.muted} testID="game-invalid">🎮 Ongeldige zet (genegeerd)</Text>;
   const live=!!current&&current.messageId===messageId;
-  if(!live)return <View style={s.old} testID="game-old"><Text style={s.oldTitle}>🎮 {GAME_LABEL.title}</Text><View style={s.miniGrid}>{msg.board.map((c,i)=><View key={i} style={s.miniCell}><Text style={s.miniText}>{CELL_EMOJI[c]}</Text></View>)}</View></View>;
+  // Older moves stay one short line (the playable board is the newest move), so the chat doesn't fill up with boards.
+  if(!live){const n=msg.board.filter(c=>c!=='-').length;return <Text style={s.oldLine} testID="game-old">🎮 {n?`Zet ${n} · ${GAME_LABEL.title}`:`Nieuw spel · ${GAME_LABEL.title}`}</Text>}
   const st=current!,myTurn=!st.winner&&st.turn===markOf(st,me);
   return <View style={s.card} testID="game">
     <Text style={s.kicker}>🎮 SPELLETJE</Text>
@@ -29,10 +30,6 @@ const s=StyleSheet.create({
   mark:{fontSize:32},
   status:{color:'#D8D2E0',fontWeight:'800',fontSize:14,marginTop:9},
   statusMine:{color:'#FFFC00'},
-  old:{opacity:.75},
-  oldTitle:{color:'#C9C2D0',fontSize:12,fontWeight:'700',marginBottom:4},
-  miniGrid:{flexDirection:'row',flexWrap:'wrap',width:66,gap:2},
-  miniCell:{width:20,height:20,borderRadius:4,backgroundColor:'#2C2443',alignItems:'center',justifyContent:'center'},
-  miniText:{fontSize:11},
+  oldLine:{color:'#9C95A8',fontSize:13,fontWeight:'700'},
   muted:{color:'#9C95A8',fontStyle:'italic',fontSize:14},
 });
