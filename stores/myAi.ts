@@ -9,10 +9,15 @@ type State = {
   add: (uid: string, ...m: AiMessage[]) => void;
   markFailed: (uid: string, id: string) => void;
   clear: (uid: string) => void;
+  /** Accepted AI_CONSENT_VERSION per account (lib/my-ai.ts); absent = not (or no longer) allowed. */
+  consent: Record<string, number>;
+  setConsent: (uid: string, version: number | null) => void;
 };
 export const useMyAi = create<State>()(persist(set => ({
   byUser: {},
   add: (uid, ...m) => set(s => ({ byUser: { ...s.byUser, [uid]: appendCapped(s.byUser[uid] ?? [], ...m) } })),
   markFailed: (uid, id) => set(s => ({ byUser: { ...s.byUser, [uid]: (s.byUser[uid] ?? []).map(x => (x.id === id ? { ...x, failed: true } : x)) } })),
   clear: uid => set(s => ({ byUser: { ...s.byUser, [uid]: [] } })),
+  consent: {},
+  setConsent: (uid, version) => set(s => { const c = { ...s.consent }; if (version) c[uid] = version; else delete c[uid]; return { consent: c }; }),
 }), { name: 'sx-my-ai', storage: createJSONStorage(() => AsyncStorage) }));

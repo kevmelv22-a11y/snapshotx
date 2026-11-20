@@ -10,7 +10,7 @@ export const SUPPORT_EMAIL = 'support@snapshot-x.nl';
 export const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}`;
 export const SUPPORT_LINK = { label: 'Contact en support', description: SUPPORT_EMAIL, url: SUPPORT_MAILTO } as const;
 
-export const LEGAL_UPDATED = '20 november 2026';
+export const LEGAL_UPDATED = '21 november 2026';
 export const LEGAL_LINKS = {
   privacy: { label: 'Privacybeleid', description: 'Welke gegevens we gebruiken en waarom', route: '/privacy' },
   terms: { label: 'Gebruiksvoorwaarden', description: 'De afspraken voor het gebruik van Snapshot X', route: '/voorwaarden' },
@@ -29,7 +29,7 @@ export const PRIVACY: LegalDoc = {
       'Toestel en beveiliging: een pushmeldingstoken, de naam van je toestel en het IP-adres bij het inloggen, zodat jij je inloggeschiedenis kunt zien en wij misbruik kunnen opsporen.',
     ] },
     { heading: 'Mijn AI', body: [
-      'Mijn AI is een AI-chatbot, geen mens. Als je Mijn AI een bericht stuurt, gaan dat bericht en de laatste berichten van dat gesprek naar een AI-dienst (Groq of OpenAI) om een antwoord te maken. We sturen geen naam, e-mailadres of gebruikersnaam mee.',
+      'Mijn AI is een AI-chatbot, geen mens. Als je Mijn AI een bericht stuurt, gaan dat bericht en de laatste berichten van dat gesprek naar een AI-dienst (Groq of OpenAI) om een antwoord te maken. We sturen geen naam, e-mailadres of gebruikersnaam mee. Mijn AI stuurt pas iets door nadat je in de app zelf op Toestaan hebt getikt; je kunt die toestemming altijd intrekken via het schildje in Mijn AI.',
       'We bewaren je gesprekken met Mijn AI niet op onze server; ze staan alleen op je eigen toestel en je kunt ze daar wissen. We tellen alleen hoeveel berichten je per dag stuurt (maximaal 40), en die telling verwijderen we na een week.',
       'Meld je een antwoord van Mijn AI, dan bewaren we dat antwoord en je vraag ervoor om de melding te beoordelen. Deel geen persoonlijke gegevens met Mijn AI; het kan fouten maken.',
     ] },

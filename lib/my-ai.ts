@@ -55,3 +55,23 @@ export function aiReportRow(reporterId: string, reason: AiReportReason, history:
   const d = (detail ?? '').trim();
   return { reporter_id: reporterId, reason, reply_text: reply.content.slice(0, 2000), prompt_text: prompt ? prompt.content.slice(0, 1000) : null, detail: d ? d.slice(0, 800) : null };
 }
+/** Explicit permission before the first message leaves the device (App Store guideline 5.1.2(i), Nov 2025: name the
+ *  third-party AI, say what is sent, affirmative "Toestaan", easy to withdraw). Stored per account on this device; bump
+ *  AI_CONSENT_VERSION when the providers or the data sent change, so everyone is asked again. */
+export const AI_CONSENT_VERSION = 1;
+export const AI_CONSENT = {
+  title: 'Mijn AI gebruikt een externe AI-dienst',
+  points: [
+    'Je berichten aan Mijn AI en de laatste berichten van dit gesprek gaan naar Groq (VS); als die niet werkt naar OpenAI (VS). Zij maken het antwoord.',
+    'We sturen geen naam, e-mailadres, gebruikersnaam, locatie, foto’s of chats met vrienden mee — alleen een onherkenbare code om misbruik te beperken.',
+    'Wij bewaren het gesprek niet op onze server; het staat alleen op dit apparaat.',
+    'Je kunt je toestemming altijd intrekken via het schildje bovenaan.',
+  ],
+  allow: 'Toestaan', deny: 'Niet nu', withdraw: 'Toestemming intrekken',
+  withdrawTitle: 'Toestemming voor Mijn AI intrekken?',
+  withdrawMessage: 'Mijn AI stuurt dan niets meer naar de AI-dienst. Je gesprek blijft op dit apparaat staan tot je het wist.',
+  denied: 'Zonder toestemming stuurt Mijn AI niets door. Je kunt het later altijd nog toestaan.',
+} as const;
+export function hasAiConsent(consents: Readonly<Record<string, number>> | undefined, uid: string): boolean {
+  return !!uid && (consents?.[uid] ?? 0) >= AI_CONSENT_VERSION;
+}
