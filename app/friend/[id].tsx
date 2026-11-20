@@ -22,6 +22,8 @@ import {savedCount,savedPreviews,savedSectionTitle,type SaveableMessage,type Sav
 import {quoteOf} from '../../lib/chat-replies';
 import {useFriendEmojis} from '../../stores/friendEmojis';
 import {emojiFor,NEW_FRIEND_MS,relationLabel} from '../../lib/friend-emojis';
+import {PLANETS,SOLAR_TEXT,planetFor,solarLine} from '../../lib/friend-solar';
+import {useSubscription} from '../../hooks/useSubscription';
 import {charmsTitle,friendCharms,type Charm,type CharmMessage} from '../../lib/friend-charms';
 import {formatScore,friendsSinceLabel,groupLine,sharedChats,sharedGroupsTitle,streakChip,type SharedChats} from '../../lib/friend-profile';
 
@@ -35,6 +37,7 @@ export default function FriendProfileScreen(){
  const [shared,setShared]=useState<SharedChats>({directId:null,groups:[]}),[streak,setStreak]=useState<StreakState|null>(null),[stories,setStories]=useState(0);
  const [savedRows,setSavedRows]=useState<{total:number;items:SavedPreview[]}>({total:0,items:[]});
  const [sinceIso,setSinceIso]=useState<string|null>(null),[recentMsgs,setRecentMsgs]=useState<CharmMessage[]>([]),[charm,setCharm]=useState<Charm|null>(null),[loadedAt,setLoadedAt]=useState(0);
+ const [theirRank,setTheirRank]=useState<number|null>(null),sub=useSubscription();
  const [notice,setNotice]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const outfits=useFriendOutfits(useMemo(()=>[id],[id]));
  const nicknames=useFriendNicknames(me),nick=nicknames.get(id)??null,[nickOpen,setNickOpen]=useState(false),[nickDraft,setNickDraft]=useState(''),[nickError,setNickError]=useState(''),[nickBusy,setNickBusy]=useState(false);
@@ -67,6 +70,8 @@ export default function FriendProfileScreen(){
     const sv=await supabase.from('sx_messages').select('id,sender_id,kind,body,saved,created_at').eq('thread_id',sc.directId).eq('saved',true).order('created_at',{ascending:false}).limit(50);
     if(alive()&&!sv.error){const list=(sv.data||[]) as (SaveableMessage&{body:string|null})[];const first=(pr.data?.display_name??'').trim().split(/\s+/)[0];setSavedRows({total:savedCount(list),items:savedPreviews(list,me,first,3,m=>quoteOf({...m,body:m.body}).excerpt)})}}
   }
+  // Zonnestelsel (X+): my rank in THEIR best friends (read-only RPC, only facts about me).
+  {const rk=await supabase.rpc('sx_friend_ranks');if(alive()&&!rk.error){const row=((rk.data||[]) as {friend_id:string;their_rank:number|null}[]).find(r=>r.friend_id===id);setTheirRank(row?.their_rank??null)}}
   if(alive())setLoading(false);
  },[id,me]);
  useEffect(()=>{let alive=true;const t=setTimeout(()=>void load(()=>alive),0);return()=>{alive=false;clearTimeout(t)}},[load]);
@@ -104,6 +109,10 @@ export default function FriendProfileScreen(){
    {charmsHead&&<><Text style={s.section} testID="charms-title">{charmsHead}</Text>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.charmRow} testID="charms">{charms.map(c=><Pressable key={c.id} onPress={()=>setCharm(c)} style={[s.charm,{backgroundColor:c.colors[1],borderColor:c.colors[0]}]} accessibilityLabel={`Charm ${c.title}: ${c.subtitle}`} testID={`charm-${c.id}`}>
      <View style={[s.charmGlow,{backgroundColor:c.colors[0]}]}/><Text style={s.charmEmoji}>{c.emoji}</Text><Text style={s.charmTitle} numberOfLines={2}>{c.title}</Text><Text style={s.charmSub} numberOfLines={2}>{c.subtitle}</Text></Pressable>)}</ScrollView></>}
+   {isFriend&&<><Text style={s.section}>{SOLAR_TEXT.title}</Text>{sub.isPro?<View style={s.solar} testID="solar-system" accessibilityLabel={solarLine(theirRank,p.display_name)}>
+    <View style={s.orbit}><View style={s.sun}/>{PLANETS.map(pl=>{const me_=planetFor(theirRank)?.rank===pl.rank;return <View key={pl.rank} style={[s.planet,{width:pl.size,height:pl.size,borderRadius:pl.size/2,backgroundColor:pl.color,opacity:me_||!planetFor(theirRank)?1:.35},me_&&s.planetMe]} testID={me_?'solar-me':undefined}/>})}</View>
+    <Text style={s.solarLine} testID="solar-line">{solarLine(theirRank,p.display_name)}</Text><Text style={s.solarNote}>{SOLAR_TEXT.note}</Text></View>
+   :<Pressable onPress={()=>router.push('/plus')} style={s.solar} testID="solar-system-teaser" accessibilityRole="button"><View style={s.orbit}><View style={s.sun}/>{PLANETS.map(pl=><View key={pl.rank} style={[s.planet,{width:pl.size,height:pl.size,borderRadius:pl.size/2,backgroundColor:pl.color,opacity:.35}]}/>)}</View><Text style={s.solarNote}>{SOLAR_TEXT.plusOnly}</Text><Text style={s.solarCta}>{SOLAR_TEXT.plusCta} ›</Text></Pressable>}</>}
    {groupsTitle&&<><Text style={s.section}>{groupsTitle}</Text>
     <View style={s.card}>{shared.groups.map((g,i)=><Pressable key={g.id} onPress={()=>router.push({pathname:'/chat/[id]',params:{id:g.id}})} style={[s.row,i>0&&s.rowLine]} accessibilityLabel={`Open groep ${g.title}`} testID="shared-group"><View style={s.groupIcon}><Ionicons name="people" size={18} color="white"/></View><Text style={s.rowText} numberOfLines={1}>{groupLine(g)}</Text><Ionicons name="chevron-forward" size={18} color="#C7C0CD"/></Pressable>)}</View></>}
    {savedRows.total>0&&shared.directId&&<><Text style={s.section} testID="saved-section">Opgeslagen in chat</Text>
@@ -141,7 +150,7 @@ export default function FriendProfileScreen(){
 function Action({icon,label,onPress,disabled}:{icon:React.ComponentProps<typeof Ionicons>['name'];label:string;onPress:()=>void;disabled?:boolean}){
  return <Pressable onPress={onPress} disabled={disabled} style={[s.action,disabled&&{opacity:.45}]} accessibilityLabel={label} testID={`friend-action-${label.toLowerCase()}`}><Ionicons name={icon} size={22} color="white"/><Text style={s.actionText}>{label}</Text></Pressable>;
 }
-const s=StyleSheet.create({realName:{color:'#C7C0CD',fontSize:13,textAlign:'center',marginTop:-2,marginBottom:2},rowMeta:{color:'#C7C0CD',fontSize:14,maxWidth:140,marginLeft:'auto'},nickInput:{alignSelf:'stretch',color:'white',backgroundColor:'#2C2440',borderRadius:14,paddingHorizontal:14,paddingVertical:12,fontSize:16,marginTop:6},nickError:{color:'#FF8A8A',fontSize:13,alignSelf:'stretch'},nickRemove:{paddingVertical:10},nickRemoveText:{color:'#FF6B6B',fontWeight:'800',fontSize:15},
+const s=StyleSheet.create({solar:{backgroundColor:'rgba(20,14,40,.85)',borderRadius:18,padding:14,borderWidth:1,borderColor:'#FFFC0033'},orbit:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingVertical:10,paddingHorizontal:2},sun:{width:30,height:30,borderRadius:15,backgroundColor:'#FFC93C',shadowColor:'#FFC93C',shadowOpacity:.9,shadowRadius:10,elevation:6},planet:{},planetMe:{borderWidth:3,borderColor:'#FFFC00',transform:[{scale:1.25}]},solarLine:{color:'white',fontWeight:'900',fontSize:15,marginTop:6},solarNote:{color:'#B9B2C6',fontSize:12,marginTop:4,lineHeight:17},solarCta:{color:'#FFFC00',fontWeight:'900',fontSize:14,marginTop:8},realName:{color:'#C7C0CD',fontSize:13,textAlign:'center',marginTop:-2,marginBottom:2},rowMeta:{color:'#C7C0CD',fontSize:14,maxWidth:140,marginLeft:'auto'},nickInput:{alignSelf:'stretch',color:'white',backgroundColor:'#2C2440',borderRadius:14,paddingHorizontal:14,paddingVertical:12,fontSize:16,marginTop:6},nickError:{color:'#FF8A8A',fontSize:13,alignSelf:'stretch'},nickRemove:{paddingVertical:10},nickRemoveText:{color:'#FF6B6B',fontWeight:'800',fontSize:15},
  header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingBottom:6},headerTitle:{color:'white',fontSize:18,fontWeight:'800'},
  body:{paddingHorizontal:18,alignItems:'stretch'},hero:{alignItems:'center',marginTop:10},
  name:{color:'white',fontSize:26,fontWeight:'800',textAlign:'center',marginTop:12},user:{color:'#C7C0CD',fontSize:15,textAlign:'center',marginTop:4},score:{color:'white',fontWeight:'800'},
