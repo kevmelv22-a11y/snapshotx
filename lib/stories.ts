@@ -131,3 +131,17 @@ export function parseStoryReaction(body: string | null | undefined): { emoji: st
   const m = /^(\S{1,12}) Reageerde op je verhaal(?: „(.*)”)?$/u.exec(body ?? '');
   return m ? { emoji: m[1], caption: m[2] ?? null } : null;
 }
+/** Whose stories a story-reaction chat line points to: I reacted → my friend's stories; they reacted → my own.
+ *  null when it can't be told (group chat / unknown peer). The story itself may have expired; the viewer says so. */
+export function storyReactionOwner(senderId: string, me: string, peerIds: readonly string[]): string | null {
+  if (!me || peerIds.length !== 1) return null;
+  return senderId === me ? peerIds[0] : senderId === peerIds[0] ? me : null;
+}
+export const STORY_REACTION_OPEN = 'Bekijk verhaal ›';
+export const STORY_GONE = 'Dit verhaal is niet meer beschikbaar: het is verlopen of verwijderd.';
+/** Index of the owner's group in the viewer; -1 when that person has no active story (e.g. opened from an old story
+ *  reaction in chat) so the viewer says so instead of silently playing someone else's story. Empty owner = start at 0. */
+export function viewerStartIndex(groups: readonly { ownerId: string }[], owner: string): number {
+  if (!owner) return groups.length ? 0 : -1;
+  return groups.findIndex(g => g.ownerId === owner);
+}
