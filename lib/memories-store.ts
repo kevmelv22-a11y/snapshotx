@@ -6,7 +6,7 @@ import {hashPin, memoryInsert, resendMessages, type Memory} from './memories';
 const digest = (s: string) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, s);
 
 export async function loadMemories(uid: string): Promise<Memory[]> {
-  const {data, error} = await supabase.from('memories').select('id,storage_path,media_type,created_at,private,caption').eq('owner_id', uid).is('deleted_at', null).order('created_at', {ascending: false}).limit(500);
+  const {data, error} = await supabase.from('memories').select('id,storage_path,media_type,created_at,private,caption,source').eq('owner_id', uid).is('deleted_at', null).order('created_at', {ascending: false}).limit(500);
   if (error) throw error;
   return (data || []) as Memory[];
 }

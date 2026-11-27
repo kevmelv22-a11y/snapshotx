@@ -1,8 +1,8 @@
 import React, {useState} from 'react';
-import {Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
+import {Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions} from 'react-native';
 import {memoryGrid} from '../../lib/web-layout';
 import {Ionicons} from '@expo/vector-icons';
-import {PIN_LENGTH, flashbackTitle, groupByDate, isLocked, lockText, onThisDay, type Memory, type PinLock} from '../../lib/memories';
+import {MEMORY_FILTERS, PIN_LENGTH, flashbackTitle, groupByDate, isLocked, lockText, onThisDay, searchMemories, type Memory, type MemoryFilter, type PinLock} from '../../lib/memories';
 
 type Thumb = (m: Memory, style: any) => React.ReactNode;
 type Props = {
@@ -15,8 +15,12 @@ type Props = {
 /** Grid by date + 'Op deze dag' + 'Alleen voor mij' tab with pin pad. Presentational. */
 export function MemoriesView(p: Props) {
   const grid = memoryGrid(useWindowDimensions().width, Platform.OS);
-  const flash = onThisDay(p.memories, p.now, p.tzOffsetMin);
-  const sections = p.tab === 'all' ? groupByDate(p.memories, p.now, {tzOffsetMin: p.tzOffsetMin}) : groupByDate(p.memories.filter(m => m.private), p.now, {tzOffsetMin: p.tzOffsetMin, includePrivate: true});
+  const [query, setQuery] = useState(''), [filter, setFilter] = useState<MemoryFilter>('all');
+  const searching = !!query.trim() || filter !== 'all';
+  const shown = searchMemories(p.memories, query, filter, p.now, p.tzOffsetMin);
+  const flash = searching ? [] : onThisDay(p.memories, p.now, p.tzOffsetMin);
+  const sections = p.tab === 'all' ? groupByDate(shown, p.now, {tzOffsetMin: p.tzOffsetMin}) : groupByDate(shown.filter(m => m.private), p.now, {tzOffsetMin: p.tzOffsetMin, includePrivate: true});
+  const unlockedView = !(p.tab === 'private' && !p.vaultUnlocked);
   return <View style={s.root}>
     <View style={s.tabs}>
       {(['all', 'private'] as const).map(t => <Pressable key={t} onPress={() => p.onTab(t)} style={[s.tab, p.tab === t && s.tabOn]} accessibilityRole="tab" accessibilityState={{selected: p.tab === t}}>
@@ -24,6 +28,8 @@ export function MemoriesView(p: Props) {
         <Text style={[s.tabText, p.tab === t && {color: '#1A1425'}]}>{t === 'all' ? 'Alles' : 'Alleen voor mij'}</Text>
       </Pressable>)}
     </View>
+    {unlockedView && <View style={s.searchBox}><Ionicons name="search" size={17} color="#A99FB8"/><TextInput value={query} onChangeText={setQuery} placeholder="Zoek: november, video, strand…" placeholderTextColor="#8E849E" style={s.searchInput} accessibilityLabel="Herinneringen zoeken" testID="memories-search" returnKeyType="search"/>{!!query && <Pressable onPress={() => setQuery('')} accessibilityLabel="Zoekopdracht wissen" hitSlop={8}><Ionicons name="close-circle" size={18} color="#A99FB8"/></Pressable>}</View>}
+    {unlockedView && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipRow} contentContainerStyle={s.chips}>{MEMORY_FILTERS.map(f => <Pressable key={f.key} onPress={() => setFilter(f.key)} style={[s.chip, filter === f.key && s.chipOn]} accessibilityRole="button" accessibilityState={{selected: filter === f.key}} testID={`memories-filter-${f.key}`}><Text style={[s.chipText, filter === f.key && {color: '#1A1425'}]}>{f.label}</Text></Pressable>)}</ScrollView>}
     {!!p.notice && <Text style={s.notice}>{p.notice}</Text>}
     {p.tab === 'private' && !p.vaultUnlocked ? <PinPad title={p.hasPin ? 'Voer je pincode in' : 'Kies een pincode van 4 cijfers'} error={p.pinError || lockText(p.lock, p.now)} locked={isLocked(p.lock, p.now)} onSubmit={p.onSubmitPin}/> :
     <ScrollView contentContainerStyle={{paddingBottom: 40}}>
@@ -31,14 +37,14 @@ export function MemoriesView(p: Props) {
         <View style={s.flashHead}><Ionicons name="time" size={18} color="#1A1425"/><Text style={s.flashTitle}>{flashbackTitle(f.yearsAgo)}</Text></View>
         <ScrollView horizontal contentContainerStyle={{gap: 8}}>{f.items.map(m => <Pressable key={m.id} onPress={() => p.onOpen(m)} accessibilityLabel={flashbackTitle(f.yearsAgo)}>{p.renderThumb(m, s.flashThumb)}</Pressable>)}</ScrollView>
       </View>)}
-      {!sections.length && <Text style={s.empty}>{p.tab === 'all' ? 'Nog geen herinneringen. Bewaar een snap met de knop "Bewaren".' : 'Nog niets in Alleen voor mij.'}</Text>}
+      {!sections.length && <Text style={s.empty}>{searching && p.memories.length ? 'Geen herinneringen gevonden. Probeer een maand, jaar of ander woord.' : p.tab === 'all' ? 'Nog geen herinneringen. Bewaar een snap met de knop "Bewaren".' : 'Nog niets in Alleen voor mij.'}</Text>}
       {sections.map(sec => <View key={sec.key}>
         <Text style={s.section}>{sec.title}</Text>
         <View style={s.grid}>{sec.items.map(m => <Pressable key={m.id} style={[s.cell, {width: grid.width, height: grid.height}]} onPress={() => p.onOpen(m)} accessibilityLabel={`Herinnering ${sec.title}`}>
           {p.renderThumb(m, s.thumb)}
           {m.media_type === 'video' && <Ionicons name="play" size={16} color="#fff" style={s.badge}/>}
           {m.private && <Ionicons name="lock-closed" size={14} color="#fff" style={s.badge}/>}
-        </Pressable>)}</View>
+        </Pressable>)}{/* fillers keep a short last row left-aligned (space-between pushed 2 tiles to the edges) */}{Array.from({length: (grid.columns - sec.items.length % grid.columns) % grid.columns}, (_, i) => <View key={`f${i}`} style={{width: grid.width, height: 1}}/>)}</View>
       </View>)}
     </ScrollView>}
   </View>;
@@ -63,6 +69,13 @@ const s = StyleSheet.create({
   tab: {flexDirection: 'row', gap: 6, alignItems: 'center', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20, backgroundColor: '#251D33'},
   tabOn: {backgroundColor: '#FFE436'},
   tabText: {color: '#fff', fontWeight: '800'},
+  searchBox: {flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 12, marginBottom: 8, backgroundColor: '#251D33', borderRadius: 20, paddingHorizontal: 12, height: 40},
+  searchInput: {flex: 1, color: '#fff', fontSize: 15},
+  chipRow: {flexGrow: 0, flexShrink: 0, minHeight: 42},
+  chips: {gap: 8, paddingHorizontal: 12, paddingBottom: 6, alignItems: 'center'},
+  chip: {paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1, borderColor: '#FFFFFF33'},
+  chipOn: {backgroundColor: '#FFFFFF', borderColor: '#FFFFFF'},
+  chipText: {color: '#fff', fontWeight: '700', fontSize: 13},
   notice: {color: '#fff', backgroundColor: '#3A2A55', marginHorizontal: 12, padding: 10, borderRadius: 12},
   flash: {margin: 12, padding: 12, borderRadius: 18, backgroundColor: '#FFE436', gap: 10},
   flashHead: {flexDirection: 'row', gap: 6, alignItems: 'center'},

@@ -1,5 +1,5 @@
 /** Pure logic for Herinneringen: grouping by date, 'Alleen voor mij' PIN, 'Op deze dag' and re-send payloads. */
-export type Memory = {id: string; storage_path: string; media_type: 'photo' | 'video'; created_at: string; private?: boolean; caption?: string | null};
+export type Memory = {id: string; storage_path: string; media_type: 'photo' | 'video'; created_at: string; private?: boolean; caption?: string | null; source?: string | null};
 export type MemorySection = {key: string; title: string; items: Memory[]};
 const MONTHS = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
 const DAY = 86400000;
@@ -38,6 +38,22 @@ export function onThisDay(items: Memory[], now: number, tzOffsetMin = 0): {years
     byYear.get(year - y)!.push(m);
   }
   return [...byYear].sort((a, b) => a[0] - b[0]).map(([yearsAgo, list]) => ({yearsAgo, items: list}));
+}
+/** Snapchat Memories search + filter chips: Alles · Snaps · Verhalen · Video's. The query matches the caption, the month
+ *  ("november"), the year ("2025"), the day title ("vandaag", "gisteren", "3 november"), or the type ("video", "foto"). */
+export type MemoryFilter = 'all' | 'snap' | 'story' | 'video';
+export const MEMORY_FILTERS: {key: MemoryFilter; label: string}[] = [{key: 'all', label: 'Alles'}, {key: 'snap', label: 'Snaps'}, {key: 'story', label: 'Verhalen'}, {key: 'video', label: "Video's"}];
+const fold = (v: string) => v.toLocaleLowerCase('nl').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+export function searchMemories(items: Memory[], query: string, filter: MemoryFilter, now: number, tzOffsetMin = 0): Memory[] {
+  const today = dayKey(new Date(now).toISOString(), tzOffsetMin), words = fold(query).split(/\s+/).filter(Boolean);
+  return items.filter(m => {
+    if (filter === 'video' && m.media_type !== 'video') return false;
+    if ((filter === 'snap' || filter === 'story') && (m.source ?? 'snap') !== filter) return false;
+    if (!words.length) return true;
+    const k = dayKey(m.created_at, tzOffsetMin), [y, mo, d] = k.split('-').map(Number);
+    const hay = fold([m.caption ?? '', MONTHS[mo - 1], String(y), `${d} ${MONTHS[mo - 1]}`, sectionTitle(k, today), m.media_type === 'video' ? "video video's filmpje" : 'foto fotos', (m.source ?? 'snap') === 'story' ? 'verhaal verhalen story' : 'snap snaps'].join(' '));
+    return words.every(w => hay.includes(w));
+  });
 }
 export const flashbackTitle = (yearsAgo: number) => `Op deze dag · ${yearsAgo} jaar geleden`;
 
