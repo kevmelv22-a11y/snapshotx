@@ -8,21 +8,39 @@ import sys, json, numpy as np, cv2
 from PIL import Image
 PREP, BASE = sys.argv[1], sys.argv[2]
 M = json.load(open('scripts/worn-bands/meta.json'))
-# canvas coords: sponsor box (centre x, centre y, max w, max h), maker mark box, fake maker marks to erase
-SP = {'male': (181, 323, 66, 19), 'female': (205, 307, 54, 15)}
-KIT = {'male': (149, 294, 14, 11), 'female': (168, 276, 11, 9)}
-ERASE = {('heracles', 'male'): (135, 284, 160, 305), ('pec', 'male'): (136, 282, 162, 306),
-         ('heracles', 'female'): (155, 270, 179, 285), ('pec', 'female'): (156, 264, 180, 287)}
-SPW = {'fortuna': 1.0, 'rkc': 1.0}   # wide logos may use the full width; default 0.92
+# canvas coords measured on the 2026-11-27 real-kit redesign: (cx, cy, max w, max h)
+# RKC: keep generated WILLY NAESSENS INDUSTRIEBOUW (official prep is the red GROUP mark, wrong for this shirt)
+# NAC: keep generated white OK (official prep is brand-red, wrong on the yellow/black sash)
+SP = {
+    'mvv':      {'male': (193, 340, 130, 48), 'female': (202, 315, 110, 52)},
+    'fortuna':  {'male': (188, 343, 128, 32), 'female': (200, 320, 112, 28)},
+    'heracles': {'male': (196, 342, 132, 34), 'female': (200, 315, 102, 30)},
+    'pec':      {'male': (191, 337, 128, 32), 'female': (203, 318, 110, 28)},
+    'volendam': {'male': (190, 343, 122, 40), 'female': (199, 319, 100, 40)},
+}
+KIT = {
+    'mvv':      {'male': (140, 292, 24, 24), 'female': (165, 274, 20, 20)},
+    'fortuna':  {'male': (141, 294, 22, 24), 'female': (165, 274, 18, 20)},
+    'rkc':      {'male': (140, 295, 30, 24), 'female': (168, 278, 30, 20)},
+    'heracles': {'male': (140, 294, 24, 20), 'female': (165, 275, 20, 14)},
+    'pec':      {'male': (142, 298, 32, 20), 'female': (162, 278, 26, 18)},
+    'nac':      {'male': (140, 296, 22, 22), 'female': (165, 278, 18, 18)},
+}
+# erase the generated mark (inpaint) before pasting the official one
+SPW = {'fortuna': 1.0, 'volendam': 1.0, 'mvv': 1.0, 'heracles': 1.0, 'pec': 1.0}
+SKIP_SP = {'rkc', 'nac'}
+SKIP_KIT = {'volendam'}  # official UCAN asset is a text stand-in; generated mark is clearer
 CLUBS = sys.argv[3:] or ['mvv', 'fortuna', 'rkc', 'heracles', 'pec', 'nac', 'volendam']
 
 def fill(a, box):
-    x0, y0, x1, y1 = [int(round(v)) for v in box]; ya, yb = y0 - 2, y1 + 2
-    if ya < 1 or yb + 2 > a.shape[0] or x0 < 0 or x1 >= a.shape[1]: return
-    for x in range(x0, x1 + 1):
-        top, bot = a[ya - 1:ya + 1, x].mean(0), a[yb:yb + 2, x].mean(0)
-        for y in range(y0, y1 + 1):
-            t = (y - ya) / (yb - ya); a[y, x, :3] = top[:3] * (1 - t) + bot[:3] * t
+    x0, y0, x1, y1 = [int(round(v)) for v in box]
+    x0, y0 = max(1, x0), max(1, y0)
+    x1, y1 = min(a.shape[1]-2, x1), min(a.shape[0]-2, y1)
+    if x1 <= x0 or y1 <= y0: return
+    mask = np.zeros(a.shape[:2], np.uint8); mask[y0:y1+1, x0:x1+1] = 255
+    bgr = cv2.cvtColor(np.clip(a[..., :3], 0, 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+    inp = cv2.inpaint(bgr, mask, 3, cv2.INPAINT_TELEA)
+    a[..., :3] = cv2.cvtColor(inp, cv2.COLOR_BGR2RGB).astype(np.float32)
 
 def paste(a, path, cx, cy, mw, mh):
     im = Image.open(path).convert('RGBA'); s = min(mw / im.width, mh / im.height)
@@ -41,10 +59,15 @@ def paste(a, path, cx, cy, mw, mh):
 def apply(a, club, g, T):
     """T maps canvas (x, y) -> a's coords: (sx, sy, scale)."""
     ox, oy, s = T
-    if (club, g) in ERASE:
-        x0, y0, x1, y1 = ERASE[(club, g)]; fill(a, (x0 * s + ox, y0 * s + oy, x1 * s + ox, y1 * s + oy))
-    cx, cy, mw, mh = SP[g]; ok = paste(a, f'{PREP}/{club}.png', cx * s + ox, cy * s + oy, mw * s * SPW.get(club, 0.92), mh * s)
-    kx, ky, kw, kh = KIT[g]; ok2 = paste(a, f'{PREP}/kit-{club}.png', kx * s + ox, ky * s + oy, kw * s, kh * s)
+    ok = ok2 = 'skip'
+    if club not in SKIP_SP and club in SP:
+        cx, cy, mw, mh = SP[club][g]
+        fill(a, ((cx-mw/2)*s+ox, (cy-mh/2)*s+oy, (cx+mw/2)*s+ox, (cy+mh/2)*s+oy))
+        ok = paste(a, f'{PREP}/{club}.png', cx * s + ox, cy * s + oy, mw * s * SPW.get(club, 0.92), mh * s)
+    if club not in SKIP_KIT and club in KIT:
+        kx, ky, kw, kh = KIT[club][g]
+        fill(a, ((kx-kw/2)*s+ox, (ky-kh/2)*s+oy, (kx+kw/2)*s+ox, (ky+kh/2)*s+oy))
+        ok2 = paste(a, f'{PREP}/kit-{club}.png', kx * s + ox, ky * s + oy, kw * s, kh * s)
     return ok, ok2
 
 def flat(a):
@@ -68,7 +91,7 @@ for club in CLUBS:
             a = np.array(Image.open(f'{BASE}/worn-bands/{g}/{item}-{b}.png').convert('RGBA')).astype(np.float32)
             r = apply(a, club, g, (-bx, -by, 1.0))
             Image.fromarray(a.clip(0, 255).astype(np.uint8)).save(f'assets/avatar-art/worn-bands/{g}/{item}-{b}.png'); print(club, g, b, r)
-    targets = [(g, f'worn/{g}/{item}.png') for g in ['male', 'female']] + [('male', f'items/{item}.png')]
+    targets = [(g, f'worn/{g}/{item}.png') for g in ['male', 'female']]  # items rebuilt later by thumb_clean
     for g, rel in targets:
         x, y, w, h = M[g]['pieces'][item]['torso']
         t = np.array(Image.open(f'{BASE}/worn-bands/{g}/{item}-torso.png').convert('RGBA')).astype(np.float32)

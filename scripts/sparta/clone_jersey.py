@@ -14,8 +14,10 @@ x = np.array(Image.open(gen).convert('RGB')).astype(np.float32)
 R, G, B = x[..., 0], x[..., 1], x[..., 2]
 if len(sys.argv) > 5 and sys.argv[5] == 'magenta':   # green shirts: generated on magenta
     gk = np.minimum(R, B) - G; al = np.clip(1 - (gk - 30) / 50, 0, 1)
-    x[..., 0] = np.where(gk > 0, np.minimum(R, G + 0), R); x[..., 2] = np.where(gk > 0, np.minimum(B, G + 0), B)
-    x[..., 0] = np.where(gk > 0, np.maximum(G, R - gk), R); x[..., 2] = np.where(gk > 0, np.maximum(G, B - gk), B)
+    # copy channels first: R,G,B are views, so in-place despill would turn red cloth black
+    # do not reuse name g — that is the gender argument
+    rc, gc, bc = R.copy(), G.copy(), B.copy()
+    x[..., 0] = np.where(gk > 0, np.maximum(gc, rc - gk), rc); x[..., 2] = np.where(gk > 0, np.maximum(gc, bc - gk), bc)
 else:
     gk = G - np.maximum(R, B); al = np.clip(1 - (gk - 18) / 36, 0, 1); x[..., 1] = np.where(gk > 0, np.maximum(R, B), G)
 gi = np.dstack([x, al * 255])

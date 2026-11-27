@@ -9,27 +9,36 @@
 import sys, json, numpy as np, cv2
 from PIL import Image
 LOGO_DIR = sys.argv[1]
-BOX = {  # club: {gender: (x0, y0, x1, y1)} inclusive, canvas coords
-    'mvv':      {'male': (214, 275, 241, 306), 'female': (212, 263, 241, 293)},
-    'fortuna':  {'male': (213, 275, 243, 308), 'female': (212, 264, 241, 293)},
-    'rkc':      {'male': (210, 284, 243, 314), 'female': (213, 260, 239, 291)},
-    'heracles': {'male': (212, 277, 241, 317), 'female': (216, 260, 242, 293)},
-    'pec':      {'male': (210, 279, 242, 314), 'female': (210, 258, 239, 293)},
-    'volendam': {'male': (213, 287, 243, 316), 'female': (213, 263, 243, 292)},
-    'nac':      {'male': (214, 277, 241, 309), 'female': (215, 264, 244, 291)},
+BOX = {  # club: {gender: (x0, y0, x1, y1)} inclusive, canvas coords — measured 2026-11-27 real kits
+    'mvv':      {'male': (218, 274, 247, 310), 'female': (220, 254, 248, 286)},
+    'fortuna':  {'male': (210, 272, 252, 314), 'female': (218, 255, 258, 292)},
+    'rkc':      {'male': (214, 270, 248, 308), 'female': (220, 256, 250, 290)},
+    'heracles': {'male': (214, 272, 247, 314), 'female': (216, 254, 248, 292)},
+    'pec':      {'male': (212, 276, 248, 312), 'female': (212, 258, 248, 292)},
+    'volendam': {'male': (208, 268, 250, 312), 'female': (212, 250, 250, 290)},
+    'nac':      {'male': (210, 280, 248, 316), 'female': (218, 264, 252, 298)},
 }
-SCALE = {'heracles': 1.0, 'pec': 1.0}   # logo height relative to the box height (default 0.97)
+SCALE = {'heracles': 1.0, 'pec': 1.0, 'fortuna': 1.0, 'volendam': 1.0}   # logo height relative to the box height (default 0.97)
+ROTATE = {'volendam': -22}  # 2026/27 Volendam crest sits tilted on the shirt
 M = json.load(open('scripts/worn-bands/meta.json'))
-BEFORE = LOGO_DIR + '/../before'   # copies of the unpatched bands / art / thumbnails: every run starts from these
-CLUBS = sys.argv[2:] or list(BOX)
+BEFORE = sys.argv[2] if (len(sys.argv) > 2 and not sys.argv[2].endswith('.png') and '/' in sys.argv[2]) else '/workspace/sx-shots/real-kits-2026-11-27/pre-crest'
+ARGS = [a for a in sys.argv[2:] if a in BOX or (not a.startswith('/') and a in BOX)]
+# optional before dir: any argv path that exists as a directory
+for a in sys.argv[2:]:
+    import os
+    if os.path.isdir(a): BEFORE = a
+CLUBS = [a for a in sys.argv[2:] if a in BOX] or list(BOX)
 
 def logo(club, h):
     im = Image.open(f'{LOGO_DIR}/{club}.png').convert('RGBA'); im = im.crop(im.getbbox())
+    if club in ROTATE:
+        im = im.rotate(ROTATE[club], expand=True, resample=Image.BICUBIC)
+        im = im.crop(im.getbbox())
     w = max(1, round(im.width * h / im.height))
     # downscale in two steps for a crisp but not aliased small crest
     return np.array(im.resize((w * 4, h * 4), Image.LANCZOS).resize((w, h), Image.LANCZOS)).astype(np.float32)
 
-def patch(a, box, club, scale=1.0, pad=(3, 2, 3, 7), keep=None, top_min=None):
+def patch(a, box, club, scale=1.0, pad=(2, 2, 2, 3), keep=None, top_min=None):
     """a: float RGBA array; box in a's coords (may be fractional for scaled targets). The fill covers the box + pad
     (old crest rings / drop shadows reaching past the box, mostly below it; pad = left, top, right, bottom); the logo is sized on the box itself. keep: bool mask of original
     pixels drawn back on top (the girl's pendant just above her crest)."""
@@ -38,11 +47,11 @@ def patch(a, box, club, scale=1.0, pad=(3, 2, 3, 7), keep=None, top_min=None):
     x0, y0, x1, y1 = bx0 - pad[0], by0 - pad[1], bx1 + pad[2], by1 + pad[3]
     H, W = a.shape[:2]
     if x0 < 1 or y0 < 3 or x1 >= W - 1 or y1 >= H - 3: return False
-    ya, yb = y0 - 2, y1 + 2
-    for x in range(x0, x1 + 1):
-        top, bot = a[ya - 1:ya + 1, x].mean(0), a[yb:yb + 2, x].mean(0)
-        for y in range(y0, y1 + 1):
-            t = (y - ya) / (yb - ya); a[y, x, :3] = top[:3] * (1 - t) + bot[:3] * t
+    # Inpaint the old crest so hoops, stripes and sashes stay intact (vertical lerp left a grey box).
+    mask = np.zeros(a.shape[:2], np.uint8); mask[y0:y1 + 1, x0:x1 + 1] = 255
+    bgr = cv2.cvtColor(np.clip(a[..., :3], 0, 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+    inp = cv2.inpaint(bgr, mask, 3, cv2.INPAINT_TELEA)
+    a[..., :3] = cv2.cvtColor(inp, cv2.COLOR_BGR2RGB).astype(np.float32)
     lum = a[y0:y1 + 1, x0:x1 + 1, :3].mean(2)
     h = max(4, round((by1 - by0 + 1) * SCALE.get(club, 0.97) * scale * (0.9 if top_min is not None else 1)))
     L = logo(club, h); lh, lw = L.shape[:2]
@@ -81,11 +90,7 @@ for club in CLUBS:
         for b in ['torso', 'under']:
             bx, by, bw, bh = P[b]; p = f'assets/avatar-art/worn-bands/{g}/{item}-{b}.png'
             a = np.array(Image.open(f'{BEFORE}/worn-bands/{g}/{item}-{b}.png').convert('RGBA')).astype(np.float32)
-            keep = None
-            if g == 'female':   # pendant: dark round blob around canvas (228, 259), above the crest
-                yy, xx = np.mgrid[0:bh, 0:bw]; yy += by; xx += bx
-                keep = (np.hypot(xx - 228, yy - 259) < 6) & (a[..., :3].max(2) < 110)
-            ok = patch(a, (box[0] - bx, box[1] - by, box[2] - bx, box[3] - by), club, keep=keep, top_min=(265 - by) if g == 'female' else None)
+            ok = patch(a, (box[0] - bx, box[1] - by, box[2] - bx, box[3] - by), club)
             Image.fromarray(a.clip(0, 255).astype(np.uint8)).save(p); print(club, g, b, ok)
     print(club, 'bands done', flush=True)
 
@@ -93,7 +98,7 @@ for club in CLUBS:
 for club in CLUBS:
     item = f'top-{club}-jersey'
     targets = [(g, f'assets/avatar-art/worn/{g}/{item}.png', f'{BEFORE}/worn/{g}/{item}.png') for g in BOX[club]]
-    targets.append(('male', f'assets/avatar-art/items/{item}.png', f'{BEFORE}/items/{item}.png'))
+    # items/ Kast thumbnails are rebuilt later by thumb_clean.py from the patched bands
     for g, out, src in targets:
         x, y, w, h = M[g]['pieces'][item]['torso']
         t = np.array(Image.open(f'{BEFORE}/worn-bands/{g}/{item}-torso.png').convert('RGBA')).astype(np.float32)
@@ -110,12 +115,6 @@ for club in CLUBS:
         box = ((bx0 - x - cx0) * s + lx, (by0 - y - cy0) * s + ly, (bx1 - x - cx0) * s + lx, (by1 - y - cy0) * s + ly)
         a = tgt.copy()
         pad = tuple(max(1, round(p_ * s)) for p_ in (3, 2, 3, 7))
-        keep = None; tm_ = None
-        if g == 'female':
-            yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]]
-            px, py = (228 - x - cx0) * s + lx, (259 - y - cy0) * s + ly
-            keep = (np.hypot(xx - px, yy - py) < 6 * s) & (a[..., :3].max(2) < 110)
-            tm_ = (265 - y - cy0) * s + ly
-        ok = patch(a, box, club, pad=pad, keep=keep, top_min=tm_)
+        ok = patch(a, box, club, pad=pad)
         Image.fromarray(a.clip(0, 255).astype(np.uint8)).save(out)
         print(club, out.split('/')[-3], g, 'match %.3f scale %.3f' % (v, s), [round(b) for b in box], ok, flush=True)
