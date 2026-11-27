@@ -10,6 +10,7 @@ import { parseReply } from './chat-replies';
 import { stickerFromChatBody } from './avatar/poses';
 import { isPollText } from './chat-polls';
 import { parseGame } from './chat-games';
+import { parseLocation } from './chat-location';
 
 export const EDIT_WINDOW_MS = 5 * 60 * 1000;
 export const EDIT_MAX_CHARS = 2000;
@@ -31,7 +32,7 @@ export type EditableMessage = { id: string; sender_id: string; kind: string; bod
 export function canEdit(m: EditableMessage, me: string, now: number): boolean {
   if (m.sender_id !== me || m.kind !== 'text' || m.unsent_at) return false;
   const text = parseReply(m.body)?.text ?? m.body ?? '';
-  if (isStickerText(text) || isPollText(text) || parseGame(text)) return false;
+  if (isStickerText(text) || isPollText(text) || parseGame(text) || parseLocation(text)) return false;
   const at = Date.parse(m.created_at);
   return Number.isFinite(at) && now - at >= -60000 && now - at < EDIT_WINDOW_MS;
 }

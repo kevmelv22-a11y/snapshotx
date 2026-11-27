@@ -5,6 +5,7 @@
  *  The excerpt is a snapshot, so the quote stays readable after the original disappeared (retention). No I/O. */
 import { stickerFromChatBody } from './avatar/poses';
 import { parsePoll, pollPreview } from './chat-polls';
+import { LOCATION_LABEL, parseLocation } from './chat-location';
 
 export type QuoteKind = 'text' | 'photo' | 'video' | 'voice' | 'snap' | 'sticker';
 export type ReplyRef = { id: string; senderId: string; kind: QuoteKind; excerpt: string };
@@ -43,6 +44,7 @@ export function quoteOf(m: QuotableMessage): { kind: QuoteKind; excerpt: string 
   if (st) return { kind: 'sticker', excerpt: `${KIND_LABEL.sticker}: ${st.caption}` };
   const poll = parsePoll(text);
   if (poll) return { kind: 'text', excerpt: clip(pollPreview(poll)) };
+  if (parseLocation(text)) return { kind: 'text', excerpt: LOCATION_LABEL.preview };
   return { kind: 'text', excerpt: clip(text) || 'Bericht' };
 }
 /** System lines (screenshots, retention, group changes) cannot be answered. */
