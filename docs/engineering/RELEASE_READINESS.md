@@ -99,6 +99,18 @@ The project now includes SDK 57 `expo-updates`, the EAS project URL, `appVersion
 - **Migratie-inventaris**: docs/engineering/MIGRATIONS_LIVE.md (repo ↔ live op naam); METADATA "openstaande migraties" was verouderd en is afgevinkt.
 - Geen native builds deze sessie (alles JS → OTA-geschikt).
 
+## Sessie 27-11-2026 20:10 (Snapchat-parity + afronden kapotte flows)
+
+- Migratie live: `20261127190000_fk_covering_indexes` (live-versie 20261127183010, naam `fk_covering_indexes`): 31 indexen op foreign keys van `sx_*`-tabellen (Supabase performance-advisor "unindexed foreign keys"; daarna 0 over). Alleen `create index if not exists`, geen schema/RLS-wijziging; PGlite-test /workspace/pgtest/s1127-fk-indexes.mjs + supabase/tests/fk-covering-indexes.test.mjs. Postwacht-tabellen (`pw_*`) niet aangeraakt.
+- **Camera**: fouten bij vastleggen als melding in beeld i.p.v. RN Alert (deed niets op web); camera-weigering toont uitleg + "Open instellingen" + **Kies uit galerij**.
+- **Verzenden naar…**: secties Verhalen / Beste vrienden / Recent / Alle vrienden, avatars + @gebruikersnaam, zoeken op @naam.
+- **Herinneringen**: zoeken (datum/maand/label/soort) + filters Snaps/Verhalen/Video's; **Camera-rol**-knop → foto/video uit de galerij → Verzenden-scherm.
+- **Chat**: +-knop met "Foto of video" en **Mijn locatie sturen** (eenmalig, na bevestiging; kaartje met Openen in Kaarten). **Spotlight › Delen** stuurt een Spotlight naar vrienden (kaartje in de chat opent Uitgelicht op die video); "Delen buiten de app" blijft beschikbaar.
+- **Verhalen**: camera-knop in de verhaalviewer = **antwoorden met een snap** (opent de camera met de chat als ontvanger; verhaal pauzeert en loopt verder bij terugkomst).
+- **Docs**: Data safety (aanvulling 27 nov: chatlocatie valt onder bestaande "Precieze locatie", door gebruiker gestart → geen "delen" in Play-zin; formulier hoeft niet te wijzigen, wel even nalopen), content rating, App Store privacy, privacybeleid 27 november 2026, release-opmerkingen versionCode 4. iOS-locatietekst in app.json noemt de chat — **werkt pas in de volgende native build**.
+- Geen native builds deze sessie (alles JS → OTA-geschikt). Web gedeployed naar snapshot-x.nl.
+- Open voor Kevin (ongewijzigd): leaked password protection aanzetten, App Review-telefoonnummer, Apple Team ID, RevenueCat Play-app + `goog_`-key, beoordelaar voor AI-meldingen, Data safety in de Play Console nalopen.
+
 ## Open launch items (bijgewerkt 01-11-2026 06:00)
 
 - **Google Play**: account **geverifieerd** (2 nov 2026). Gesloten test: **10 testers = Postwacht** (Google 12×14 blijft gelden voor persoonlijk account — zie CLOSED_TEST_NL.md). FCM V1 in EAS; versionCode 3 / EAS `2f336b8f`; eerste handmatige AAB-upload + Play-signing-SHA → assetlinks; RevenueCat Play-app + `goog_`-key nog open; Android-screenshots.
