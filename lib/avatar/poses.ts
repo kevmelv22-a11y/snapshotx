@@ -7,6 +7,7 @@
 import { parsePoll, pollPreview } from '../chat-polls';
 import { gamePreview, parseGame } from '../chat-games';
 import { LOCATION_LABEL, parseLocation } from '../chat-location';
+import { SPOT_LABEL, parseSpotlight } from '../spotlight-share';
 
 export type AvatarExpression = 'neutral' | 'smile' | 'laugh' | 'wink' | 'surprised';
 export type AvatarHand = 'rest' | 'peace' | 'thumb';
@@ -136,6 +137,8 @@ export function chatPreviewText(body: string | null | undefined): string {
   const game = parseGame(body);
   if (game) return gamePreview(game);
   if (parseLocation(body)) return LOCATION_LABEL.preview;
+  const spot = parseSpotlight(body);
+  if (spot) return spot.caption ? `${SPOT_LABEL.preview}: ${spot.caption}` : SPOT_LABEL.preview;
   const s = stickerFromChatBody(body);
   if (s) return `Avatarsticker: ${s.caption}`;
   const d = duoFromChatBody(body);

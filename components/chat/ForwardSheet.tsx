@@ -12,11 +12,11 @@ import {loadChatRows} from '../../lib/chat-list';
 import {isUuid} from '../../lib/chat-ids';
 import {FORWARD_ERRORS,FORWARD_LABEL,filterTargets,forwardDoneText,forwardTargets,selectionSummary,toggleTarget,validateSelection,type ForwardTarget} from '../../lib/chat-forward';
 
-type Props={me:string;myName:string|null;threadId:string;messageId:string;/** One-line preview of what is forwarded (quote excerpt). */excerpt:string;onClose:()=>void;/** Called with the toast text after a successful send. */onDone:(text:string)=>void};
+type Props={me:string;myName:string|null;threadId:string;messageId?:string;/** Send something else than an existing message (Spotlight share): gets the chosen thread ids. */onSendTo?:(threadIds:string[])=>Promise<void>;title?:string;/** Extra button under the preview (e.g. system share sheet). */extra?:{label:string;onPress:()=>void};/** One-line preview of what is forwarded (quote excerpt). */excerpt:string;onClose:()=>void;/** Called with the toast text after a successful send. */onDone:(text:string)=>void};
 const violet='#B629E2';
 
 /** Snapchat-style "Doorsturen naar…" sheet: search, pick up to 10 chats/friends, ➤ Verzenden. Mount it only while open. */
-export function ForwardSheet({me,myName,threadId,messageId,excerpt,onClose,onDone}:Props){
+export function ForwardSheet({me,myName,threadId,messageId,onSendTo,title,extra,excerpt,onClose,onDone}:Props){
  const insets=useSafeAreaInsets();
  const [targets,setTargets]=useState<ForwardTarget[]|null>(null),[query,setQuery]=useState(''),[selected,setSelected]=useState<string[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  useEffect(()=>{let alive=true;void (async()=>{try{const [chats,fr]=await Promise.all([loadChatRows(me,myName),supabase.from('sx_friends').select('friend_id').eq('user_id',me)]);
@@ -30,15 +30,16 @@ export function ForwardSheet({me,myName,threadId,messageId,excerpt,onClose,onDon
   try{const picked=selected.map(k=>targets.find(t=>t.key===k)).filter((t):t is ForwardTarget=>!!t);const threadIds:string[]=[];
    // Friends without a 1-op-1 chat yet: open (or find) that chat first, like Snapchat's Send To.
    for(const t of picked){if(t.threadId){threadIds.push(t.threadId);continue}const {data,error}=await supabase.rpc('sx_open_thread',{participants:[t.friendId],group_title:null});if(error)throw error;if(!isUuid(data))throw new Error(FORWARD_ERRORS.blocked);threadIds.push(data)}
-   const {error}=await supabase.rpc('sx_forward_message',{p_message_id:messageId,p_thread_ids:[...new Set(threadIds)]});if(error)throw error;
+   if(onSendTo)await onSendTo([...new Set(threadIds)]);else{const {error}=await supabase.rpc('sx_forward_message',{p_message_id:messageId,p_thread_ids:[...new Set(threadIds)]});if(error)throw error}
    onDone(forwardDoneText(picked.map(t=>t.kind==='group'?t.title:t.title.split(/\s+/)[0])))}catch(e){setNotice(friendlyError(e))}finally{setBusy(false)}}
  const row=(t:ForwardTarget)=>{const on=selected.includes(t.key);return <Pressable key={t.key} onPress={()=>tap(t.key)} style={s.row} testID={`forward-target-${t.kind}`} accessibilityRole="checkbox" accessibilityState={{checked:on}} accessibilityLabel={t.title}>
    {t.kind==='group'?<View style={s.groupIcon}><Ionicons name="people" size={20} color="white"/></View>:<FriendAvatar id={t.peerIds[0]} outfit={outfits.get(t.peerIds[0])} size={40} name={t.title}/>}
    <Text style={s.rowText} numberOfLines={1}>{t.title}</Text>
    <View style={[s.check,on&&s.checkOn]}>{on&&<Ionicons name="checkmark" size={16} color="white"/>}</View></Pressable>};
  return <Modal visible transparent animationType="slide" onRequestClose={onClose}><View style={s.shade}><View style={[s.sheet,{paddingBottom:Math.max(insets.bottom,12)}]} testID="forward-sheet">
-  <View style={s.top}><Pressable onPress={onClose} style={s.topBtn} accessibilityLabel="Sluiten"><Ionicons name="close" size={26} color={C.text}/></Pressable><Text style={s.topTitle}>{FORWARD_LABEL.title}</Text><View style={s.topBtn}/></View>
+  <View style={s.top}><Pressable onPress={onClose} style={s.topBtn} accessibilityLabel="Sluiten"><Ionicons name="close" size={26} color={C.text}/></Pressable><Text style={s.topTitle}>{title??FORWARD_LABEL.title}</Text><View style={s.topBtn}/></View>
   <View style={s.preview}><Ionicons name="arrow-redo" size={15} color={C.muted}/><Text style={s.previewText} numberOfLines={2} testID="forward-preview">{excerpt}</Text></View>
+  {!!extra&&<Pressable onPress={extra.onPress} style={s.extra} accessibilityRole="button" testID="forward-extra"><Ionicons name="share-outline" size={17} color={C.text}/><Text style={s.extraText}>{extra.label}</Text></Pressable>}
   <View style={s.search}><Ionicons name="search" size={17} color={C.muted}/><TextInput value={query} onChangeText={setQuery} placeholder={FORWARD_LABEL.search} placeholderTextColor={C.muted} style={s.searchInput} testID="forward-search" autoCorrect={false}/></View>
   {targets===null?<ActivityIndicator color={C.text} style={{marginTop:30}}/>:<ScrollView style={{flex:1}} keyboardShouldPersistTaps="handled">
    {sections.map(([label,list])=>list.length?<View key={label}><Text style={s.section}>{label}</Text><View style={s.card}>{list.map(row)}</View></View>:null)}
@@ -57,6 +58,7 @@ const s=StyleSheet.create({
  row:{flexDirection:'row',alignItems:'center',gap:12,paddingHorizontal:12,paddingVertical:9},rowText:{flex:1,color:C.text,fontSize:16,fontWeight:'700'},
  groupIcon:{width:40,height:40,borderRadius:20,backgroundColor:violet,alignItems:'center',justifyContent:'center'},
  check:{width:26,height:26,borderRadius:13,borderWidth:2,borderColor:'#6E6680',alignItems:'center',justifyContent:'center'},checkOn:{backgroundColor:C.blue,borderColor:C.blue},
+ extra:{flexDirection:'row',alignItems:'center',gap:8,alignSelf:'flex-start',marginHorizontal:16,marginBottom:8,paddingHorizontal:14,paddingVertical:8,borderRadius:18,backgroundColor:'#ffffff14'},extraText:{color:C.text,fontWeight:'700',fontSize:14},
  empty:{color:C.muted,textAlign:'center',marginTop:30},notice:{color:C.yellow,textAlign:'center',marginVertical:6,paddingHorizontal:16},
  bar:{flexDirection:'row',alignItems:'center',gap:10,marginHorizontal:12,marginTop:6,padding:10,borderRadius:22,backgroundColor:C.blue},barText:{flex:1,color:'white',fontWeight:'800',fontSize:15},
  sendBtn:{flexDirection:'row',alignItems:'center',gap:6,backgroundColor:'#0006',borderRadius:18,paddingHorizontal:14,paddingVertical:8},sendText:{color:'white',fontWeight:'900'},
