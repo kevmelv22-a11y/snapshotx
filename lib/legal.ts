@@ -10,7 +10,7 @@ export const SUPPORT_EMAIL = 'support@snapshot-x.nl';
 export const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}`;
 export const SUPPORT_LINK = { label: 'Contact en support', description: SUPPORT_EMAIL, url: SUPPORT_MAILTO } as const;
 
-export const LEGAL_UPDATED = '21 november 2026';
+export const LEGAL_UPDATED = '27 november 2026';
 export const LEGAL_LINKS = {
   privacy: { label: 'Privacybeleid', description: 'Welke gegevens we gebruiken en waarom', route: '/privacy' },
   terms: { label: 'Gebruiksvoorwaarden', description: 'De afspraken voor het gebruik van Snapshot X', route: '/voorwaarden' },
@@ -25,7 +25,7 @@ export const PRIVACY: LegalDoc = {
       'Account: gebruikersnaam, weergavenaam, e-mailadres, wachtwoord (versleuteld opgeslagen), geboortedatum en, als je dat invult, je mobiele nummer.',
       'Inhoud die je deelt: snaps, chatberichten, spraakberichten, verhalen (ook gedeelde verhalen met vrienden), spelletjes in de chat, herinneringen, chat-achtergronden en je personage (avatar).',
       'Vrienden en gebruik: je vrienden, verzoeken, blokkeringen, reacties en of een snap of chat is bekeken.',
-      'Locatie: alleen als je die zelf op de kaart deelt. Met Ghost mode deel je niets.',
+      'Locatie: alleen als je die zelf op de kaart deelt of eenmalig in een chat stuurt (Mijn locatie sturen). Met Ghost mode deel je niets op de kaart.',
       'Toestel en beveiliging: een pushmeldingstoken, de naam van je toestel en het IP-adres bij het inloggen, zodat jij je inloggeschiedenis kunt zien en wij misbruik kunnen opsporen.',
     ] },
     { heading: 'Mijn AI', body: [

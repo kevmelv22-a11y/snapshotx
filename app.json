@@ -234,7 +234,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "SnapShot X gebruikt je locatie alleen wanneer je ervoor kiest die op de vriendenkaart te delen."
+          "locationWhenInUsePermission": "SnapShot X gebruikt je locatie alleen wanneer je ervoor kiest die op de vriendenkaart te delen of eenmalig in een chat te sturen."
         }
       ],
       [

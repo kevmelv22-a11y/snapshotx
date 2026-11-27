@@ -19,7 +19,7 @@ Gebaseerd op wat de app echt doet (lib/legal.ts privacybeleid, app.json privacym
 | Persoonlijke info | Gebruikers-ID's (gebruikersnaam, account-ID) | nee | App-functionaliteit, Accountbeheer |
 | Persoonlijke info | Telefoonnummer | **ja** | App-functionaliteit |
 | Persoonlijke info | Andere info: geboortedatum | nee | App-functionaliteit (leeftijdsgrens 13+, tienerinstellingen) |
-| Locatie | Precieze locatie | **ja** (alleen bij delen op de kaart) | App-functionaliteit |
+| Locatie | Precieze locatie | **ja** (alleen bij delen op de kaart of 'Mijn locatie sturen' in een chat) | App-functionaliteit |
 | Berichten | Andere in-app-berichten (chats, snaps, spelletjes-zetten in de chat) | nee | App-functionaliteit |
 | Berichten | Andere in-app-berichten: **Mijn AI**-chat (bericht + laatste ≤12 beurten) | **ja** (alleen als je Mijn AI gebruikt) | App-functionaliteit — **tijdelijk verwerkt** ("Data is processed ephemerally"): niet op onze server opgeslagen, alleen op het toestel |
 | Foto's en video's | Foto's, Video's | ja (alleen wat je verstuurt/bewaart) | App-functionaliteit |
@@ -60,3 +60,9 @@ Verwerking is **niet tijdelijk** (gegevens worden opgeslagen), behalve live gesp
 - **Zonnestelsel (X+)** gebruikt alleen de bestaande RPC `sx_friend_ranks` (je eigen plek in de beste vrienden van een vriend, berekend uit berichten die al in de tabel "Berichten/App-activiteit" staan). Geen nieuw gegevenstype, niets gedeeld.
 - **Nog een potje** (spelletje) = een gewoon chatbericht; valt onder "Andere in-app-berichten". **Staffpaneel › AI-meldingen** leest bestaande meldingen (alleen staff); geen nieuwe verzameling.
 - Conclusie: Data safety-formulier hoeft voor deze wijzigingen **niet** aangepast te worden.
+
+## Aanvulling 27 nov 2026
+- **Mijn locatie sturen (chat)**: alleen na een tik + bevestiging; één punt (4 decimalen ≈ 11 m) als gewoon chatbericht, verdwijnt volgens de chatinstelling (24 u / na bekijken). Valt onder de bestaande rij **Precieze locatie** (al "ja", app-functionaliteit). Doorgeven aan de chatpartner gebeurt op verzoek van de gebruiker → in Play **geen "delen"**. Pushmeldingen bevatten nooit de coördinaten (push-message stuurt geen chattekst).
+- **Spotlight sturen naar een vriend**: een chatbericht met de ID, naam van de maker en het bijschrift van een openbare snap. Geen nieuw gegevenstype.
+- **Herinneringen › Camera-rol / Kies uit galerij**: de systeemkiezer geeft alleen het gekozen bestand; geen READ_MEDIA_*-permissie (blijft geblokkeerd). Pas na versturen wordt het geüpload, net als een snap. Geen nieuwe categorie.
+- iOS-toestemmingstekst locatie bijgewerkt in `app.json` (kaart **of** eenmalig in een chat) — actief vanaf de volgende build. Privacybeleid: 27 november 2026.

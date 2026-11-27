@@ -63,7 +63,7 @@ Gekoppeld aan de gebruiker, niet voor tracking (geen tracking, geen advertenties
 - Contactgegevens: naam (weergavenaam), e-mailadres, telefoonnummer (optioneel) — app-functionaliteit.
 - Gebruikersinhoud: foto's/video's, audio, chats, overige inhoud — app-functionaliteit.
 - Identificatoren: gebruikers-ID, apparaat-ID (pushtoken) — app-functionaliteit.
-- Locatie: precieze locatie (alleen als je deelt op de kaart) — app-functionaliteit.
+- Locatie: precieze locatie (alleen als je deelt op de kaart of eenmalig in een chat stuurt) — app-functionaliteit.
 - Aankopen: aankoopgeschiedenis (Snapshot X+ via App Store/RevenueCat) — app-functionaliteit.
 - Gebruiksgegevens: interactie met het product (inloggeschiedenis voor beveiliging) — app-functionaliteit.
 - Gezondheid, financiën, browsegeschiedenis, zoekgeschiedenis: **niet verzameld**.

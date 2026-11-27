@@ -6,7 +6,7 @@ Concept-antwoorden voor Play Console › App-content › Contentclassificatie en
 | Vraag | Antwoord | Toelichting |
 |---|---|---|
 | Kunnen gebruikers met elkaar communiceren of inhoud delen (chat, foto's, video, spraak)? | **Ja** | Chats, snaps, verhalen, gesprekken |
-| Kunnen gebruikers hun precieze locatie met anderen delen? | **Ja** | Alleen als ze zelf delen op de vriendenkaart; Ghost mode |
+| Kunnen gebruikers hun precieze locatie met anderen delen? | **Ja** | Alleen als ze zelf delen op de vriendenkaart of eenmalig 'Mijn locatie sturen' in een chat; Ghost mode |
 | Kunnen gebruikers digitale goederen kopen? | **Ja** | Snapshot X+ (abonnement en lifetime) via Google Play Billing |
 | Bevat de app gokken of gesimuleerd gokken? | Nee | |
 | Bevat de app door de ontwikkelaar aangeboden geweld, seks, grof taalgebruik, drugs? | Nee | Alleen door gebruikers gemaakte inhoud, met moderatie |
