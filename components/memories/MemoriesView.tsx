@@ -10,6 +10,8 @@ type Props = {
   tab: 'all' | 'private'; onTab: (t: 'all' | 'private') => void;
   vaultUnlocked: boolean; hasPin: boolean; lock: PinLock; pinError?: string;
   onSubmitPin: (pin: string) => void; onOpen: (m: Memory) => void; notice?: string;
+  /** Snapchat Memories › Camera-rol: pick a photo/video from the phone and make a snap of it. */
+  onCameraRoll?: () => void;
 };
 
 /** Grid by date + 'Op deze dag' + 'Alleen voor mij' tab with pin pad. Presentational. */
@@ -27,6 +29,7 @@ export function MemoriesView(p: Props) {
         {t === 'private' && <Ionicons name="lock-closed" size={13} color={p.tab === t ? '#1A1425' : '#fff'}/>}
         <Text style={[s.tabText, p.tab === t && {color: '#1A1425'}]}>{t === 'all' ? 'Alles' : 'Alleen voor mij'}</Text>
       </Pressable>)}
+      {!!p.onCameraRoll && <Pressable onPress={p.onCameraRoll} style={s.tab} accessibilityRole="button" accessibilityLabel="Camera-rol: foto of video kiezen" testID="memories-camera-roll"><Ionicons name="images-outline" size={14} color="#fff"/><Text style={s.tabText}>Camera-rol</Text></Pressable>}
     </View>
     {unlockedView && <View style={s.searchBox}><Ionicons name="search" size={17} color="#A99FB8"/><TextInput value={query} onChangeText={setQuery} placeholder="Zoek: november, video, strand…" placeholderTextColor="#8E849E" style={s.searchInput} accessibilityLabel="Herinneringen zoeken" testID="memories-search" returnKeyType="search"/>{!!query && <Pressable onPress={() => setQuery('')} accessibilityLabel="Zoekopdracht wissen" hitSlop={8}><Ionicons name="close-circle" size={18} color="#A99FB8"/></Pressable>}</View>}
     {unlockedView && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipRow} contentContainerStyle={s.chips}>{MEMORY_FILTERS.map(f => <Pressable key={f.key} onPress={() => setFilter(f.key)} style={[s.chip, filter === f.key && s.chipOn]} accessibilityRole="button" accessibilityState={{selected: filter === f.key}} testID={`memories-filter-${f.key}`}><Text style={[s.chipText, filter === f.key && {color: '#1A1425'}]}>{f.label}</Text></Pressable>)}</ScrollView>}

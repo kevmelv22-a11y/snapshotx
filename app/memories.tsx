@@ -1,6 +1,9 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {Modal} from 'react-native';
-import {Stack, useFocusEffect} from 'expo-router';
+import {Stack, router, useFocusEffect} from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import {useApp} from '../stores/app';
+import {pickedKind} from '../lib/camera-gate';
 import {Media} from '../components/Media';
 import {MemoriesView, MemoryDetail, type ResendTarget} from '../components/memories/MemoriesView';
 import {useSession} from '../hooks/useSession';
@@ -24,6 +27,10 @@ export default function MemoriesScreen() {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const tz = new Date().getTimezoneOffset();
+  const setCapture = useApp(st => st.setCapture);
+  async function cameraRoll() {
+    try { const r = await ImagePicker.launchImageLibraryAsync({mediaTypes: ['images', 'videos'], quality: .85}); const a = r.canceled ? null : r.assets?.[0]; if (!a) return; setCapture({uri: a.uri, type: pickedKind(a.type), filterId: 'original'}); router.push('/compose'); } catch { setNotice('Kiezen uit je camera-rol is mislukt. Probeer het opnieuw.'); }
+  }
 
   const load = useCallback(async () => {
     if (!uid) return;
@@ -60,7 +67,7 @@ export default function MemoriesScreen() {
   const thumb = (m: Memory, style: any) => <Media path={m.storage_path} type={m.media_type} style={style}/>;
   return <>
     <Stack.Screen options={{title: 'Herinneringen'}}/>
-    <MemoriesView memories={items} now={now} tzOffsetMin={tz} renderThumb={thumb} tab={tab} onTab={t => { setTab(t); setPinError(''); }} vaultUnlocked={unlocked} hasPin={hasPin} lock={lock} pinError={pinError} onSubmitPin={p => void submitPin(p)} onOpen={setOpen} notice={notice}/>
+    <MemoriesView memories={items} now={now} tzOffsetMin={tz} renderThumb={thumb} tab={tab} onTab={t => { setTab(t); setPinError(''); }} vaultUnlocked={unlocked} hasPin={hasPin} lock={lock} pinError={pinError} onSubmitPin={p => void submitPin(p)} onOpen={setOpen} notice={notice} onCameraRoll={() => void cameraRoll()}/>
     <Modal visible={!!open} animationType="slide" onRequestClose={() => setOpen(null)}>
       {open && <MemoryDetail memory={open} title={sectionTitle(dayKey(open.created_at, tz), dayKey(new Date(now).toISOString(), tz))} renderThumb={thumb} targets={targets} busy={busy} onResend={ids => void resend(ids)} onTogglePrivate={() => void togglePriv()} onClose={() => setOpen(null)}/>}
     </Modal>
