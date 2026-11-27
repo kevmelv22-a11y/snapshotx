@@ -3,7 +3,7 @@
 Gecontroleerd **21 nov 2026 (00:10-sessie, Europe/Amsterdam)** met `list_migrations` + alleen-lezen schema-queries. Live versienummers zijn de toepassingstijd (apply_migration), dus de koppeling gaat op **naam**.
 
 ## Live onder dezelfde naam
-Alle repo-migraties behalve de 10 hieronder staan live onder hun eigen naam (o.a. `report_reasons_accounts`, `notification_prefs`, `friend_ranks`, `my_ai_quota`, `ai_reports`) — nieuwste: `staff_ai_reports` (20261121000000, deze sessie).
+Alle repo-migraties behalve de 10 hieronder staan live onder hun eigen naam (o.a. `report_reasons_accounts`, `notification_prefs`, `friend_ranks`, `my_ai_quota`, `ai_reports`) — daarna `staff_ai_reports` (20261121000000) en nieuwste: `fk_covering_indexes` (repo 20261127190000, live versie 20261127183010; 27 nov 2026).
 
 ## Niet onder eigen naam live — en waarom dat klopt
 | Repo-bestand | Status live | Bewijs (alleen-lezen) |
@@ -18,6 +18,10 @@ Alle repo-migraties behalve de 10 hieronder staan live onder hun eigen naam (o.a
 | 20261013190100_media_buckets | **niet nodig** | live bucket = `snapshotx-media` (+ `legal`); de app gebruikt alleen die |
 | 20261013210000_profile_gender | inhoud live | `profiles.gender` + `sx_profile_gender_from_auth` bestaan |
 | 20261019120000_sx_data_api_grants_rls | inhoud live (grants/RLS-helpers) | `app_private.sx_location_allows` e.a. bestaan |
+
+## 27 nov 2026 — `fk_covering_indexes`
+- 31 indexen voor alle `sx_*`-foreign keys die de performance-advisor als "unindexed" meldde (o.a. `sx_members.user_id`, `sx_messages.sender_id`, `sx_receipts.user_id`, `sx_friends.friend_id`, `sx_stories.owner_id`). Alleen indexen: geen tabel-, policy-, grant- of datawijziging; `pw_*` niet aangeraakt.
+- PGlite: /workspace/pgtest/s1127-fk-indexes.mjs (2× toegepast = idempotent, RLS/policies ongewijzigd). Live na toepassen: 0 `sx_*`-foreign keys zonder index.
 
 ## Regels
 - Nooit een van de "vervangen/niet nodig"-bestanden alsnog toepassen zonder nieuwe review: ze zijn ouder dan de live policies.
